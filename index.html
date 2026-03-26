@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Gateway</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="login-shell">
+        <div class="login-card">
+            <div class="login-brand">
+                <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+                <div>
+                    <h1>TRIP Logistics</h1>
+                    <div style="color:var(--text-dim); font-weight:700; font-size:0.8rem; margin-top:2px;">TRIP Gateway • Private Access</div>
+                </div>
+            </div>
+
+            <p class="login-sub">Authenticate with your provisioned Username and Access PIN to enter the isolated TRIP dashboard.</p>
+
+            <form id="loginForm" class="login-row">
+                <div>
+                    <label style="display:block; font-weight:800; font-size:0.7rem; letter-spacing:1px; color:var(--text-dim); text-transform:uppercase; margin:0 0 8px;">Username</label>
+                    <input id="username" type="text" inputmode="text" placeholder="e.g., trip_user01" autocomplete="username" required>
+                </div>
+                <div>
+                    <label style="display:block; font-weight:800; font-size:0.7rem; letter-spacing:1px; color:var(--text-dim); text-transform:uppercase; margin:0 0 8px;">Access PIN</label>
+                    <input id="pin" type="password" inputmode="numeric" placeholder="••••" autocomplete="current-password" required>
+                </div>
+
+                <div class="login-actions">
+                    <button class="btn-prime" type="submit" id="loginBtn">Login</button>
+                    <div class="login-msg" id="loginMsg"></div>
+                    <div class="verify-wrap" id="verifyWrap">
+                        <div class="spinner"></div>
+                        <div style="font-weight:800; letter-spacing:0.2px;">Securely Verifying...</div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        function setBusy(isBusy) {
+            document.getElementById('loginBtn').disabled = isBusy;
+            document.getElementById('username').disabled = isBusy;
+            document.getElementById('pin').disabled = isBusy;
+            document.getElementById('verifyWrap').style.display = isBusy ? 'flex' : 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const db = await loadAllUsersFromDB();
+
+            const form = document.getElementById('loginForm');
+            const msg = document.getElementById('loginMsg');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                msg.textContent = '';
+
+                const username = document.getElementById('username').value.trim();
+                const pin = document.getElementById('pin').value.trim();
+
+                if (!username || !pin) {
+                    msg.textContent = 'Enter your Username and Access PIN.';
+                    return;
+                }
+
+                const currentDb = await loadAllUsersFromDB();
+                
+                // Find user case-insensitively
+                const userKey = Object.keys(currentDb.users).find(k => k.toLowerCase() === username.toLowerCase());
+                const user = userKey ? currentDb.users[userKey] : null;
+
+                if (!user || String(user.pin) !== String(pin)) {
+                    msg.textContent = 'Access denied. Credentials do not match a provisioned TRIP profile.';
+                    return;
+                }
+
+                setBusy(true);
+                setTimeout(() => {
+                    sessionStorage.setItem('active_session', userKey);
+                    window.location.href = 'flight.html';
+                }, 1800);
+            });
+        });
+    </script>
+</body>
+</html>

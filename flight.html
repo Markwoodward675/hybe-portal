@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Flight Status</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body style="opacity:0;">
+    <script>
+        function checkTRIPAuth() {
+            const username = sessionStorage.getItem('active_session');
+            if (!username) {
+                window.location.replace('index.html');
+                return null;
+            }
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            return username;
+        }
+
+        function readTRIPDB() {
+            const raw = localStorage.getItem('trip_users_db');
+            if (!raw) return { users: {} };
+            try { return JSON.parse(raw) || { users: {} }; } catch { return { users: {} }; }
+        }
+
+        function signOut() {
+            sessionStorage.removeItem('active_session');
+            window.location.href = 'index.html';
+        }
+
+        const activeUser = checkTRIPAuth();
+    </script>
+
+    <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+            <span>TRIP Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="flight.html" class="active">Status</a>
+                <a href="passengers.html">Personnel</a>
+                <a href="tracking.html">Logistics</a>
+                <a href="ledger.html">Ledger</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="ticket-8k">
+            <div class="ticket-8k__main">
+                <div class="ticket-8k__top">
+                    <div>
+                        <div class="ticket-8k__brandline">TRIP Logistics</div>
+                        <div class="ticket-8k__sub">Private e‑Ticket • Scoped Session Access</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span id="stBadge" class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">PENDING</span>
+                        <div style="margin-top:10px; color:var(--ticket-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Official Manifest</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__route">
+                    <div class="route-side">
+                        <div class="route-label">Departure</div>
+                        <div class="route-code" id="codeDep">LHR</div>
+                    </div>
+                    <div class="route-mid">
+                        <div class="route-icons">
+                            <span aria-hidden="true">🛫</span>
+                            <span aria-hidden="true">🛬</span>
+                        </div>
+                        <div class="route-line"></div>
+                        <div style="color:var(--ticket-dim); font-weight:800; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">
+                            <span id="routeTxt">LHR-ICN</span>
+                        </div>
+                    </div>
+                    <div class="route-side" style="text-align:right;">
+                        <div class="route-label">Arrival</div>
+                        <div class="route-code" id="codeArr">ICN</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__grid">
+                    <div>
+                        <div class="ticket-k">Passenger Name</div>
+                        <div class="ticket-passenger" id="dispName">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Username</div>
+                        <div class="ticket-v" id="dispUser">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Gate</div>
+                        <div class="ticket-v" id="dispGate">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Seat</div>
+                        <div class="ticket-v" id="dispSeat">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Flight Class</div>
+                        <div class="ticket-v" id="dispCls" style="color:var(--ticket-blue);">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Verification</div>
+                        <div class="ticket-v" id="dispTag">Securely Verified</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ticket-8k__stub">
+                <div class="qr-box">
+                    <img id="qrImg" alt="Flight QR">
+                </div>
+                <div class="stub-meta">
+                    <div>
+                        <div class="ticket-k">Ticket URL</div>
+                        <div class="stub-note" id="ticketUrl">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Session ID</div>
+                        <div class="stub-id" id="stubId">—</div>
+                    </div>
+                    <div class="stub-note">Scan to open this user-specific ticket URL. Access still requires an active TRIP session.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        function setStatusBadge(status) {
+            const b = document.getElementById('stBadge');
+            b.textContent = status;
+            let color = 'var(--warning)';
+            let bg = 'rgba(245,158,11,0.10)';
+            if (status === 'CONFIRMED') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+            if (status === 'CANCELLED') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+            b.style.color = color;
+            b.style.borderColor = color;
+            b.style.background = bg;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!activeUser) return;
+
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            const db = await loadAllUsersFromDB();
+            const user = db.users && db.users[activeUser] ? db.users[activeUser] : null;
+            if (!user) {
+                signOut();
+                return;
+            }
+
+            const passengerName = user.passengerName || activeUser;
+            const m = user.manifest || {};
+            const from = m.from || 'LHR';
+            const to = m.to || 'ICN';
+            const route = `${from}-${to}`;
+            const flightClass = m.flightClass || 'Business';
+            const status = m.status || 'PENDING';
+
+            document.getElementById('dispName').textContent = passengerName;
+            document.getElementById('dispUser').textContent = activeUser;
+            document.getElementById('codeDep').textContent = from;
+            document.getElementById('codeArr').textContent = to;
+            document.getElementById('routeTxt').textContent = route;
+            document.getElementById('dispGate').textContent = m.gate || '--';
+            document.getElementById('dispSeat').textContent = m.seat || '--';
+            document.getElementById('dispCls').textContent = String(flightClass).toUpperCase();
+            document.getElementById('dispTag').textContent = `Verified Passenger • ${flightClass}`;
+            setStatusBadge(status);
+
+            const base = window.location.href.split('#')[0].split('?')[0];
+            const ticketUrl = `${base}?u=${encodeURIComponent(activeUser)}`;
+            document.getElementById('ticketUrl').textContent = ticketUrl;
+            document.getElementById('stubId').textContent = activeUser;
+
+            const qr = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(ticketUrl)}`;
+            document.getElementById('qrImg').src = qr;
+        });
+    </script>
+</body>
+</html>

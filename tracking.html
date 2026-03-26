@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Logistics</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body style="opacity:0;">
+    <script>
+        function checkTRIPAuth() {
+            const username = sessionStorage.getItem('active_session');
+            if (!username) {
+                window.location.replace('index.html');
+                return null;
+            }
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            return username;
+        }
+
+        function readTRIPDB() {
+            const raw = localStorage.getItem('trip_users_db');
+            if (!raw) return { users: {} };
+            try { return JSON.parse(raw) || { users: {} }; } catch { return { users: {} }; }
+        }
+
+        function signOut() {
+            sessionStorage.removeItem('active_session');
+            window.location.href = 'index.html';
+        }
+
+        const activeUser = checkTRIPAuth();
+    </script>
+
+    <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+            <span>TRIP Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="flight.html">Status</a>
+                <a href="passengers.html">Personnel</a>
+                <a href="tracking.html" class="active">Logistics</a>
+                <a href="ledger.html">Ledger</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <h2 style="letter-spacing:-1px; margin-bottom: 14px;">5-Step Movement Tracker</h2>
+        <div style="color:var(--text-dim); font-weight:700; margin-bottom: 18px;">Logistics are scoped to the active TRIP session.</div>
+        <div class="card">
+            <div class="track-line" id="trackBox"></div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!activeUser) return;
+
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            const db = await loadAllUsersFromDB();
+            const user = db.users && db.users[activeUser] ? db.users[activeUser] : null;
+            if (!user) {
+                signOut();
+                return;
+            }
+
+            const logistics = user.logistics || { currentStep: 2, steps: [] };
+            const current = parseInt(String(logistics.currentStep || 2), 10) || 2;
+            const steps = Array.isArray(logistics.steps) && logistics.steps.length === 5
+                ? logistics.steps
+                : [
+                    { title: "Booking Confirmed", location: "London HQ", date: "System Log" },
+                    { title: "Security Clearance", location: "TRIP Gateway", date: "Pending" },
+                    { title: "Departure Protocol", location: "Terminal Gateway", date: "Scheduled" },
+                    { title: "International Transit", location: "Airborne", date: "Scheduled" },
+                    { title: "Arrival (ICN)", location: "Incheon, KR", date: "Scheduled" }
+                ];
+
+            const box = document.getElementById('trackBox'); box.innerHTML = '';
+            steps.forEach((s, i) => {
+                const stepIdx = i + 1;
+                box.innerHTML += `<div class="step ${stepIdx === current ? 'active' : ''} ${stepIdx > current ? 'future' : ''}">
+                    <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline;">
+                        <div style="font-size:0.65rem; color:var(--accent); font-weight:900; letter-spacing:1px; text-transform:uppercase;">Step ${stepIdx}</div>
+                        <div style="font-size:0.75rem; color:var(--text-dim); font-weight:800;">${s.date || '—'}</div>
+                    </div>
+                    <div style="font-weight:900; font-size:1.05rem; letter-spacing:-0.4px; margin-top:8px;">${s.title || '—'}</div>
+                    <div style="font-size:0.85rem; color:var(--text-dim); font-weight:700; margin-top:4px;">${s.location || '—'}</div>
+                </div>`;
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', render);
+    </script>
+</body>
+</html>

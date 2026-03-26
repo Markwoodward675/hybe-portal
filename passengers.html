@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Personnel</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body style="opacity:0;">
+    <script>
+        function checkTRIPAuth() {
+            const username = sessionStorage.getItem('active_session');
+            if (!username) {
+                window.location.replace('index.html');
+                return null;
+            }
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            return username;
+        }
+
+        function readTRIPDB() {
+            const raw = localStorage.getItem('trip_users_db');
+            if (!raw) return { users: {} };
+            try { return JSON.parse(raw) || { users: {} }; } catch { return { users: {} }; }
+        }
+
+        function signOut() {
+            sessionStorage.removeItem('active_session');
+            window.location.href = 'index.html';
+        }
+
+        const activeUser = checkTRIPAuth();
+    </script>
+
+    <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+            <span>TRIP Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="flight.html">Status</a>
+                <a href="passengers.html" class="active">Personnel</a>
+                <a href="tracking.html">Logistics</a>
+                <a href="ledger.html">Ledger</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <h2 style="font-size: 2.2rem; margin-bottom: 22px; letter-spacing: -1px;">Personnel Manifest</h2>
+        <div style="color:var(--text-dim); font-weight:700; margin-bottom: 22px;">Primary Passenger is scoped to the active TRIP session.</div>
+
+        <div class="card" style="margin-bottom: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Primary Passenger</div>
+                    <div style="font-weight:900; font-size:1.5rem; letter-spacing:-0.8px;" id="primaryName">—</div>
+                    <div style="color:var(--text-dim); font-weight:800; margin-top:6px;" id="primaryMeta">—</div>
+                </div>
+                <div style="text-align:right;">
+                    <span class="badge-pill" id="primaryStatus" style="color:var(--warning); border-color:var(--warning);">PENDING</span>
+                    <div style="margin-top:10px;">
+                        <a href="flight.html" style="display:inline-block; text-decoration:none; padding:10px 12px; border-radius:12px; border:1px solid var(--border); color:var(--text); font-weight:800;">View e‑Ticket</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table class="m-table">
+                <thead><tr><th>Name</th><th>Role</th><th>Flight Class</th><th>Verification</th></tr></thead>
+                <tbody id="mBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        const crewList = [
+            { n: "Capt. John Smith", role: "Captain", c: "First" },
+            { n: "Jane Doe", role: "First Officer", c: "First" },
+            { n: "Alice Johnson", role: "Cabin Crew", c: "Business" },
+            { n: "Robert Brown", role: "Cabin Crew", c: "Economy" },
+            { n: "Emily Davis", role: "Cabin Crew", c: "Economy" },
+            { n: "Michael Wilson", role: "Ground Liaison", c: "Business" }
+        ];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!activeUser) return;
+
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            const db = await loadAllUsersFromDB();
+            const user = db.users && db.users[activeUser] ? db.users[activeUser] : null;
+            if (!user) {
+                signOut();
+                return;
+            }
+
+            const passengerName = user.passengerName || activeUser;
+            const m = user.manifest || {};
+            const flightClass = m.flightClass || 'Business';
+            const status = m.status || 'PENDING';
+            const route = `${m.from || 'LHR'}-${m.to || 'ICN'}`;
+            const gs = `${m.gate || '--'} / ${m.seat || '--'}`;
+
+            document.getElementById('primaryName').textContent = passengerName;
+            document.getElementById('primaryMeta').textContent = `${route} • ${gs} • ${String(flightClass).toUpperCase()}`;
+            setStatusBadge(document.getElementById('primaryStatus'), status);
+
+            const b = document.getElementById('mBody');
+            b.innerHTML = '';
+
+            renderRow(b, passengerName, "Primary Passenger", flightClass, status);
+            crewList.forEach(item => renderRow(b, item.n, item.role, item.c, "VERIFIED"));
+        });
+
+        function setStatusBadge(el, stat) {
+            let color = (stat === 'CONFIRMED' || stat === 'VERIFIED') ? 'var(--success)' : (stat === 'PENDING' ? 'var(--warning)' : 'var(--danger)');
+            el.textContent = stat;
+            el.style.color = color;
+            el.style.borderColor = color;
+        }
+
+        function renderRow(target, name, role, cls, stat) {
+            let color = (stat === 'CONFIRMED' || stat === 'VERIFIED') ? 'var(--success)' : (stat === 'PENDING' ? 'var(--warning)' : 'var(--danger)');
+            target.innerHTML += `<tr>
+                <td style="font-weight:700;">${name}</td>
+                <td style="font-size:0.75rem; font-weight:800; color:var(--text-dim);">${role}</td>
+                <td style="font-size:0.7rem; font-weight:800; color:var(--text-dim);">${cls.toUpperCase()}</td>
+                <td><span class="badge-pill" style="color:${color}; border-color:${color}">${stat}</span></td>
+            </tr>`;
+        }
+    </script>
+</body>
+</html>

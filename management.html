@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Admin Command Center</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body style="opacity:0; transition: opacity 0.5s ease;">
+    <!-- Admin Login Overlay -->
+    <div id="adminAuthOverlay" class="login-shell" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999;">
+        <div class="login-card">
+            <div class="login-brand">
+                <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+                <h1>TRIP Admin Gateway</h1>
+            </div>
+            <p class="login-sub">Enter the master passcode to access the Closed-Loop Command Center.</p>
+            <div class="login-row">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Admin Passcode</div>
+                    <input id="adminPassInput" type="password" placeholder="••••••••" autocomplete="current-password">
+                </div>
+            </div>
+            <div class="login-actions">
+                <button id="btnAdminLogin" class="btn-primary" type="button">Access Command Center</button>
+            </div>
+            <div id="adminLoginMsg" class="login-msg" style="margin-top:12px; color:var(--danger); text-align:center;"></div>
+        </div>
+    </div>
+
+    <div id="adminAppContent" style="display:none;">
+        <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+            <span>TRIP Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Admin Command Center</div>
+            <button class="nav-signout" id="adminSignOutBtn" type="button">Exit Admin</button>
+        </div>
+    </nav>
+
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="admin-brand">
+                <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+                <div>
+                    <strong>TRIP Admin</strong>
+                    <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem; margin-top:2px;">Closed-Loop Provisioning</div>
+                </div>
+            </div>
+
+            <div class="admin-menu" role="tablist" aria-label="Admin Sections">
+                <button type="button" class="active" data-target="secProvision">User Provisioning</button>
+                <button type="button" data-target="secManifest">Manifest Editor</button>
+                <button type="button" data-target="secFinancial">Financial Control</button>
+                <button type="button" data-target="secLogistics">Logistics Sync</button>
+                <button type="button" data-target="secRegistry">User Registry</button>
+            </div>
+        </aside>
+
+        <main class="admin-main">
+            <section id="secProvision" class="admin-sec">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">User Provisioning</h2>
+                <div class="card">
+                    <div class="three-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Username</div>
+                            <input id="pvUsername" type="text" placeholder="trip_user01">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">PIN</div>
+                            <input id="pvPin" type="password" inputmode="numeric" placeholder="••••">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Passenger Name</div>
+                            <input id="pvPassenger" type="text" placeholder="Full Name">
+                        </div>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-primary" type="button" id="btnCreateUser">Create User</button>
+                        <button class="btn-secondary" type="button" id="btnResetForm">Reset</button>
+                    </div>
+                    <div id="provisionMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
+                </div>
+            </section>
+
+            <section id="secManifest" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Manifest Editor</h2>
+                <div class="card">
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Select Username</div>
+                            <select class="user-select" id="manUser"></select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Status</div>
+                            <select id="manStatus">
+                                <option value="PENDING">PENDING</option>
+                                <option value="CONFIRMED">CONFIRMED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Route (From)</div>
+                            <input id="manFrom" type="text" placeholder="LHR">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Route (To)</div>
+                            <input id="manTo" type="text" placeholder="ICN">
+                        </div>
+                    </div>
+                    <div class="three-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Gate</div>
+                            <input id="manGate" type="text" placeholder="B-22">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Seat</div>
+                            <input id="manSeat" type="text" placeholder="01-A">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Flight Class</div>
+                            <select id="manClass">
+                                <option value="VVIP">VVIP</option>
+                                <option value="First">First</option>
+                                <option value="Business">Business</option>
+                                <option value="Economy">Economy</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-primary" type="button" id="btnSaveManifest">Save Manifest</button>
+                        <button class="btn-secondary" type="button" id="btnLoadManifest">Reload</button>
+                    </div>
+                    <div id="manifestMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
+                </div>
+            </section>
+
+            <section id="secFinancial" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Financial Control</h2>
+                <div class="admin-row">
+                    <div class="card">
+                        <div class="ticket-k" style="margin-bottom:8px;">Select Username</div>
+                        <select class="user-select" id="finUser"></select>
+                        <div class="ticket-k" style="margin-bottom:8px;">Ledger Balance (GBP)</div>
+                        <input id="finBalance" type="text" placeholder="186.00">
+                        <button class="btn-primary" type="button" id="btnSaveBalance">Save Balance</button>
+                        <div id="finMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
+                    </div>
+                    <div class="card">
+                        <div class="ticket-k" style="margin-bottom:8px;">Add Transaction</div>
+                        <input id="txDate" type="text" placeholder="Mar 26, 2026">
+                        <input id="txDesc" type="text" placeholder="Description">
+                        <input id="txAmt" type="text" placeholder="-£24.00 or +£300.00">
+                        <div class="two-col">
+                            <button class="btn-primary" type="button" id="btnAddTx">Add</button>
+                            <button class="btn-secondary" type="button" id="btnClearTx">Clear History</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <table class="m-table">
+                        <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
+                        <tbody id="txTable"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="secLogistics" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Logistics Sync</h2>
+                <div class="card">
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Select Username</div>
+                            <select class="user-select" id="logUser"></select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Current Step (1–5)</div>
+                            <select id="logCurrent">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="stepsEditor" style="margin-top:10px; display:grid; gap:12px;"></div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-primary" type="button" id="btnSaveLogistics">Save Tracker</button>
+                        <button class="btn-secondary" type="button" id="btnLoadLogistics">Reload</button>
+                    </div>
+                    <div id="logMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
+                </div>
+            </section>
+
+            <section id="secRegistry" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">User Registry Table</h2>
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <table class="m-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>PIN</th>
+                                <th>Passenger</th>
+                                <th>Status</th>
+                                <th>Route</th>
+                                <th>Gate/Seat</th>
+                                <th>Class</th>
+                                <th>Ledger</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="registryBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    </div> <!-- End adminAppContent -->
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        function makeDefaultLogistics() {
+            return {
+                currentStep: 2,
+                steps: [
+                    { title: "Booking Confirmed", location: "London HQ", date: "System Log" },
+                    { title: "Security Clearance", location: "TRIP Gateway", date: "Pending" },
+                    { title: "Departure Protocol", location: "Terminal Gateway", date: "Scheduled" },
+                    { title: "International Transit", location: "Airborne", date: "Scheduled" },
+                    { title: "Arrival (ICN)", location: "Incheon, KR", date: "Scheduled" }
+                ]
+            };
+        }
+
+        function ensureUserShape(user) {
+            const u = user || {};
+            if (!u.manifest) {
+                u.manifest = { from: "LHR", to: "ICN", gate: "--", seat: "--", flightClass: "Business", status: "PENDING" };
+            }
+            if (!u.ledger) {
+                u.ledger = { balance: "0.00", currency: "£", transactions: [] };
+            }
+            if (!u.logistics) {
+                u.logistics = makeDefaultLogistics();
+            } else {
+                if (typeof u.logistics.currentStep !== 'number') u.logistics.currentStep = 2;
+                if (!Array.isArray(u.logistics.steps) || u.logistics.steps.length !== 5) u.logistics = makeDefaultLogistics();
+            }
+            return u;
+        }
+
+        function requireAdminSession() {
+            const existing = sessionStorage.getItem('admin_session');
+            if (existing) {
+                document.getElementById('adminAuthOverlay').style.display = 'none';
+                document.getElementById('adminAppContent').style.display = 'block';
+                requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+                return true;
+            }
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            return false;
+        }
+
+        function setSection(targetId) {
+            document.querySelectorAll('.admin-sec').forEach((sec) => {
+                sec.style.display = sec.id === targetId ? 'block' : 'none';
+            });
+            document.querySelectorAll('.admin-menu button').forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.target === targetId);
+            });
+            if (typeof onUserChange === 'function') {
+                onUserChange();
+            }
+        }
+
+        function getUsersSorted(db) {
+            return Object.keys(db.users || {}).sort((a, b) => a.localeCompare(b));
+        }
+
+        async function refreshUserSelects() {
+            const db = await loadAllUsersFromDB();
+            const usernames = getUsersSorted(db);
+            document.querySelectorAll('.user-select').forEach((sel) => {
+                const current = sel.value;
+                sel.innerHTML = '';
+                if (usernames.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'No users provisioned';
+                    sel.appendChild(opt);
+                    sel.disabled = true;
+                    return;
+                }
+                sel.disabled = false;
+                usernames.forEach((u) => {
+                    const opt = document.createElement('option');
+                    opt.value = u;
+                    opt.textContent = u;
+                    sel.appendChild(opt);
+                });
+                if (current && usernames.includes(current)) sel.value = current;
+            });
+        }
+
+        async function renderRegistry() {
+            const db = await loadAllUsersFromDB();
+            const body = document.getElementById('registryBody');
+            body.innerHTML = '';
+            const usernames = getUsersSorted(db);
+            usernames.forEach((username) => {
+                const user = ensureUserShape(db.users[username]);
+                const route = `${user.manifest.from || '--'}-${user.manifest.to || '--'}`;
+                const gs = `${user.manifest.gate || '--'} / ${user.manifest.seat || '--'}`;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight:900;">${username}</td>
+                    <td style="font-weight:900;">${user.pin}</td>
+                    <td>${user.passengerName || '--'}</td>
+                    <td><span class="badge-pill" style="color:${user.manifest.status === 'CONFIRMED' ? 'var(--success)' : (user.manifest.status === 'CANCELLED' ? 'var(--danger)' : 'var(--warning)')}; border-color:${user.manifest.status === 'CONFIRMED' ? 'var(--success)' : (user.manifest.status === 'CANCELLED' ? 'var(--danger)' : 'var(--warning)')};">${user.manifest.status}</span></td>
+                    <td>${route}</td>
+                    <td>${gs}</td>
+                    <td style="color:var(--text-dim); font-weight:900;">${String(user.manifest.flightClass || '').toUpperCase()}</td>
+                    <td style="font-weight:900;">£${user.ledger.balance}</td>
+                    <td><button class="btn-delete-user" data-user="${username}" style="background:var(--danger); color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.7rem; font-weight:bold;">Delete</button></td>
+                `;
+                body.appendChild(tr);
+            });
+
+            // Attach delete listeners
+            document.querySelectorAll('.btn-delete-user').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const u = e.target.getAttribute('data-user');
+                    if (confirm(`Are you sure you want to completely delete user: ${u}?`)) {
+                        const db = await loadAllUsersFromDB();
+                        delete db.users[u];
+                        
+                        // We also need to delete from Appwrite if using it
+                        if (typeof databases !== 'undefined' && DB_ID !== 'YOUR_DB_ID') {
+                            try {
+                                const existing = await databases.listDocuments(DB_ID, COL_USERS, [
+                                    Query.equal('username', u)
+                                ]);
+                                if (existing.documents.length > 0) {
+                                    await databases.deleteDocument(DB_ID, COL_USERS, existing.documents[0].$id);
+                                }
+                            } catch (err) {
+                                console.error("Error deleting from Appwrite:", err);
+                            }
+                        }
+                        
+                        // Update local fallback
+                        localStorage.setItem('trip_users_db', JSON.stringify(db));
+                        
+                        await refreshUserSelects();
+                        await renderRegistry();
+                    }
+                });
+            });
+        }
+
+        async function hydrateManifest(username) {
+            const db = await loadAllUsersFromDB();
+            if (!username || !db.users[username]) return;
+            const user = ensureUserShape(db.users[username]);
+            document.getElementById('manStatus').value = user.manifest.status || 'PENDING';
+            document.getElementById('manFrom').value = user.manifest.from || 'LHR';
+            document.getElementById('manTo').value = user.manifest.to || 'ICN';
+            document.getElementById('manGate').value = user.manifest.gate || '--';
+            document.getElementById('manSeat').value = user.manifest.seat || '--';
+            document.getElementById('manClass').value = user.manifest.flightClass || 'Business';
+        }
+
+        async function hydrateLedger(username) {
+            const db = await loadAllUsersFromDB();
+            if (!username || !db.users[username]) return;
+            const user = ensureUserShape(db.users[username]);
+            document.getElementById('finBalance').value = user.ledger.balance || '0.00';
+            const table = document.getElementById('txTable');
+            table.innerHTML = '';
+            const txs = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+            txs.slice().reverse().forEach((tx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${tx.date || '--'}</td>
+                    <td>${tx.desc || '--'}</td>
+                    <td style="font-weight:900;">${tx.amount || '--'}</td>
+                `;
+                table.appendChild(tr);
+            });
+        }
+
+        async function renderStepsEditor(username) {
+            const db = await loadAllUsersFromDB();
+            if (!username || !db.users[username]) return;
+            const user = ensureUserShape(db.users[username]);
+            document.getElementById('logCurrent').value = String(user.logistics.currentStep || 2);
+            const wrap = document.getElementById('stepsEditor');
+            wrap.innerHTML = '';
+            const esc = (v) => String(v ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            user.logistics.steps.forEach((s, idx) => {
+                const stepNum = idx + 1;
+                const box = document.createElement('div');
+                box.className = 'card';
+                box.style.marginBottom = '0';
+                box.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px;">Step ${stepNum}</div>
+                        <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem;">Tracker Line</div>
+                    </div>
+                    <div class="three-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Title</div>
+                            <input data-step="${idx}" data-field="title" type="text" value="${esc(s.title)}">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Location</div>
+                            <input data-step="${idx}" data-field="location" type="text" value="${esc(s.location)}">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Date/Marker</div>
+                            <input data-step="${idx}" data-field="date" type="text" value="${esc(s.date)}">
+                        </div>
+                    </div>
+                `;
+                wrap.appendChild(box);
+            });
+        }
+
+        let onUserChange = () => {};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireAdminSession()) {
+                document.getElementById('btnAdminLogin').addEventListener('click', async () => {
+                    const pass = document.getElementById('adminPassInput').value;
+                    if (pass === 'HYBE2026' || pass === 'TRIP2026') {
+                        sessionStorage.setItem('admin_session', '1');
+                        document.getElementById('adminAuthOverlay').style.display = 'none';
+                        document.getElementById('adminAppContent').style.display = 'block';
+                        await refreshUserSelects();
+                        await renderRegistry();
+                    } else {
+                        document.getElementById('adminLoginMsg').textContent = 'Invalid passcode.';
+                    }
+                });
+            }
+
+            document.getElementById('adminSignOutBtn').addEventListener('click', () => {
+                sessionStorage.removeItem('admin_session');
+                window.location.reload();
+            });
+
+            document.querySelectorAll('.admin-menu button').forEach((btn) => {
+                btn.addEventListener('click', () => setSection(btn.dataset.target));
+            });
+
+            if (sessionStorage.getItem('admin_session')) {
+                refreshUserSelects();
+                renderRegistry();
+            }
+
+            document.getElementById('btnResetForm').addEventListener('click', () => {
+                document.getElementById('pvUsername').value = '';
+                document.getElementById('pvPin').value = '';
+                document.getElementById('pvPassenger').value = '';
+                document.getElementById('provisionMsg').textContent = '';
+            });
+
+            document.getElementById('btnCreateUser').addEventListener('click', async () => {
+                const msg = document.getElementById('provisionMsg');
+                msg.textContent = '';
+
+                const username = document.getElementById('pvUsername').value.trim();
+                const pin = document.getElementById('pvPin').value.trim();
+                const passengerName = document.getElementById('pvPassenger').value.trim();
+
+                if (!username || !pin || !passengerName) {
+                    msg.textContent = 'Provide Username, PIN, and Passenger Name.';
+                    return;
+                }
+
+                const db = await loadAllUsersFromDB();
+                
+                // Check if username exists case-insensitively
+                const existingKey = Object.keys(db.users).find(k => k.toLowerCase() === username.toLowerCase());
+                if (existingKey) {
+                    msg.textContent = 'Username already exists. Choose a unique Username.';
+                    return;
+                }
+
+                const newUser = ensureUserShape({
+                    username,
+                    pin,
+                    passengerName,
+                    manifest: { from: "LHR", to: "ICN", gate: "--", seat: "--", flightClass: "Business", status: "PENDING" },
+                    ledger: { balance: "186.00", currency: "£", transactions: [] },
+                    logistics: makeDefaultLogistics()
+                });
+                
+                await saveUserToDB(username, newUser);
+
+                msg.textContent = `User provisioned: ${username}`;
+                await refreshUserSelects();
+                await renderRegistry();
+            });
+
+            onUserChange = () => {
+                const u1 = document.getElementById('manUser').value;
+                const u2 = document.getElementById('finUser').value;
+                const u3 = document.getElementById('logUser').value;
+                if (u1 && document.getElementById('secManifest').style.display !== 'none') hydrateManifest(u1);
+                if (u2 && document.getElementById('secFinancial').style.display !== 'none') hydrateLedger(u2);
+                if (u3 && document.getElementById('secLogistics').style.display !== 'none') renderStepsEditor(u3);
+            };
+
+            document.querySelectorAll('.user-select').forEach((sel) => {
+                sel.addEventListener('change', () => {
+                    const username = sel.value;
+                    document.querySelectorAll('.user-select').forEach((s) => { s.value = username; });
+                    onUserChange();
+                });
+            });
+
+            document.getElementById('btnLoadManifest').addEventListener('click', () => hydrateManifest(document.getElementById('manUser').value));
+            document.getElementById('btnSaveManifest').addEventListener('click', async () => {
+                const msg = document.getElementById('manifestMsg');
+                msg.textContent = '';
+                const username = document.getElementById('manUser').value;
+                if (!username) return;
+
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.manifest.status = document.getElementById('manStatus').value;
+                user.manifest.from = document.getElementById('manFrom').value.trim() || 'LHR';
+                user.manifest.to = document.getElementById('manTo').value.trim() || 'ICN';
+                user.manifest.gate = document.getElementById('manGate').value.trim() || '--';
+                user.manifest.seat = document.getElementById('manSeat').value.trim() || '--';
+                user.manifest.flightClass = document.getElementById('manClass').value;
+                
+                await saveUserToDB(username, user);
+                msg.textContent = 'Manifest saved.';
+                await renderRegistry();
+            });
+
+            document.getElementById('btnSaveBalance').addEventListener('click', async () => {
+                const msg = document.getElementById('finMsg');
+                msg.textContent = '';
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const bal = document.getElementById('finBalance').value.trim();
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.balance = bal || '0.00';
+                
+                await saveUserToDB(username, user);
+                msg.textContent = 'Balance saved.';
+                await renderRegistry();
+            });
+
+            document.getElementById('btnAddTx').addEventListener('click', async () => {
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const date = document.getElementById('txDate').value.trim() || '—';
+                const desc = document.getElementById('txDesc').value.trim() || '—';
+                const amount = document.getElementById('txAmt').value.trim() || '—';
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.transactions = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+                user.ledger.transactions.push({ date, desc, amount });
+                
+                await saveUserToDB(username, user);
+                document.getElementById('txDate').value = '';
+                document.getElementById('txDesc').value = '';
+                document.getElementById('txAmt').value = '';
+                await hydrateLedger(username);
+            });
+
+            document.getElementById('btnClearTx').addEventListener('click', async () => {
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.transactions = [];
+                
+                await saveUserToDB(username, user);
+                await hydrateLedger(username);
+            });
+
+            document.getElementById('btnLoadLogistics').addEventListener('click', () => renderStepsEditor(document.getElementById('logUser').value));
+            document.getElementById('btnSaveLogistics').addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                const msg = document.getElementById('logMsg');
+                msg.textContent = '';
+                if (!username) return;
+
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                const currentStep = parseInt(document.getElementById('logCurrent').value, 10);
+                user.logistics.currentStep = Number.isFinite(currentStep) ? currentStep : 2;
+
+                const steps = user.logistics.steps.slice();
+                document.querySelectorAll('#stepsEditor input[data-step]').forEach((inp) => {
+                    const idx = parseInt(inp.dataset.step, 10);
+                    const field = inp.dataset.field;
+                    if (!Number.isFinite(idx) || idx < 0 || idx > 4) return;
+                    steps[idx] = steps[idx] || { title: '', location: '', date: '' };
+                    steps[idx][field] = inp.value.trim();
+                });
+                user.logistics.steps = steps;
+                
+                await saveUserToDB(username, user);
+                msg.textContent = 'Tracker saved.';
+            });
+
+            onUserChange();
+        });
+    </script>
+</body>
+</html>
