@@ -757,11 +757,15 @@
                             runAutoUserStatusUpdateIfDue();
                             setInterval(runAutoUserStatusUpdateIfDue, 30 * 1000);
                         } else {
-                            document.getElementById('adminLoginMsg').textContent = 'Invalid passcode.';
+                            document.getElementById('adminLoginMsg').textContent = (out && out.error) ? out.error : 'Invalid passcode.';
                         }
                     } catch (e) {
                         if (e && e.status === 401) {
-                            document.getElementById('adminLoginMsg').textContent = 'Invalid passcode.';
+                            const payloadMsg = (e.payload && e.payload.error) ? e.payload.error : null;
+                            const hint = (e.payload && typeof e.payload.configured === 'boolean')
+                                ? (e.payload.configured ? '' : ' (passcode not set in Vercel env, using default)')
+                                : '';
+                            document.getElementById('adminLoginMsg').textContent = (payloadMsg || 'Invalid passcode.') + hint;
                         } else {
                             document.getElementById('adminLoginMsg').textContent = 'Admin access failed.';
                         }

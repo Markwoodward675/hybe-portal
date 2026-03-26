@@ -119,9 +119,11 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
     const body = await readJson(req).catch(() => ({}));
     const passcode = String(body.passcode || '').trim();
-    const primary = String(process.env.TRIP_ADMIN_PASSCODE || 'HYBE2026').trim();
+    const primary = String(process.env.TRIP_ADMIN_PASSCODE || 'Jagaban@1').trim();
     const alt = String(process.env.TRIP_ADMIN_PASSCODE_ALT || 'TRIP2026').trim();
-    if (passcode !== primary && passcode !== alt) return send(res, 401, { ok: false, error: 'Invalid passcode' });
+    const configured = Boolean(process.env.TRIP_ADMIN_PASSCODE);
+    const usingDefault = !configured;
+    if (passcode !== primary && passcode !== alt) return send(res, 401, { ok: false, error: 'Invalid passcode', configured, usingDefault });
     const token = createToken({ typ: 'admin', exp: Date.now() + 8 * 60 * 60 * 1000 });
     res.setHeader('set-cookie', cookieString('trip_admin', token, { maxAgeSeconds: 8 * 60 * 60, secure: isHttps(req) }));
     return send(res, 200, { ok: true });
