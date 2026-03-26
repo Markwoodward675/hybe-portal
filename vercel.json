@@ -1,22 +1,12 @@
 {
   "version": 2,
   "routes": [
-    { "src": "^/api/admin/(.*)$", "dest": "/api/admin/[...path].js" },
-    { "src": "^/api/user/(.*)$", "dest": "/api/user/[...path].js" },
-    { "src": "^/api/public/(.*)$", "dest": "/api/public/[...path].js" },
+    { "src": "^/api/(.*)$", "dest": "/api/[...path].js" },
     { "handle": "filesystem" }
   ],
   "builds": [
     {
-      "src": "api/admin/[...path].js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/user/[...path].js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/public/[...path].js",
+      "src": "api/[...path].js",
       "use": "@vercel/node"
     },
     {
@@ -28,7 +18,7 @@
       "use": "@vercel/static"
     },
     {
-      "src": "**/*.js",
+      "src": "*.js",
       "use": "@vercel/static"
     },
     {
