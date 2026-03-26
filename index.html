@@ -70,22 +70,32 @@
                     return;
                 }
 
-                const currentDb = await loadAllUsersFromDB();
-                
-                // Find user case-insensitively
+                setBusy(true);
+
+                try {
+                    const out = await userLogin(username, pin);
+                    const u = out && out.username ? out.username : username;
+                    setTimeout(() => {
+                        sessionStorage.setItem('active_session', u);
+                        window.location.href = 'flight.html';
+                    }, 850);
+                    return;
+                } catch {}
+
+                const currentDb = loadFromLocal();
                 const userKey = Object.keys(currentDb.users).find(k => k.toLowerCase() === username.toLowerCase());
                 const user = userKey ? currentDb.users[userKey] : null;
 
                 if (!user || String(user.pin) !== String(pin)) {
+                    setBusy(false);
                     msg.textContent = 'Access denied. Credentials do not match a provisioned TRIP profile.';
                     return;
                 }
 
-                setBusy(true);
                 setTimeout(() => {
                     sessionStorage.setItem('active_session', userKey);
                     window.location.href = 'flight.html';
-                }, 1800);
+                }, 850);
             });
         });
     </script>

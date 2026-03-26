@@ -19,7 +19,8 @@
             return username;
         }
 
-        function signOut() {
+        async function signOut() {
+            try { await userLogout(); } catch {}
             sessionStorage.removeItem('active_session');
             window.location.href = 'index.html';
         }
@@ -33,6 +34,7 @@
             <span>TRIP Logistics</span>
         </a>
         <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
             <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
             <div class="trip-links" id="navMenu">
                 <a href="flight.html">Status</a>
@@ -238,14 +240,40 @@
                 toggle.setAttribute('aria-expanded', String(next));
             });
             document.getElementById('signOutBtn').addEventListener('click', signOut);
+            const sessionPill = document.getElementById('sessionPill');
+            const setPill = (label, type) => {
+                if (!sessionPill) return;
+                sessionPill.textContent = label;
+                let color = 'var(--warning)';
+                let bg = 'rgba(245,158,11,0.10)';
+                if (type === 'ok') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+                if (type === 'bad') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+                sessionPill.style.color = color;
+                sessionPill.style.borderColor = color;
+                sessionPill.style.background = bg;
+            };
+
+            const pack = await loadActiveUserFromDB();
+            if (!pack || !pack.userData) {
+                setPill('SESSION EXPIRED', 'bad');
+                signOut();
+                return;
+            }
+            setPill('SERVER ACTIVE', 'ok');
 
             let state = loadBookingState();
             if (!state || !state.nextAt || Date.now() > state.nextAt) {
                 state = buildBookings();
             }
 
-            const db = await loadAllUsersFromDB();
-            const adminPack = makeAdminBookingItems(db);
+            let adminPack = { items: [], nextAt: 0 };
+            try {
+                const out = await publicBookings();
+                adminPack = { items: Array.isArray(out.items) ? out.items : [], nextAt: Date.now() + nextRefreshMillis() };
+            } catch {
+                const db = loadFromLocal();
+                adminPack = makeAdminBookingItems(db);
+            }
 
             const next = new Date(Math.max(state.nextAt || 0, adminPack.nextAt || 0));
             document.getElementById('subTxt').textContent = `Auto-refreshes every 10–15 minutes. Next update: ${next.toLocaleTimeString()} • Admin Users: ${adminPack.items.length} • Random: ${state.items.length}`;

@@ -27,10 +27,9 @@ function loadDotEnvFileIfPresent(filename) {
   console.log(`CWD: ${process.cwd()}`);
   const loaded =
     loadDotEnvFileIfPresent('.env') ||
-    loadDotEnvFileIfPresent('.env.local') ||
-    loadDotEnvFileIfPresent('.env.example');
+    loadDotEnvFileIfPresent('.env.local');
   if (!loaded) {
-    console.log('No .env / .env.local / .env.example found. Using process environment only.');
+    console.log('No .env / .env.local found. Using process environment only.');
   }
 })();
 
@@ -122,12 +121,24 @@ async function ensureUsersCollection() {
       collectionId: USERS_COLLECTION_ID,
       name: 'Users',
       documentSecurity: false,
-      permissions: [
-        'read("any")',
-        'create("any")',
-        'update("any")',
-        'delete("any")',
-      ],
+      permissions: [],
+    },
+  });
+}
+
+async function lockUsersCollectionPermissions() {
+  const colPath = `/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}`;
+  const col = await request(colPath);
+  const current = Array.isArray(col?.permissions) ? col.permissions : [];
+  if (current.length === 0) return;
+
+  await request(colPath, {
+    method: 'PUT',
+    body: {
+      name: col.name || 'Users',
+      enabled: true,
+      documentSecurity: false,
+      permissions: [],
     },
   });
 }
@@ -235,6 +246,7 @@ async function main() {
 
   await ensureDatabase();
   await ensureUsersCollection();
+  await lockUsersCollectionPermissions();
   await ensureAttributes();
   await ensureIndexes();
 

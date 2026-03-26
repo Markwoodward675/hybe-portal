@@ -21,6 +21,8 @@
 * { box-sizing: border-box; transition: all 0.3s ease; }
 body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
 
+.session-pill { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.6px; text-transform: uppercase; }
+
 .page-elegant {
     background:
         radial-gradient(900px 600px at 20% 20%, rgba(225, 29, 72, 0.10), transparent 60%),
@@ -202,12 +204,18 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     grid-template-columns: 1.4fr 0.6fr;
     background: linear-gradient(180deg, var(--ticket-bg), var(--ticket-cream));
     color: var(--ticket-ink);
-    border-radius: 26px;
+    width: min(860px, 100%);
+    margin: 0 auto;
+    border-radius: 18px;
     overflow: hidden;
     box-shadow:
-        0 50px 120px rgba(0,0,0,0.55),
-        0 2px 0 rgba(255,255,255,0.06) inset;
-    border: 1px solid rgba(255,255,255,0.06);
+        0 18px 44px rgba(15, 23, 42, 0.18),
+        0 2px 0 rgba(255,255,255,0.55) inset;
+    border: 1px solid var(--ticket-border);
+}
+.ticket-8k.boarding-pass {
+    width: min(920px, 100%);
+    border-radius: 14px;
 }
 .ticket-surface {
     position: relative;
@@ -244,6 +252,9 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     position: relative;
     border-right: 2px dashed rgba(11, 18, 32, 0.18);
 }
+.ticket-8k.boarding-pass .ticket-8k__main {
+    padding: 18px 18px 16px;
+}
 .ticket-8k__main::after,
 .ticket-8k__main::before {
     content: '';
@@ -266,6 +277,8 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
 }
 .ticket-8k__brandline { font-weight: 900; letter-spacing: -0.8px; font-size: 1.2rem; }
 .ticket-8k__sub { font-size: 0.85rem; color: var(--ticket-dim); margin-top: 2px; }
+.ticket-8k.boarding-pass .ticket-8k__brandline { font-size: 1.05rem; }
+.ticket-8k.boarding-pass .ticket-8k__sub { font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; }
 .ticket-8k__route {
     margin-top: 22px;
     display: grid;
@@ -273,23 +286,47 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     gap: 16px;
     align-items: center;
 }
+.ticket-8k.boarding-pass .ticket-8k__route { margin-top: 14px; gap: 14px; }
+.ticket-8k.boarding-pass .route-side .route-code { font-size: 2.55rem; }
+.ticket-8k.boarding-pass .route-line { width: 150px; }
 .route-side .route-label { font-size: 0.7rem; color: var(--ticket-dim); font-weight: 700; text-transform: uppercase; letter-spacing: 0.9px; }
 .route-side .route-code { font-size: 3.2rem; letter-spacing: -2px; font-weight: 900; line-height: 1; color: var(--ticket-ink); margin-top: 4px; }
 .route-side .route-code.dep {
-    text-shadow: 0 0 0 rgba(225,29,72,0), 0 0 20px rgba(225,29,72,0.08);
-    animation: depGlow 3.6s ease-in-out infinite;
+    position: relative;
+    background: linear-gradient(90deg, rgba(225,29,72,0.95), rgba(225,29,72,0.55), rgba(0,0,0,0.82));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: saturate(1.05) contrast(1.05);
 }
 .route-side .route-code.arr {
-    text-shadow: 0 0 0 rgba(0,0,0,0), 0 0 22px rgba(0,0,0,0.06);
-    animation: arrGlow 4.2s ease-in-out infinite;
+    position: relative;
+    background: linear-gradient(90deg, rgba(0,0,0,0.92), rgba(0,0,0,0.55), rgba(225,29,72,0.85));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: saturate(1.02) contrast(1.05);
 }
-@keyframes depGlow {
-    0%, 100% { transform: translateY(0); text-shadow: 0 0 0 rgba(225,29,72,0), 0 0 20px rgba(225,29,72,0.08); }
-    50% { transform: translateY(-1px); text-shadow: 0 0 0 rgba(225,29,72,0), 0 0 28px rgba(225,29,72,0.14); }
+.route-side .route-code.dep::after,
+.route-side .route-code.arr::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(225,29,72,0.75), transparent);
+    transform-origin: left center;
+    animation: routeSweep 2.8s ease-in-out infinite;
+    opacity: 0.85;
 }
-@keyframes arrGlow {
-    0%, 100% { transform: translateY(0); text-shadow: 0 0 0 rgba(0,0,0,0), 0 0 22px rgba(0,0,0,0.06); }
-    50% { transform: translateY(-1px); text-shadow: 0 0 0 rgba(0,0,0,0), 0 0 30px rgba(0,0,0,0.10); }
+.route-side .route-code.arr::after {
+    background: linear-gradient(90deg, transparent, rgba(0,0,0,0.55), rgba(225,29,72,0.75), transparent);
+    opacity: 0.65;
+}
+@keyframes routeSweep {
+    0%, 100% { transform: scaleX(0.35); filter: blur(0px); }
+    50% { transform: scaleX(1); filter: blur(0.2px); }
 }
 .route-mid { display: grid; gap: 12px; justify-items: center; }
 .route-line {
@@ -299,6 +336,7 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
 }
 .route-icons { width: 100%; display: flex; justify-content: space-between; color: rgba(225, 29, 72, 0.9); }
 .route-icons span { font-size: 1.25rem; }
+.route-icons svg { display: block; }
 .ticket-8k__grid {
     margin-top: 22px;
     display: grid;
@@ -307,6 +345,14 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     padding-top: 18px;
     border-top: 1px solid rgba(11, 18, 32, 0.12);
 }
+.ticket-8k.boarding-pass .ticket-8k__grid {
+    margin-top: 14px;
+    padding-top: 14px;
+    gap: 12px 14px;
+}
+.ticket-8k.boarding-pass .ticket-k { font-size: 0.62rem; letter-spacing: 1px; }
+.ticket-8k.boarding-pass .ticket-v { font-size: 0.98rem; margin-top: 4px; }
+.ticket-8k.boarding-pass .ticket-passenger { font-size: 1.25rem; margin-top: 4px; }
 .ticket-k { font-size: 0.7rem; color: var(--ticket-dim); font-weight: 800; text-transform: uppercase; letter-spacing: 0.9px; }
 .ticket-v { margin-top: 6px; font-size: 1.05rem; font-weight: 700; }
 .ticket-passenger {
@@ -323,15 +369,28 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     gap: 14px;
     background: linear-gradient(180deg, rgba(225, 29, 72, 0.08), rgba(225, 29, 72, 0.02));
 }
-.qr-box {
-    background: #fff;
-    border-radius: 18px;
-    padding: 14px;
+.ticket-8k.boarding-pass .ticket-8k__stub { padding: 16px; gap: 12px; }
+.ticket-8k__stub::before {
+    content: '';
+    height: 62px;
+    border-radius: 12px;
     border: 1px solid rgba(11, 18, 32, 0.12);
-    display: grid;
-    place-items: center;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            rgba(0,0,0,0.85) 0 2px,
+            transparent 2px 4px,
+            rgba(0,0,0,0.65) 4px 5px,
+            transparent 5px 7px,
+            rgba(0,0,0,0.45) 7px 8px,
+            transparent 8px 11px
+        );
+    opacity: 0.8;
 }
-.qr-box img { width: 100%; height: auto; border-radius: 12px; }
+.ticket-8k.boarding-pass .ticket-8k__stub::before {
+    height: 52px;
+    border-radius: 10px;
+}
 .stub-meta { display: grid; gap: 8px; }
 .stub-id { font-weight: 900; letter-spacing: 0.3px; }
 .stub-note { color: var(--ticket-dim); font-size: 0.85rem; line-height: 1.35; }
@@ -439,6 +498,7 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     .nav-signout { width: 100%; }
     .ticket-8k { grid-template-columns: 1fr; }
     .ticket-8k__main { border-right: none; border-bottom: 2px dashed rgba(11, 18, 32, 0.18); }
+    .ticket-8k__stub::before { height: 54px; }
     .ticket-8k__main::after, .ticket-8k__main::before { display: none; }
     .ticket-8k__route { grid-template-columns: 1fr; gap: 10px; }
     .route-line { width: 100%; }
@@ -449,6 +509,20 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     .admin-row { grid-template-columns: 1fr; }
     .booking-item { grid-template-columns: 1fr; }
     .booking-item .bk-price, .booking-item .bk-status { text-align: left; }
+}
+
+@media print {
+    @page { size: 216mm 76mm; margin: 0; }
+    body { background: #fff !important; }
+    .trip-nav { display: none !important; }
+    .container { max-width: none !important; margin-top: 0 !important; padding: 0 !important; }
+    .ticket-8k.boarding-pass {
+        width: 216mm;
+        height: 76mm;
+        box-shadow: none;
+        border-radius: 6mm;
+        border: 1px solid rgba(0,0,0,0.18);
+    }
 }
 
 /* Form Styles */

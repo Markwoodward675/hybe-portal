@@ -25,7 +25,8 @@
             try { return JSON.parse(raw) || { users: {} }; } catch { return { users: {} }; }
         }
 
-        function signOut() {
+        async function signOut() {
+            try { await userLogout(); } catch {}
             sessionStorage.removeItem('active_session');
             window.location.href = 'index.html';
         }
@@ -39,6 +40,7 @@
             <span>TRIP Logistics</span>
         </a>
         <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
             <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
             <div class="trip-links" id="navMenu">
                 <a href="flight.html">Status</a>
@@ -80,7 +82,7 @@
 
         <div class="card" style="padding:0; overflow:hidden;">
             <table class="m-table">
-                <thead><tr><th>Confirmed</th><th>Role</th><th>Flight Class</th><th>Verification</th><th>Marker</th></tr></thead>
+                <thead><tr><th>Verified Status</th><th>Role</th><th>Flight Class</th><th>Verification</th><th>Marker</th></tr></thead>
                 <tbody id="confirmedBody"></tbody>
             </table>
         </div>
@@ -182,11 +184,15 @@
                         entry.updatedAt = now;
                     } else {
                         const roll = Math.random();
-                        let out = 'CONFIRMED';
-                        if (roll >= 0.70 && roll < 0.82) out = 'SUSPENDED';
-                        if (roll >= 0.82 && roll < 0.92) out = 'REJECTED';
-                        if (roll >= 0.92) out = 'DECLINED';
-                        entry.final = out;
+                        if (roll < 0.50) {
+                            entry.final = 'VERIFIED';
+                        } else {
+                            let out = 'CONFIRMED';
+                            if (roll >= 0.70 && roll < 0.82) out = 'SUSPENDED';
+                            if (roll >= 0.82 && roll < 0.92) out = 'REJECTED';
+                            if (roll >= 0.92) out = 'DECLINED';
+                            entry.final = out;
+                        }
                         entry.updatedAt = now;
                         entry.marker = new Date(now).toLocaleTimeString();
                     }
@@ -196,7 +202,7 @@
                 const remainingActive = [];
                 state.activeIds.forEach((id) => {
                     const entry = updated[id];
-                    if (entry && entry.final === 'CONFIRMED') {
+                    if (entry && (entry.final === 'CONFIRMED' || entry.final === 'VERIFIED')) {
                         state.confirmedIds = Array.isArray(state.confirmedIds) ? state.confirmedIds : [];
                         state.confirmedIds.unshift(id);
                     } else {
@@ -225,15 +231,16 @@
                 const p = idToPassenger[id];
                 const entry = state.map[id] || { stage: 1, final: '', marker: '' };
                 const stages = ['ON-HOLD', 'PENDING', 'VERIFYING', 'VERIFIED'];
-                const verification = entry.final ? 'VERIFIED' : stages[entry.stage] || 'PENDING';
-                const outcome = entry.final || '';
+                const verification = entry.final ? entry.final : stages[entry.stage] || 'PENDING';
+                const outcome = entry.final ? entry.final : (verification === 'VERIFIED' ? 'VERIFIED' : '');
                 return { ...p, verification, outcome, marker: entry.marker || '' };
             }).filter(Boolean);
 
             const confirmed = (state.confirmedIds || []).map((id) => {
                 const p = idToPassenger[id];
                 const entry = state.map[id] || { marker: '' };
-                return p ? { ...p, verification: 'CONFIRMED', outcome: 'CONFIRMED', marker: entry.marker || '' } : null;
+                const final = entry.final || 'VERIFIED';
+                return p ? { ...p, verification: final, outcome: final, marker: entry.marker || '' } : null;
             }).filter(Boolean);
 
             return { active, confirmed, nextAt: state.nextAt };
@@ -250,13 +257,27 @@
                 toggle.setAttribute('aria-expanded', String(next));
             });
             document.getElementById('signOutBtn').addEventListener('click', signOut);
+            const sessionPill = document.getElementById('sessionPill');
+            const setPill = (label, type) => {
+                if (!sessionPill) return;
+                sessionPill.textContent = label;
+                let color = 'var(--warning)';
+                let bg = 'rgba(245,158,11,0.10)';
+                if (type === 'ok') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+                if (type === 'bad') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+                sessionPill.style.color = color;
+                sessionPill.style.borderColor = color;
+                sessionPill.style.background = bg;
+            };
 
-            const db = await loadAllUsersFromDB();
-            const user = db.users && db.users[activeUser] ? db.users[activeUser] : null;
+            const pack = await loadActiveUserFromDB();
+            const user = pack && pack.userData ? pack.userData : null;
             if (!user) {
+                setPill('SESSION EXPIRED', 'bad');
                 signOut();
                 return;
             }
+            setPill('SERVER ACTIVE', 'ok');
 
             const passengerName = user.passengerName || activeUser;
             const m = user.manifest || {};
@@ -274,14 +295,19 @@
             b.innerHTML = '';
             cb.innerHTML = '';
 
-            renderRow(b, passengerName, "Primary Passenger", flightClass, status, '');
+            const outcomeFromStatus = (s) => {
+                const st = String(s || '').toUpperCase();
+                const locked = ['VERIFIED', 'CONFIRMED', 'SUSPENDED', 'REJECTED', 'DECLINED', 'CANCELLED'];
+                return locked.includes(st) ? st : '';
+            };
+            renderRow(b, passengerName, "Primary Passenger", flightClass, status, outcomeFromStatus(status));
             const extras = Array.isArray(user.profile && user.profile.additionalPassengers) ? user.profile.additionalPassengers : [];
             extras.forEach((p) => {
                 const n = p.name || '—';
                 const r = p.role || 'Passenger';
                 const c = p.flightClass || flightClass;
                 const s = p.status || 'PENDING';
-                renderRow(b, n, r, c, s, '');
+                renderRow(b, n, r, c, s, outcomeFromStatus(s));
             });
 
             const roster = getRosterState();
@@ -303,11 +329,12 @@
             });
 
             roster.confirmed.slice(0, 30).forEach((item) => {
+                const color = statusColor(item.verification);
                 cb.innerHTML += `<tr>
                     <td style="font-weight:900;">${item.n}</td>
                     <td style="font-size:0.75rem; font-weight:800; color:var(--text-dim);">${item.role}</td>
                     <td style="font-size:0.7rem; font-weight:800; color:var(--text-dim);">${String(item.c).toUpperCase()}</td>
-                    <td><span class="badge-pill" style="color:var(--success); border-color:var(--success)">CONFIRMED</span></td>
+                    <td><span class="badge-pill" style="color:${color}; border-color:${color}">${item.verification}</span></td>
                     <td style="color:var(--text-dim); font-weight:800;">${item.marker || '—'}</td>
                 </tr>`;
             });

@@ -19,11 +19,73 @@ try {
 const DB_ID = 'trip_portal';
 const COL_USERS = 'users';
 
-// --- HYBRID DATABASE ADAPTER ---
-// This adapter uses LocalStorage as a fallback if Appwrite isn't fully configured yet,
-// allowing the app to keep working while you transition to Vercel/Appwrite.
+async function tripApi(path, options = {}) {
+    const res = await fetch(path, {
+        method: options.method || 'GET',
+        headers: {
+            'content-type': 'application/json',
+            ...(options.headers || {})
+        },
+        credentials: 'include',
+        body: options.body ? JSON.stringify(options.body) : undefined
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+    if (!res.ok) {
+        const err = new Error(`API ${res.status} ${path}`);
+        err.status = res.status;
+        err.payload = json;
+        throw err;
+    }
+    return json;
+}
+
+async function adminLogin(passcode) {
+    return tripApi('/api/admin/login', { method: 'POST', body: { passcode } });
+}
+
+async function adminMe() {
+    return tripApi('/api/admin/me');
+}
+
+async function adminLogout() {
+    return tripApi('/api/admin/logout', { method: 'POST' });
+}
+
+async function userLogin(username, pin) {
+    return tripApi('/api/user/login', { method: 'POST', body: { username, pin } });
+}
+
+async function userMe() {
+    return tripApi('/api/user/me');
+}
+
+async function userLogout() {
+    return tripApi('/api/user/logout', { method: 'POST' });
+}
+
+async function publicDetails(username, tc) {
+    const u = encodeURIComponent(username);
+    const c = encodeURIComponent(tc);
+    return tripApi(`/api/public/details?u=${u}&tc=${c}`);
+}
+
+async function publicBookings() {
+    return tripApi('/api/public/bookings');
+}
 
 async function saveUserToDB(username, userData) {
+    try {
+        await tripApi(`/api/admin/users/${encodeURIComponent(username)}`, { method: 'PUT', body: { userData } });
+        return;
+    } catch (e) {
+        if (e && (e.status === 401 || e.status === 403)) {
+            saveToLocal(username, userData);
+            return;
+        }
+    }
+
     if (databases && DB_ID !== 'YOUR_DB_ID') {
         try {
             // First check if user exists
@@ -53,6 +115,14 @@ async function saveUserToDB(username, userData) {
 }
 
 async function loadAllUsersFromDB() {
+    try {
+        const adminOk = await adminMe().catch(() => ({ ok: false }));
+        if (adminOk && adminOk.ok) {
+            const out = await tripApi('/api/admin/users');
+            return out && out.users ? { users: out.users } : { users: {} };
+        }
+    } catch {}
+
     if (databases && DB_ID !== 'YOUR_DB_ID') {
         try {
             const result = await databases.listDocuments(DB_ID, COL_USERS);
@@ -68,6 +138,23 @@ async function loadAllUsersFromDB() {
     } else {
         return loadFromLocal();
     }
+}
+
+async function loadActiveUserFromDB() {
+    try {
+        const out = await userMe();
+        if (out && out.username && out.userData) {
+            return { username: out.username, userData: out.userData };
+        }
+    } catch {}
+
+    const sessionUser = sessionStorage.getItem('active_session');
+    const local = loadFromLocal();
+    const user = sessionUser && local.users ? local.users[sessionUser] : null;
+    if (!user) return null;
+    const safe = { ...user };
+    delete safe.pin;
+    return { username: sessionUser, userData: safe };
 }
 
 // LocalStorage Fallbacks (what we're currently using)

@@ -37,6 +37,7 @@
         </a>
         <div class="trip-nav-right">
             <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Admin Command Center</div>
+            <span id="adminSessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">ADMIN</span>
             <button class="nav-signout" id="adminSignOutBtn" type="button">Exit Admin</button>
         </div>
     </nav>
@@ -57,6 +58,7 @@
                 <button type="button" data-target="secFinancial">Financial Control</button>
                 <button type="button" data-target="secLogistics">Logistics Sync</button>
                 <button type="button" data-target="secRegistry">User Registry</button>
+                <button type="button" data-target="secSettings">Settings</button>
             </div>
         </aside>
 
@@ -224,8 +226,14 @@
                             <div>
                                 <div class="ticket-k" style="margin-bottom:8px;">Status</div>
                                 <select id="exStatus">
+                                    <option value="ON-HOLD">ON-HOLD</option>
                                     <option value="PENDING">PENDING</option>
+                                    <option value="VERIFYING">VERIFYING</option>
+                                    <option value="VERIFIED">VERIFIED</option>
                                     <option value="CONFIRMED">CONFIRMED</option>
+                                    <option value="SUSPENDED">SUSPENDED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="DECLINED">DECLINED</option>
                                     <option value="CANCELLED">CANCELLED</option>
                                 </select>
                             </div>
@@ -342,6 +350,24 @@
                     </table>
                 </div>
             </section>
+
+            <section id="secSettings" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Settings</h2>
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px;">Appwrite Schema</div>
+                        <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Server Action</div>
+                    </div>
+                    <div style="margin-top:12px; color:var(--text-dim); font-weight:700; line-height:1.35;">
+                        Ensures Database/Collection/Attributes exist and locks collection permissions for private mode.
+                    </div>
+                    <div class="two-col" style="margin-top:14px;">
+                        <button class="btn-primary" type="button" id="btnEnsureSchema">Ensure Schema Now</button>
+                        <button class="btn-secondary" type="button" id="btnSchemaStatus">Check Status</button>
+                    </div>
+                    <div id="schemaMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+                </div>
+            </section>
         </main>
     </div>
     </div> <!-- End adminAppContent -->
@@ -410,14 +436,17 @@
             return u;
         }
 
-        function requireAdminSession() {
-            const existing = sessionStorage.getItem('admin_session');
-            if (existing) {
-                document.getElementById('adminAuthOverlay').style.display = 'none';
-                document.getElementById('adminAppContent').style.display = 'block';
-                requestAnimationFrame(() => { document.body.style.opacity = '1'; });
-                return true;
-            }
+        async function requireAdminSession() {
+            try {
+                const out = await adminMe();
+                if (out && out.ok) {
+                    document.getElementById('adminAuthOverlay').style.display = 'none';
+                    document.getElementById('adminAppContent').style.display = 'block';
+                    requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+                    return true;
+                }
+            } catch {}
+
             requestAnimationFrame(() => { document.body.style.opacity = '1'; });
             return false;
         }
@@ -659,6 +688,12 @@
                 const user = ensureUserShape(db.users[username]);
                 const n = String(user.passengerName || '').toLowerCase();
                 if (n.includes('clare bland')) continue;
+                const currentStatus = String(user.manifest && user.manifest.status ? user.manifest.status : '').toUpperCase();
+                const locked = ['VERIFIED', 'CONFIRMED', 'SUSPENDED', 'REJECTED', 'DECLINED', 'CANCELLED'];
+                if (locked.includes(currentStatus)) {
+                    await saveUserToDB(username, user);
+                    continue;
+                }
                 const vf = user.verification || { stageIndex: 1, final: '', updatedAt: null };
                 if (vf.final) {
                     user.manifest.status = vf.final;
@@ -692,24 +727,46 @@
 
         let onUserChange = () => {};
 
-        document.addEventListener('DOMContentLoaded', () => {
-            if (!requireAdminSession()) {
+        document.addEventListener('DOMContentLoaded', async () => {
+            const ok = await requireAdminSession();
+            const adminSessionPill = document.getElementById('adminSessionPill');
+            const setAdminPill = (label, type) => {
+                if (!adminSessionPill) return;
+                adminSessionPill.textContent = label;
+                let color = 'var(--warning)';
+                let bg = 'rgba(245,158,11,0.10)';
+                if (type === 'ok') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+                if (type === 'bad') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+                adminSessionPill.style.color = color;
+                adminSessionPill.style.borderColor = color;
+                adminSessionPill.style.background = bg;
+            };
+            setAdminPill(ok ? 'SERVER ACTIVE' : 'EXPIRED', ok ? 'ok' : 'bad');
+            if (!ok) {
                 document.getElementById('btnAdminLogin').addEventListener('click', async () => {
                     const pass = document.getElementById('adminPassInput').value;
-                    if (pass === 'HYBE2026' || pass === 'TRIP2026') {
-                        sessionStorage.setItem('admin_session', '1');
-                        document.getElementById('adminAuthOverlay').style.display = 'none';
-                        document.getElementById('adminAppContent').style.display = 'block';
-                        await refreshUserSelects();
-                        await renderRegistry();
-                    } else {
-                        document.getElementById('adminLoginMsg').textContent = 'Invalid passcode.';
+                    document.getElementById('adminLoginMsg').textContent = '';
+                    try {
+                        const out = await adminLogin(pass);
+                        if (out && out.ok) {
+                            document.getElementById('adminAuthOverlay').style.display = 'none';
+                            document.getElementById('adminAppContent').style.display = 'block';
+                            setAdminPill('SERVER ACTIVE', 'ok');
+                            await refreshUserSelects();
+                            await renderRegistry();
+                            runAutoUserStatusUpdateIfDue();
+                            setInterval(runAutoUserStatusUpdateIfDue, 30 * 1000);
+                        } else {
+                            document.getElementById('adminLoginMsg').textContent = 'Invalid passcode.';
+                        }
+                    } catch {
+                        document.getElementById('adminLoginMsg').textContent = 'Admin access failed.';
                     }
                 });
             }
 
-            document.getElementById('adminSignOutBtn').addEventListener('click', () => {
-                sessionStorage.removeItem('admin_session');
+            document.getElementById('adminSignOutBtn').addEventListener('click', async () => {
+                try { await adminLogout(); } catch {}
                 window.location.reload();
             });
 
@@ -717,7 +774,7 @@
                 btn.addEventListener('click', () => setSection(btn.dataset.target));
             });
 
-            if (sessionStorage.getItem('admin_session')) {
+            if (ok) {
                 refreshUserSelects();
                 renderRegistry();
                 runAutoUserStatusUpdateIfDue();
@@ -905,6 +962,44 @@
                 await saveUserToDB(username, user);
                 await renderStepsEditor(username);
             });
+
+            const schemaMsg = document.getElementById('schemaMsg');
+            async function runSchemaEnsure() {
+                if (!schemaMsg) return;
+                schemaMsg.textContent = 'Running schema ensure...';
+                try {
+                    const res = await fetch('/api/admin/schema/ensure', { method: 'POST', credentials: 'include' });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        schemaMsg.textContent = (data && data.error) ? data.error : 'Schema ensure failed.';
+                        return;
+                    }
+                    schemaMsg.textContent = 'Schema ensured and locked.';
+                } catch {
+                    schemaMsg.textContent = 'Schema ensure failed.';
+                }
+            }
+
+            async function checkSchemaStatus() {
+                if (!schemaMsg) return;
+                schemaMsg.textContent = 'Checking status...';
+                try {
+                    const res = await fetch('/api/admin/schema/ensure', { method: 'GET', credentials: 'include' });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        schemaMsg.textContent = (data && data.error) ? data.error : 'Status check failed.';
+                        return;
+                    }
+                    schemaMsg.textContent = data && data.status ? data.status : 'Status OK.';
+                } catch {
+                    schemaMsg.textContent = 'Status check failed.';
+                }
+            }
+
+            const btnEnsureSchema = document.getElementById('btnEnsureSchema');
+            const btnSchemaStatus = document.getElementById('btnSchemaStatus');
+            if (btnEnsureSchema) btnEnsureSchema.addEventListener('click', runSchemaEnsure);
+            if (btnSchemaStatus) btnSchemaStatus.addEventListener('click', checkSchemaStatus);
 
             document.getElementById('btnLoadLogistics').addEventListener('click', () => renderStepsEditor(document.getElementById('logUser').value));
             document.getElementById('btnSaveLogistics').addEventListener('click', async () => {
