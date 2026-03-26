@@ -18,6 +18,10 @@
     --ticket-border: rgba(0, 0, 0, 0.12);
     --ticket-blue: #e11d48;
     --ticket-cream: #fff0f2;
+    --input-bg: #ffffff;
+    --input-border: rgba(0,0,0,0.14);
+    --input-placeholder: rgba(15,23,42,0.45);
+    --input-focus: rgba(225,29,72,0.55);
 }
 
 :root[data-theme="dark"] {
@@ -29,6 +33,10 @@
     --nav-bg: rgba(15, 23, 42, 0.78);
     --logo-bg: rgba(15, 23, 42, 0.85);
     --ticket-border: rgba(255,255,255,0.16);
+    --input-bg: rgba(2, 6, 23, 0.55);
+    --input-border: rgba(255,255,255,0.18);
+    --input-placeholder: rgba(226,232,240,0.55);
+    --input-focus: rgba(225,29,72,0.75);
 }
 :root { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
@@ -141,8 +149,13 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     font-weight: 800;
     cursor: pointer;
 }
-.theme-toggle { width: 42px; height: 42px; display: inline-grid; place-items: center; padding: 0; }
+.theme-toggle { width: 38px; height: 38px; display: inline-grid; place-items: center; padding: 0; border-radius: 12px; }
 .theme-toggle svg { width: 18px; height: 18px; }
+
+@media (max-width: 768px) {
+    .theme-toggle { width: 34px; height: 34px; border-radius: 10px; }
+    .theme-toggle svg { width: 16px; height: 16px; }
+}
 
 .container { max-width: 1100px; margin: 120px auto 60px; padding: 0 20px; }
 
@@ -545,4 +558,19 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
 
 /* Form Styles */
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 25px; padding: 25px; margin-bottom: 20px; }
-input, select { background: #ffffff; border: 1px solid var(--border); color: var(--text); padding: 14px; border-radius: 10px; width: 100%; margin-bottom: 15px; font-size: 0.9rem; }
+input, select, textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text);
+    padding: 14px;
+    border-radius: 10px;
+    width: 100%;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    outline: none;
+}
+input::placeholder, textarea::placeholder { color: var(--input-placeholder); }
+input:focus, select:focus, textarea:focus {
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 4px rgba(225,29,72,0.12);
+}

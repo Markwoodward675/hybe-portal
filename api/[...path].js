@@ -181,6 +181,18 @@ module.exports = async (req, res) => {
   const action = parts[1] || '';
 
   if (scope === 'admin') {
+    if (action === 'config') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+      const configured = Boolean(process.env.TRIP_ADMIN_PASSCODE);
+      const altConfigured = Boolean(process.env.TRIP_ADMIN_PASSCODE_ALT);
+      return send(res, 200, {
+        ok: true,
+        configured,
+        usingDefault: !configured,
+        altConfigured,
+      });
+    }
+
     if (action === 'login') {
       if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
       const body = await readJson(req).catch(() => ({}));
@@ -362,4 +374,3 @@ module.exports = async (req, res) => {
 
   return send(res, 404, { error: 'Not found' });
 };
-

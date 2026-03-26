@@ -10,7 +10,6 @@
 <body>
     <div class="login-shell">
         <div class="login-card">
-            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme" style="position:absolute; top:18px; right:18px;"></button>
             <div class="login-brand">
                 <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
                 <div>
@@ -54,7 +53,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            initThemeToggle();
             const db = await loadAllUsersFromDB();
 
             const form = document.getElementById('loginForm');

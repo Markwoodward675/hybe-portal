@@ -766,7 +766,10 @@
                             const hint = (e.payload && typeof e.payload.configured === 'boolean')
                                 ? (e.payload.configured ? '' : ' (passcode not set in Vercel env, using default)')
                                 : '';
-                            document.getElementById('adminLoginMsg').textContent = (payloadMsg || 'Invalid passcode.') + hint;
+                            const flags = (e.payload && typeof e.payload.configured === 'boolean')
+                                ? ` [configured:${e.payload.configured ? 'yes' : 'no'}]`
+                                : '';
+                            document.getElementById('adminLoginMsg').textContent = (payloadMsg || 'Invalid passcode.') + hint + flags;
                         } else if (e && e.payload && e.payload.hint) {
                             document.getElementById('adminLoginMsg').textContent = e.payload.hint;
                         } else {
