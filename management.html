@@ -744,7 +744,7 @@
             setAdminPill(ok ? 'SERVER ACTIVE' : 'EXPIRED', ok ? 'ok' : 'bad');
             if (!ok) {
                 document.getElementById('btnAdminLogin').addEventListener('click', async () => {
-                    const pass = document.getElementById('adminPassInput').value;
+                    const pass = document.getElementById('adminPassInput').value.trim();
                     document.getElementById('adminLoginMsg').textContent = '';
                     try {
                         const out = await adminLogin(pass);
