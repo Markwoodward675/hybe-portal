@@ -29,9 +29,20 @@ async function tripApi(path, options = {}) {
         credentials: 'include',
         body: options.body ? JSON.stringify(options.body) : undefined
     });
+    const contentType = (res.headers && res.headers.get) ? (res.headers.get('content-type') || '') : '';
     const text = await res.text();
     let json = null;
     try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+    if (!String(contentType).toLowerCase().includes('application/json')) {
+        const err = new Error(`Non-JSON response for ${path}`);
+        err.status = res.status;
+        err.payload = {
+            error: 'Non-JSON response from server',
+            hint: 'This usually means the deployment is protected (Vercel Authentication / Password Protection) or the API route is not being served by your functions.',
+            contentType: contentType || '(none)',
+        };
+        throw err;
+    }
     if (!res.ok) {
         const err = new Error(`API ${res.status} ${path}`);
         err.status = res.status;

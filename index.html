@@ -81,8 +81,9 @@
                     }, 850);
                     return;
                 } catch (e) {
-                    const hint = e && e.status ? ` (server ${e.status})` : '';
-                    msg.textContent = `Server login unavailable${hint}. Falling back to local.`;
+                    const hint = (e && e.payload && e.payload.hint) ? ` ${e.payload.hint}` : '';
+                    const code = e && e.status ? ` (server ${e.status})` : '';
+                    msg.textContent = `Server login unavailable${code}.${hint} Falling back to local.`;
                 }
 
                 const currentDb = loadFromLocal();

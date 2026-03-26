@@ -766,6 +766,8 @@
                                 ? (e.payload.configured ? '' : ' (passcode not set in Vercel env, using default)')
                                 : '';
                             document.getElementById('adminLoginMsg').textContent = (payloadMsg || 'Invalid passcode.') + hint;
+                        } else if (e && e.payload && e.payload.hint) {
+                            document.getElementById('adminLoginMsg').textContent = e.payload.hint;
                         } else {
                             document.getElementById('adminLoginMsg').textContent = 'Admin access failed.';
                         }
