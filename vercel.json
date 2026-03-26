@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "routes": [
+    { "src": "^/api/admin/(.*)$", "dest": "/api/admin/[...path].js" },
+    { "src": "^/api/user/(.*)$", "dest": "/api/user/[...path].js" },
+    { "src": "^/api/public/(.*)$", "dest": "/api/public/[...path].js" },
+    { "handle": "filesystem" }
+  ],
   "builds": [
     {
       "src": "api/admin/[...path].js",

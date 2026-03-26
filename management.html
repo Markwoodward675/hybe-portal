@@ -819,9 +819,13 @@
                     logistics: makeDefaultLogistics()
                 });
                 
-                await saveUserToDB(username, newUser);
+                const saveRes = await saveUserToDB(username, newUser);
+                if (saveRes && saveRes.savedTo === 'local') {
+                    msg.textContent = `User provisioned locally only (admin session expired). Re-login Admin, then create user again: ${username}`;
+                    return;
+                }
 
-                msg.textContent = `User provisioned: ${username}`;
+                msg.textContent = `User provisioned in cloud: ${username}`;
                 await refreshUserSelects();
                 await renderRegistry();
             });

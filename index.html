@@ -80,7 +80,10 @@
                         window.location.href = 'flight.html';
                     }, 850);
                     return;
-                } catch {}
+                } catch (e) {
+                    const hint = e && e.status ? ` (server ${e.status})` : '';
+                    msg.textContent = `Server login unavailable${hint}. Falling back to local.`;
+                }
 
                 const currentDb = loadFromLocal();
                 const userKey = Object.keys(currentDb.users).find(k => k.toLowerCase() === username.toLowerCase());

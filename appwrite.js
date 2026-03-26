@@ -78,11 +78,11 @@ async function publicBookings() {
 async function saveUserToDB(username, userData) {
     try {
         await tripApi(`/api/admin/users/${encodeURIComponent(username)}`, { method: 'PUT', body: { userData } });
-        return;
+        return { savedTo: 'server' };
     } catch (e) {
         if (e && (e.status === 401 || e.status === 403)) {
             saveToLocal(username, userData);
-            return;
+            return { savedTo: 'local', reason: 'admin_unauthorized' };
         }
     }
 
@@ -105,12 +105,15 @@ async function saveUserToDB(username, userData) {
                     data: JSON.stringify(userData)
                 });
             }
+            return { savedTo: 'appwrite_web' };
         } catch (e) {
             console.error("Appwrite save failed, falling back to local:", e);
             saveToLocal(username, userData);
+            return { savedTo: 'local', reason: 'appwrite_failed' };
         }
     } else {
         saveToLocal(username, userData);
+        return { savedTo: 'local', reason: 'no_appwrite' };
     }
 }
 
