@@ -16,15 +16,15 @@
                 <h1>TRIP Admin Gateway</h1>
             </div>
             <p class="login-sub">Enter the master passcode to access the Closed-Loop Command Center.</p>
-            <div class="login-row">
+            <form id="adminLoginForm" class="login-row">
                 <div>
                     <div class="ticket-k" style="margin-bottom:8px;">Admin Passcode</div>
                     <input id="adminPassInput" type="password" placeholder="••••••••" autocomplete="current-password">
                 </div>
-            </div>
-            <div class="login-actions">
-                <button id="btnAdminLogin" class="btn-primary" type="button">Access Command Center</button>
-            </div>
+                <div class="login-actions">
+                    <button id="btnAdminLogin" class="btn-primary" type="submit">Access Command Center</button>
+                </div>
+            </form>
             <div id="adminLoginMsg" class="login-msg" style="margin-top:12px; color:var(--danger); text-align:center;"></div>
         </div>
     </div>
@@ -743,7 +743,8 @@
             };
             setAdminPill(ok ? 'SERVER ACTIVE' : 'EXPIRED', ok ? 'ok' : 'bad');
             if (!ok) {
-                document.getElementById('btnAdminLogin').addEventListener('click', async () => {
+                document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
                     const pass = document.getElementById('adminPassInput').value.trim();
                     document.getElementById('adminLoginMsg').textContent = '';
                     try {
