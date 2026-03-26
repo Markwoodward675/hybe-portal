@@ -2,7 +2,15 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/**/*.js",
+      "src": "api/admin/[...path].js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/user/[...path].js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/public/[...path].js",
       "use": "@vercel/node"
     },
     {
