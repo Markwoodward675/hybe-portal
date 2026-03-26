@@ -119,8 +119,9 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
     const body = await readJson(req).catch(() => ({}));
     const passcode = String(body.passcode || '');
-    const expected = process.env.TRIP_ADMIN_PASSCODE || 'HYBE2026';
-    if (passcode !== expected) return send(res, 401, { ok: false });
+    const primary = String(process.env.TRIP_ADMIN_PASSCODE || 'HYBE2026');
+    const alt = String(process.env.TRIP_ADMIN_PASSCODE_ALT || 'TRIP2026');
+    if (passcode !== primary && passcode !== alt) return send(res, 401, { ok: false, error: 'Invalid passcode' });
     const token = createToken({ typ: 'admin', exp: Date.now() + 8 * 60 * 60 * 1000 });
     res.setHeader('set-cookie', cookieString('trip_admin', token, { maxAgeSeconds: 8 * 60 * 60, secure: isHttps(req) }));
     return send(res, 200, { ok: true });
@@ -212,4 +213,3 @@ module.exports = async (req, res) => {
 
   return send(res, 404, { error: 'Not found' });
 };
-

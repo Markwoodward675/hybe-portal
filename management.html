@@ -759,8 +759,12 @@
                         } else {
                             document.getElementById('adminLoginMsg').textContent = 'Invalid passcode.';
                         }
-                    } catch {
-                        document.getElementById('adminLoginMsg').textContent = 'Admin access failed.';
+                    } catch (e) {
+                        if (e && e.status === 401) {
+                            document.getElementById('adminLoginMsg').textContent = 'Invalid passcode.';
+                        } else {
+                            document.getElementById('adminLoginMsg').textContent = 'Admin access failed.';
+                        }
                     }
                 });
             }
