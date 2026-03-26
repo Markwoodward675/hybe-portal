@@ -43,6 +43,7 @@
         </a>
         <div class="trip-nav-right">
             <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
             <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
             <div class="trip-links" id="navMenu">
                 <a href="flight.html" class="active">Status</a>
@@ -166,6 +167,7 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!access) return;
+            initThemeToggle();
 
             const toggle = document.getElementById('navToggle');
             const menu = document.getElementById('navMenu');

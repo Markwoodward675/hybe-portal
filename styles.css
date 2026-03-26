@@ -7,6 +7,8 @@
     --text: #0f172a;
     --text-dim: #475569;
     --border: rgba(0,0,0,0.1);
+    --nav-bg: rgba(255,255,255,0.9);
+    --logo-bg: #f1f5f9;
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
@@ -17,6 +19,19 @@
     --ticket-blue: #e11d48;
     --ticket-cream: #fff0f2;
 }
+
+:root[data-theme="dark"] {
+    --bg: #0b1220;
+    --card: rgba(15, 23, 42, 0.78);
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --border: rgba(255,255,255,0.14);
+    --nav-bg: rgba(15, 23, 42, 0.78);
+    --logo-bg: rgba(15, 23, 42, 0.85);
+    --ticket-border: rgba(255,255,255,0.16);
+}
+:root { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 * { box-sizing: border-box; transition: all 0.3s ease; }
 body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
@@ -65,7 +80,7 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     justify-content: space-between;
     align-items: center;
     padding: 1rem 5%;
-    background: rgba(255,255,255,0.9);
+    background: var(--nav-bg);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
     position: fixed;
@@ -89,7 +104,7 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     border-radius: 10px;
     border: 1px solid var(--border);
     object-fit: cover;
-    background: #f1f5f9;
+    background: var(--logo-bg);
 }
 .trip-nav-right { display: flex; align-items: center; gap: 12px; }
 .nav-toggle {
@@ -126,6 +141,8 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     font-weight: 800;
     cursor: pointer;
 }
+.theme-toggle { width: 42px; height: 42px; display: inline-grid; place-items: center; padding: 0; }
+.theme-toggle svg { width: 18px; height: 18px; }
 
 .container { max-width: 1100px; margin: 120px auto 60px; padding: 0 20px; }
 
@@ -164,6 +181,7 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     border: 1px solid var(--border);
     border-radius: 26px;
     padding: 30px;
+    position: relative;
     box-shadow: 0 40px 120px rgba(0,0,0,0.1);
     backdrop-filter: blur(18px);
 }
