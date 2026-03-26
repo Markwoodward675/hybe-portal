@@ -7,22 +7,24 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body style="opacity:0;">
+<body class="page-elegant" style="opacity:0;">
     <script>
-        function checkTRIPAuth() {
-            const username = sessionStorage.getItem('active_session');
-            if (!username) {
+        function getAccessContext() {
+            const params = new URLSearchParams(window.location.search);
+            const view = (params.get('view') || '').trim();
+            const u = (params.get('u') || '').trim();
+            const tc = (params.get('tc') || '').trim();
+
+            if (view === 'details' && u) {
+                return { mode: 'public', username: u, tc };
+            }
+
+            const sessionUser = sessionStorage.getItem('active_session');
+            if (!sessionUser) {
                 window.location.replace('index.html');
                 return null;
             }
-            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
-            return username;
-        }
-
-        function readTRIPDB() {
-            const raw = localStorage.getItem('trip_users_db');
-            if (!raw) return { users: {} };
-            try { return JSON.parse(raw) || { users: {} }; } catch { return { users: {} }; }
+            return { mode: 'private', username: sessionUser };
         }
 
         function signOut() {
@@ -30,7 +32,7 @@
             window.location.href = 'index.html';
         }
 
-        const activeUser = checkTRIPAuth();
+        const access = getAccessContext();
     </script>
 
     <nav class="trip-nav">
@@ -45,13 +47,14 @@
                 <a href="passengers.html">Personnel</a>
                 <a href="tracking.html">Logistics</a>
                 <a href="ledger.html">Ledger</a>
+                <a href="bookings.html">Bookings</a>
                 <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
             </div>
         </div>
     </nav>
 
     <div class="container" style="max-width: 980px;">
-        <div class="ticket-8k">
+        <div class="ticket-8k ticket-surface">
             <div class="ticket-8k__main">
                 <div class="ticket-8k__top">
                     <div>
@@ -67,7 +70,7 @@
                 <div class="ticket-8k__route">
                     <div class="route-side">
                         <div class="route-label">Departure</div>
-                        <div class="route-code" id="codeDep">LHR</div>
+                        <div class="route-code dep" id="codeDep">LHR</div>
                     </div>
                     <div class="route-mid">
                         <div class="route-icons">
@@ -81,7 +84,7 @@
                     </div>
                     <div class="route-side" style="text-align:right;">
                         <div class="route-label">Arrival</div>
-                        <div class="route-code" id="codeArr">ICN</div>
+                        <div class="route-code arr" id="codeArr">ICN</div>
                     </div>
                 </div>
 
@@ -119,16 +122,26 @@
                 </div>
                 <div class="stub-meta">
                     <div>
-                        <div class="ticket-k">Ticket URL</div>
-                        <div class="stub-note" id="ticketUrl">—</div>
+                        <div class="ticket-k">One‑Time Tracking Code</div>
+                        <div class="stub-id" id="trackingCode">—</div>
                     </div>
                     <div>
                         <div class="ticket-k">Session ID</div>
                         <div class="stub-id" id="stubId">—</div>
                     </div>
-                    <div class="stub-note">Scan to open this user-specific ticket URL. Access still requires an active TRIP session.</div>
+                    <div class="stub-note" id="qrNote">Scan to open the user details page.</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="container" id="detailsView" style="max-width: 980px; display:none;">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:14px;">
+                <div style="font-weight:900; letter-spacing:-0.6px; font-size:1.25rem;">Passenger Details</div>
+                <div style="color:var(--text-dim); font-weight:800;" id="detailsMode">—</div>
+            </div>
+            <div id="detailsGrid" class="admin-row"></div>
         </div>
     </div>
 
@@ -140,15 +153,17 @@
             b.textContent = status;
             let color = 'var(--warning)';
             let bg = 'rgba(245,158,11,0.10)';
+            if (status === 'VERIFYING') { color = 'var(--accent)'; bg = 'rgba(225,29,72,0.10)'; }
+            if (status === 'VERIFIED') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
             if (status === 'CONFIRMED') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
-            if (status === 'CANCELLED') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+            if (status === 'SUSPENDED' || status === 'REJECTED' || status === 'DECLINED' || status === 'CANCELLED') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
             b.style.color = color;
             b.style.borderColor = color;
             b.style.background = bg;
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            if (!activeUser) return;
+            if (!access) return;
 
             const toggle = document.getElementById('navToggle');
             const menu = document.getElementById('navMenu');
@@ -157,16 +172,19 @@
                 menu.classList.toggle('open', next);
                 toggle.setAttribute('aria-expanded', String(next));
             });
-            document.getElementById('signOutBtn').addEventListener('click', signOut);
+            const signOutBtn = document.getElementById('signOutBtn');
+            signOutBtn.addEventListener('click', signOut);
 
             const db = await loadAllUsersFromDB();
-            const user = db.users && db.users[activeUser] ? db.users[activeUser] : null;
+            const user = db.users && db.users[access.username] ? db.users[access.username] : null;
             if (!user) {
-                signOut();
+                if (access.mode === 'private') signOut();
                 return;
             }
 
-            const passengerName = user.passengerName || activeUser;
+            if (!user.share) user.share = {};
+            if (!user.profile) user.profile = {};
+            const passengerName = user.passengerName || access.username;
             const m = user.manifest || {};
             const from = m.from || 'LHR';
             const to = m.to || 'ICN';
@@ -175,7 +193,7 @@
             const status = m.status || 'PENDING';
 
             document.getElementById('dispName').textContent = passengerName;
-            document.getElementById('dispUser').textContent = activeUser;
+            document.getElementById('dispUser').textContent = access.username;
             document.getElementById('codeDep').textContent = from;
             document.getElementById('codeArr').textContent = to;
             document.getElementById('routeTxt').textContent = route;
@@ -185,13 +203,117 @@
             document.getElementById('dispTag').textContent = `Verified Passenger • ${flightClass}`;
             setStatusBadge(status);
 
-            const base = window.location.href.split('#')[0].split('?')[0];
-            const ticketUrl = `${base}?u=${encodeURIComponent(activeUser)}`;
-            document.getElementById('ticketUrl').textContent = ticketUrl;
-            document.getElementById('stubId').textContent = activeUser;
+            const oneTime = user.share.oneTimeTracking || {};
+            document.getElementById('trackingCode').textContent = oneTime.code ? oneTime.code : 'AWAITING ADMIN';
+            document.getElementById('stubId').textContent = access.username;
 
-            const qr = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(ticketUrl)}`;
+            const base = window.location.href.split('#')[0].split('?')[0];
+            const detailsUrl = oneTime.code
+                ? `${base}?view=details&u=${encodeURIComponent(access.username)}&tc=${encodeURIComponent(oneTime.code)}`
+                : `${base}?view=details&u=${encodeURIComponent(access.username)}`;
+            const qr = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(detailsUrl)}`;
             document.getElementById('qrImg').src = qr;
+
+            const detailsView = document.getElementById('detailsView');
+            const detailsMode = document.getElementById('detailsMode');
+            const detailsGrid = document.getElementById('detailsGrid');
+            detailsGrid.innerHTML = '';
+
+            const canShowPublic = access.mode === 'public';
+            if (canShowPublic) {
+                const tc = access.tc || '';
+                const codeOk = oneTime.code && tc && oneTime.code === tc && !oneTime.usedAt;
+                if (!codeOk) {
+                    detailsView.style.display = 'block';
+                    detailsMode.textContent = 'Invalid / Used Code';
+                    detailsGrid.innerHTML = `<div style="color:var(--danger); font-weight:900;">Tracking code invalid or already used.</div>`;
+                    menu.style.display = 'none';
+                    toggle.style.display = 'none';
+                    requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+                    return;
+                }
+
+                oneTime.usedAt = new Date().toISOString();
+                user.share.oneTimeTracking = oneTime;
+                await saveUserToDB(access.username, user);
+                detailsMode.textContent = 'Details View';
+                detailsView.style.display = 'block';
+                menu.style.display = 'none';
+                toggle.style.display = 'none';
+            } else {
+                detailsMode.textContent = 'Private Session';
+            }
+
+            const p = user.profile || {};
+            const gw = (p && typeof p.gateway === 'object' && p.gateway) ? p.gateway : {};
+            const extras = Array.isArray(p.additionalPassengers) ? p.additionalPassengers : [];
+            const ledger = user.ledger || {};
+            const steps = (user.logistics && Array.isArray(user.logistics.steps)) ? user.logistics.steps : [];
+            const currentStep = (user.logistics && user.logistics.currentStep) ? user.logistics.currentStep : 0;
+
+            detailsGrid.innerHTML = `
+                <div class="card" style="margin:0;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Identity</div>
+                    <div style="display:grid; gap:10px;">
+                        <div><span class="ticket-k">Passenger</span><div style="font-weight:900; font-size:1.2rem; margin-top:4px;">${passengerName}</div></div>
+                        <div><span class="ticket-k">Username</span><div style="font-weight:900; margin-top:4px;">${access.username}</div></div>
+                        <div><span class="ticket-k">Category</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.category || '—'}</div></div>
+                        <div><span class="ticket-k">Purpose</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.purpose || '—'}</div></div>
+                        <div><span class="ticket-k">Nationality</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.nationality || '—'}</div></div>
+                        <div><span class="ticket-k">Passport</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.passport || '—'}</div></div>
+                        <div><span class="ticket-k">Notes</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.notes || '—'}</div></div>
+                    </div>
+                </div>
+                <div class="card" style="margin:0;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Flight</div>
+                    <div style="display:grid; gap:10px;">
+                        <div><span class="ticket-k">Route</span><div style="font-weight:900; margin-top:4px;">${route}</div></div>
+                        <div><span class="ticket-k">Gate / Seat</span><div style="font-weight:900; margin-top:4px;">${m.gate || '--'} / ${m.seat || '--'}</div></div>
+                        <div><span class="ticket-k">Class</span><div style="font-weight:900; margin-top:4px;">${String(flightClass).toUpperCase()}</div></div>
+                        <div><span class="ticket-k">Status</span><div style="font-weight:900; margin-top:4px;">${status}</div></div>
+                        <div><span class="ticket-k">Ledger</span><div style="font-weight:900; margin-top:4px;">£${ledger.balance || '0.00'}</div></div>
+                    </div>
+                </div>
+                <div class="card" style="margin:0;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Gateway</div>
+                    <div style="display:grid; gap:10px;">
+                        <div><span class="ticket-k">Terminal</span><div style="font-weight:900; margin-top:4px;">${gw.terminal || '—'}</div></div>
+                        <div><span class="ticket-k">Check‑in</span><div style="font-weight:900; margin-top:4px;">${gw.checkin || '—'}</div></div>
+                        <div><span class="ticket-k">Baggage</span><div style="font-weight:900; margin-top:4px;">${gw.baggage || '—'}</div></div>
+                        <div><span class="ticket-k">Assistance</span><div style="font-weight:900; margin-top:4px;">${gw.assistance || '—'}</div></div>
+                    </div>
+                </div>
+                <div class="card" style="margin:0; grid-column: 1 / -1;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Logistics Summary</div>
+                    <div style="display:grid; gap:10px;">
+                        <div style="color:var(--text-dim); font-weight:800;">Current Step: ${currentStep || '—'}</div>
+                        <div style="display:grid; gap:8px;">
+                            ${steps.map((s, idx) => `<div style="display:flex; justify-content:space-between; gap:12px; font-weight:800; color:${(idx+1)===currentStep ? 'var(--accent)' : 'var(--text-dim)'};">
+                                <div>Step ${idx+1}: ${s.title || '—'}</div>
+                                <div>${s.date || '—'}</div>
+                            </div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="margin:0; grid-column: 1 / -1;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Additional Passengers</div>
+                    <div style="display:grid; gap:10px;">
+                        ${extras.length === 0 ? `<div style="color:var(--text-dim); font-weight:800;">None assigned.</div>` : extras.map((x) => `
+                            <div style="display:flex; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:14px; padding:12px;">
+                                <div style="min-width:0;">
+                                    <div style="font-weight:900; letter-spacing:-0.4px;">${x.name || '—'}</div>
+                                    <div style="color:var(--text-dim); font-weight:800; margin-top:6px;">${x.role || 'Passenger'} • ${(x.flightClass || '—').toUpperCase()}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <span class="badge-pill" style="color:${(x.status === 'CONFIRMED') ? 'var(--success)' : (x.status === 'CANCELLED' ? 'var(--danger)' : 'var(--warning)')}; border-color:${(x.status === 'CONFIRMED') ? 'var(--success)' : (x.status === 'CANCELLED' ? 'var(--danger)' : 'var(--warning)')};">${x.status || 'PENDING'}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
         });
     </script>
 </body>

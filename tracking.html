@@ -7,7 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body style="opacity:0;">
+<body class="page-elegant" style="opacity:0;">
     <script>
         function checkTRIPAuth() {
             const username = sessionStorage.getItem('active_session');
@@ -17,12 +17,6 @@
             }
             requestAnimationFrame(() => { document.body.style.opacity = '1'; });
             return username;
-        }
-
-        function readTRIPDB() {
-            const raw = localStorage.getItem('trip_users_db');
-            if (!raw) return { users: {} };
-            try { return JSON.parse(raw) || { users: {} }; } catch { return { users: {} }; }
         }
 
         function signOut() {
@@ -45,21 +39,55 @@
                 <a href="passengers.html">Personnel</a>
                 <a href="tracking.html" class="active">Logistics</a>
                 <a href="ledger.html">Ledger</a>
+                <a href="bookings.html">Bookings</a>
                 <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
             </div>
         </div>
     </nav>
 
     <div class="container" style="max-width: 980px;">
-        <h2 style="letter-spacing:-1px; margin-bottom: 14px;">5-Step Movement Tracker</h2>
-        <div style="color:var(--text-dim); font-weight:700; margin-bottom: 18px;">Logistics are scoped to the active TRIP session.</div>
+        <h2 style="letter-spacing:-1px; margin-bottom: 14px;">Movement Tracker</h2>
+        <div style="color:var(--text-dim); font-weight:700; margin-bottom: 18px;">Active, passed, and future logistics steps are scoped to the active TRIP session.</div>
+
+        <div class="admin-row">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px;">
+                    <div style="font-weight:900; letter-spacing:-0.6px;">Active Step</div>
+                    <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Live</div>
+                </div>
+                <div class="track-line" id="activeBox"></div>
+            </div>
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px;">
+                    <div style="font-weight:900; letter-spacing:-0.6px;">Passed Steps</div>
+                    <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">History</div>
+                </div>
+                <div class="track-line" id="passedBox"></div>
+            </div>
+        </div>
+
         <div class="card">
-            <div class="track-line" id="trackBox"></div>
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px;">
+                <div style="font-weight:900; letter-spacing:-0.6px;">Future Steps</div>
+                <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Upcoming</div>
+            </div>
+            <div class="track-line" id="futureBox"></div>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
     <script src="appwrite.js"></script>
     <script>
+        function renderStepCard(stepIdx, current, s) {
+            return `<div class="step ${stepIdx === current ? 'active' : ''} ${stepIdx > current ? 'future' : ''}">
+                <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline;">
+                    <div style="font-size:0.65rem; color:var(--accent); font-weight:900; letter-spacing:1px; text-transform:uppercase;">Step ${stepIdx}</div>
+                    <div style="font-size:0.75rem; color:var(--text-dim); font-weight:800;">${s.date || '—'}</div>
+                </div>
+                <div style="font-weight:900; font-size:1.05rem; letter-spacing:-0.4px; margin-top:8px;">${s.title || '—'}</div>
+                <div style="font-size:0.85rem; color:var(--text-dim); font-weight:700; margin-top:4px;">${s.location || '—'}</div>
+            </div>`;
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             if (!activeUser) return;
 
@@ -91,21 +119,30 @@
                     { title: "Arrival (ICN)", location: "Incheon, KR", date: "Scheduled" }
                 ];
 
-            const box = document.getElementById('trackBox'); box.innerHTML = '';
+            const activeBox = document.getElementById('activeBox');
+            const passedBox = document.getElementById('passedBox');
+            const futureBox = document.getElementById('futureBox');
+            activeBox.innerHTML = '';
+            passedBox.innerHTML = '';
+            futureBox.innerHTML = '';
+
             steps.forEach((s, i) => {
                 const stepIdx = i + 1;
-                box.innerHTML += `<div class="step ${stepIdx === current ? 'active' : ''} ${stepIdx > current ? 'future' : ''}">
-                    <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline;">
-                        <div style="font-size:0.65rem; color:var(--accent); font-weight:900; letter-spacing:1px; text-transform:uppercase;">Step ${stepIdx}</div>
-                        <div style="font-size:0.75rem; color:var(--text-dim); font-weight:800;">${s.date || '—'}</div>
-                    </div>
-                    <div style="font-weight:900; font-size:1.05rem; letter-spacing:-0.4px; margin-top:8px;">${s.title || '—'}</div>
-                    <div style="font-size:0.85rem; color:var(--text-dim); font-weight:700; margin-top:4px;">${s.location || '—'}</div>
-                </div>`;
+                if (stepIdx < current) passedBox.innerHTML += renderStepCard(stepIdx, current, s);
+                if (stepIdx === current) activeBox.innerHTML += renderStepCard(stepIdx, current, s);
+                if (stepIdx > current) futureBox.innerHTML += renderStepCard(stepIdx, current, s);
             });
-        }
 
-        document.addEventListener('DOMContentLoaded', render);
+            if (!activeBox.innerHTML) {
+                activeBox.innerHTML = `<div style="color:var(--text-dim); font-weight:800;">No active step set.</div>`;
+            }
+            if (!passedBox.innerHTML) {
+                passedBox.innerHTML = `<div style="color:var(--text-dim); font-weight:800;">No passed steps yet.</div>`;
+            }
+            if (!futureBox.innerHTML) {
+                futureBox.innerHTML = `<div style="color:var(--text-dim); font-weight:800;">No future steps queued.</div>`;
+            }
+        });
     </script>
 </body>
 </html>

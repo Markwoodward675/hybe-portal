@@ -21,6 +21,42 @@
 * { box-sizing: border-box; transition: all 0.3s ease; }
 body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
 
+.page-elegant {
+    background:
+        radial-gradient(900px 600px at 20% 20%, rgba(225, 29, 72, 0.10), transparent 60%),
+        radial-gradient(900px 600px at 80% 25%, rgba(225, 29, 72, 0.08), transparent 55%),
+        radial-gradient(900px 600px at 50% 90%, rgba(0, 0, 0, 0.04), transparent 55%),
+        var(--bg);
+}
+.page-elegant::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 12% 18%, rgba(0,0,0,0.06) 0 1px, transparent 2px),
+        radial-gradient(circle at 78% 22%, rgba(0,0,0,0.05) 0 1px, transparent 2px),
+        radial-gradient(circle at 55% 64%, rgba(0,0,0,0.05) 0 1px, transparent 2px),
+        radial-gradient(circle at 32% 82%, rgba(0,0,0,0.05) 0 1px, transparent 2px),
+        linear-gradient(135deg, rgba(0,0,0,0.02) 0%, transparent 35%, rgba(0,0,0,0.02) 70%, transparent 100%),
+        repeating-linear-gradient(0deg, rgba(0,0,0,0.025) 0 1px, transparent 1px 14px),
+        repeating-linear-gradient(90deg, rgba(0,0,0,0.018) 0 1px, transparent 1px 18px);
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+}
+.page-elegant::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 25% 30%, rgba(225,29,72,0.06) 0 2px, transparent 3px),
+        radial-gradient(circle at 70% 40%, rgba(225,29,72,0.05) 0 2px, transparent 3px),
+        radial-gradient(circle at 45% 70%, rgba(225,29,72,0.05) 0 2px, transparent 3px);
+    opacity: 0.35;
+    filter: blur(0.2px);
+}
+
 /* Navigation */
 .trip-nav {
     display: flex;
@@ -173,6 +209,36 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
         0 2px 0 rgba(255,255,255,0.06) inset;
     border: 1px solid rgba(255,255,255,0.06);
 }
+.ticket-surface {
+    position: relative;
+    background:
+        radial-gradient(1200px 420px at 30% 10%, rgba(225,29,72,0.06), transparent 55%),
+        radial-gradient(1200px 420px at 80% 30%, rgba(0,0,0,0.04), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,240,242,0.88));
+}
+.ticket-surface::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        repeating-linear-gradient(135deg, rgba(0,0,0,0.03) 0 1px, transparent 1px 14px),
+        radial-gradient(circle at 18% 22%, rgba(0,0,0,0.05) 0 1px, transparent 3px),
+        radial-gradient(circle at 72% 28%, rgba(0,0,0,0.04) 0 1px, transparent 3px),
+        radial-gradient(circle at 48% 78%, rgba(0,0,0,0.04) 0 1px, transparent 3px);
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+}
+.ticket-surface::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(600px 240px at 20% 80%, rgba(0,0,0,0.05), transparent 60%),
+        radial-gradient(600px 240px at 85% 20%, rgba(0,0,0,0.04), transparent 60%);
+    opacity: 0.35;
+}
 .ticket-8k__main {
     padding: 28px 28px 26px;
     position: relative;
@@ -209,6 +275,22 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
 }
 .route-side .route-label { font-size: 0.7rem; color: var(--ticket-dim); font-weight: 700; text-transform: uppercase; letter-spacing: 0.9px; }
 .route-side .route-code { font-size: 3.2rem; letter-spacing: -2px; font-weight: 900; line-height: 1; color: var(--ticket-ink); margin-top: 4px; }
+.route-side .route-code.dep {
+    text-shadow: 0 0 0 rgba(225,29,72,0), 0 0 20px rgba(225,29,72,0.08);
+    animation: depGlow 3.6s ease-in-out infinite;
+}
+.route-side .route-code.arr {
+    text-shadow: 0 0 0 rgba(0,0,0,0), 0 0 22px rgba(0,0,0,0.06);
+    animation: arrGlow 4.2s ease-in-out infinite;
+}
+@keyframes depGlow {
+    0%, 100% { transform: translateY(0); text-shadow: 0 0 0 rgba(225,29,72,0), 0 0 20px rgba(225,29,72,0.08); }
+    50% { transform: translateY(-1px); text-shadow: 0 0 0 rgba(225,29,72,0), 0 0 28px rgba(225,29,72,0.14); }
+}
+@keyframes arrGlow {
+    0%, 100% { transform: translateY(0); text-shadow: 0 0 0 rgba(0,0,0,0), 0 0 22px rgba(0,0,0,0.06); }
+    50% { transform: translateY(-1px); text-shadow: 0 0 0 rgba(0,0,0,0), 0 0 30px rgba(0,0,0,0.10); }
+}
 .route-mid { display: grid; gap: 12px; justify-items: center; }
 .route-line {
     width: 170px;
@@ -311,10 +393,26 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     background: rgba(0,0,0,0.03);
 }
 .step.active {
-    border-color: rgba(225, 29, 72, 0.55);
+    border-color: rgba(247, 65, 104, 0.774);
     background: rgba(225, 29, 72, 0.10);
 }
 .step.future { opacity: 0.65; }
+
+.booking-grid { display: grid; gap: 14px; }
+.booking-item {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr 0.6fr 0.6fr;
+    gap: 12px;
+    align-items: center;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: rgba(0,0,0,0.02);
+}
+.booking-item .bk-name { font-weight: 900; letter-spacing: -0.4px; }
+.booking-item .bk-meta { color: var(--text-dim); font-weight: 800; font-size: 0.85rem; }
+.booking-item .bk-price { font-weight: 900; text-align: right; }
+.booking-item .bk-status { text-align: right; }
 
 /* Mobile Adjustments */
 @media (max-width: 768px) {
@@ -349,6 +447,8 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     .admin-sidebar { position: relative; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
     .admin-main { padding-top: 34px; }
     .admin-row { grid-template-columns: 1fr; }
+    .booking-item { grid-template-columns: 1fr; }
+    .booking-item .bk-price, .booking-item .bk-status { text-align: left; }
 }
 
 /* Form Styles */

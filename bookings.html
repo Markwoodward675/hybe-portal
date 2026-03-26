@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Future Bookings</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <script>
+        function checkTRIPAuth() {
+            const username = sessionStorage.getItem('active_session');
+            if (!username) {
+                window.location.replace('index.html');
+                return null;
+            }
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            return username;
+        }
+
+        function signOut() {
+            sessionStorage.removeItem('active_session');
+            window.location.href = 'index.html';
+        }
+
+        const activeUser = checkTRIPAuth();
+    </script>
+
+    <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+            <span>TRIP Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="flight.html">Status</a>
+                <a href="passengers.html">Personnel</a>
+                <a href="tracking.html">Logistics</a>
+                <a href="ledger.html">Ledger</a>
+                <a href="bookings.html" class="active">Bookings</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <h2 style="letter-spacing:-1px; margin-bottom: 14px;">Future Booked Flights</h2>
+        <div id="subTxt" style="color:var(--text-dim); font-weight:700; margin-bottom: 18px;">Auto-refreshes every 10–15 minutes.</div>
+        <div class="card">
+            <div class="booking-grid" id="bookingsGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function pick(arr) {
+            return arr[randInt(0, arr.length - 1)];
+        }
+
+        function formatGBP(n) {
+            return `£${n.toFixed(2)}`;
+        }
+
+        function nextRefreshMillis() {
+            return randInt(10, 15) * 60 * 1000;
+        }
+
+        function loadBookingState() {
+            const raw = localStorage.getItem('trip_bookings_state');
+            if (!raw) return null;
+            try { return JSON.parse(raw); } catch { return null; }
+        }
+
+        function saveBookingState(state) {
+            localStorage.setItem('trip_bookings_state', JSON.stringify(state));
+        }
+
+        function buildBookings() {
+            const roster = [
+                { name: "Confidential Client 01", role: "Business Owner", cls: "Business" },
+                { name: "Confidential Client 02", role: "Private Investor", cls: "First" },
+                { name: "Confidential Family 03", role: "Family Vacation", cls: "Business" },
+                { name: "Confidential Couple 04", role: "Couple • Maternity", cls: "First" },
+                { name: "Confidential Client 05", role: "High Profile Client", cls: "VVIP" },
+                { name: "Confidential Client 06", role: "Diplomatic Liaison", cls: "First" }
+            ];
+            const routes = ["LHR-ICN", "CDG-ICN", "JFK-LHR", "DXB-ICN", "LAX-ICN", "FRA-LHR"];
+            const statuses = ["PENDING", "CONFIRMED", "HOLD", "SCHEDULED"];
+            const baseTime = Date.now() + randInt(6, 72) * 60 * 60 * 1000;
+
+            const items = Array.from({ length: 14 }).map((_, idx) => {
+                const r = pick(roster);
+                const route = pick(routes);
+                const dep = new Date(baseTime + idx * randInt(35, 95) * 60 * 1000);
+                const hrs = String(dep.getHours()).padStart(2, "0");
+                const mins = String(dep.getMinutes()).padStart(2, "0");
+                const price = randInt(1400, 18500) + Math.random();
+                const stat = pick(statuses);
+                return {
+                    id: `BK-${randInt(1000, 9999)}`,
+                    name: r.name,
+                    role: r.role,
+                    cls: r.cls,
+                    route,
+                    time: `${hrs}:${mins}`,
+                    date: dep.toLocaleDateString(),
+                    price,
+                    status: stat
+                };
+            });
+
+            const nextAt = Date.now() + nextRefreshMillis();
+            const state = { nextAt, items };
+            saveBookingState(state);
+            return state;
+        }
+
+        function statusBadge(stat) {
+            let color = 'var(--warning)';
+            if (stat === 'CONFIRMED') color = 'var(--success)';
+            if (stat === 'HOLD') color = 'var(--danger)';
+            return `<span class="badge-pill" style="color:${color}; border-color:${color};">${stat}</span>`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!activeUser) return;
+
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            let state = loadBookingState();
+            if (!state || !state.nextAt || Date.now() > state.nextAt) {
+                state = buildBookings();
+            }
+
+            const next = new Date(state.nextAt);
+            document.getElementById('subTxt').textContent = `Auto-refreshes every 10–15 minutes. Next update: ${next.toLocaleTimeString()}`;
+
+            const grid = document.getElementById('bookingsGrid');
+            grid.innerHTML = '';
+            state.items.forEach((b) => {
+                const el = document.createElement('div');
+                el.className = 'booking-item';
+                el.innerHTML = `
+                    <div>
+                        <div class="bk-name">${b.name}</div>
+                        <div class="bk-meta">${b.role} • ${b.cls.toUpperCase()}</div>
+                    </div>
+                    <div class="bk-meta">${b.route} • ${b.date} • ${b.time}</div>
+                    <div class="bk-price">${formatGBP(b.price)}</div>
+                    <div class="bk-status">${statusBadge(b.status)}</div>
+                `;
+                grid.appendChild(el);
+            });
+        });
+    </script>
+</body>
+</html>

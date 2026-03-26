@@ -97,8 +97,14 @@
                         <div>
                             <div class="ticket-k" style="margin-bottom:8px;">Status</div>
                             <select id="manStatus">
+                                <option value="ON-HOLD">ON-HOLD</option>
                                 <option value="PENDING">PENDING</option>
+                                <option value="VERIFYING">VERIFYING</option>
+                                <option value="VERIFIED">VERIFIED</option>
                                 <option value="CONFIRMED">CONFIRMED</option>
+                                <option value="SUSPENDED">SUSPENDED</option>
+                                <option value="REJECTED">REJECTED</option>
+                                <option value="DECLINED">DECLINED</option>
                                 <option value="CANCELLED">CANCELLED</option>
                             </select>
                         </div>
@@ -131,6 +137,103 @@
                                 <option value="Economy">Economy</option>
                             </select>
                         </div>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px; margin-bottom:10px;">Passenger Details</div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Category</div>
+                                <select id="detCategory">
+                                    <option value="">—</option>
+                                    <option value="Business Owner">Business Owner</option>
+                                    <option value="Family Vacation">Family Vacation</option>
+                                    <option value="Couple • Maternity">Couple • Maternity</option>
+                                    <option value="High Profile Client">High Profile Client</option>
+                                    <option value="Medical Specialist">Medical Specialist</option>
+                                    <option value="Private Investor">Private Investor</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Purpose</div>
+                                <input id="detPurpose" type="text" placeholder="e.g., Vacation / Medical / Business">
+                            </div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Nationality</div>
+                                <input id="detNationality" type="text" placeholder="e.g., British">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Passport</div>
+                                <input id="detPassport" type="text" placeholder="Passport No.">
+                            </div>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Notes</div>
+                            <input id="detNotes" type="text" placeholder="Internal notes (visible on Details QR view)">
+                        </div>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px; margin-bottom:10px;">Gateway Details</div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Terminal</div>
+                                <input id="gwTerminal" type="text" placeholder="e.g., T3">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Check‑in Desk</div>
+                                <input id="gwCheckin" type="text" placeholder="e.g., A12">
+                            </div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Baggage</div>
+                                <input id="gwBaggage" type="text" placeholder="e.g., Priority Tag">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Assistance</div>
+                                <input id="gwAssist" type="text" placeholder="e.g., Medical / Family / VIP">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">Additional Passengers</div>
+                            <div id="extraCount" style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">0</div>
+                        </div>
+                        <div class="three-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Name</div>
+                                <input id="exName" type="text" placeholder="Full Name">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Role</div>
+                                <input id="exRole" type="text" placeholder="Family / Client / Assistant">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Class</div>
+                                <select id="exClass">
+                                    <option value="VVIP">VVIP</option>
+                                    <option value="First">First</option>
+                                    <option value="Business">Business</option>
+                                    <option value="Economy">Economy</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Status</div>
+                                <select id="exStatus">
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="CONFIRMED">CONFIRMED</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select>
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <button class="btn-secondary" type="button" id="btnAddExtra" style="width:100%;">Add Passenger</button>
+                            </div>
+                        </div>
+                        <div id="extraPassengersList" style="display:grid; gap:10px; margin-top:12px;"></div>
                     </div>
                     <div class="two-col" style="margin-top:10px;">
                         <button class="btn-primary" type="button" id="btnSaveManifest">Save Manifest</button>
@@ -189,6 +292,26 @@
                             </select>
                         </div>
                     </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">One‑Time Tracking Code</div>
+                            <div id="otcStatus" style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">—</div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Current Code</div>
+                                <input id="otcCode" type="text" placeholder="Generate code" readonly>
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Used At</div>
+                                <input id="otcUsedAt" type="text" placeholder="—" readonly>
+                            </div>
+                        </div>
+                        <div class="two-col" style="margin-top:10px;">
+                            <button class="btn-primary" type="button" id="btnGenOTC">Generate New Code</button>
+                            <button class="btn-secondary" type="button" id="btnClearOTC">Clear Code</button>
+                        </div>
+                    </div>
                     <div id="stepsEditor" style="margin-top:10px; display:grid; gap:12px;"></div>
                     <div class="two-col" style="margin-top:10px;">
                         <button class="btn-primary" type="button" id="btnSaveLogistics">Save Tracker</button>
@@ -239,6 +362,19 @@
             };
         }
 
+        function makeOneTimeTrackingCode() {
+            const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const bytes = new Uint8Array(8);
+            if (window.crypto && window.crypto.getRandomValues) {
+                window.crypto.getRandomValues(bytes);
+            } else {
+                for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+            }
+            let out = 'TRIP-';
+            for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+            return out;
+        }
+
         function ensureUserShape(user) {
             const u = user || {};
             if (!u.manifest) {
@@ -252,6 +388,24 @@
             } else {
                 if (typeof u.logistics.currentStep !== 'number') u.logistics.currentStep = 2;
                 if (!Array.isArray(u.logistics.steps) || u.logistics.steps.length !== 5) u.logistics = makeDefaultLogistics();
+            }
+            if (!u.profile) {
+                u.profile = { category: "", purpose: "", notes: "", nationality: "", passport: "", gateway: {}, additionalPassengers: [] };
+            } else {
+                if (!u.profile.gateway || typeof u.profile.gateway !== 'object') u.profile.gateway = {};
+                if (!Array.isArray(u.profile.additionalPassengers)) u.profile.additionalPassengers = [];
+            }
+            if (!u.verification || typeof u.verification !== 'object') {
+                u.verification = { stageIndex: 1, final: "", updatedAt: null };
+            } else {
+                if (typeof u.verification.stageIndex !== 'number') u.verification.stageIndex = 1;
+                if (typeof u.verification.final !== 'string') u.verification.final = "";
+            }
+            if (!u.share) {
+                u.share = { oneTimeTracking: { code: "", createdAt: null, usedAt: null } };
+            } else {
+                if (!u.share.oneTimeTracking) u.share.oneTimeTracking = { code: "", createdAt: null, usedAt: null };
+                if (typeof u.share.oneTimeTracking !== 'object') u.share.oneTimeTracking = { code: "", createdAt: null, usedAt: null };
             }
             return u;
         }
@@ -375,6 +529,17 @@
             document.getElementById('manGate').value = user.manifest.gate || '--';
             document.getElementById('manSeat').value = user.manifest.seat || '--';
             document.getElementById('manClass').value = user.manifest.flightClass || 'Business';
+            document.getElementById('detCategory').value = user.profile.category || '';
+            document.getElementById('detPurpose').value = user.profile.purpose || '';
+            document.getElementById('detNationality').value = user.profile.nationality || '';
+            document.getElementById('detPassport').value = user.profile.passport || '';
+            document.getElementById('detNotes').value = user.profile.notes || '';
+            document.getElementById('gwTerminal').value = user.profile.gateway.terminal || '';
+            document.getElementById('gwCheckin').value = user.profile.gateway.checkin || '';
+            document.getElementById('gwBaggage').value = user.profile.gateway.baggage || '';
+            document.getElementById('gwAssist').value = user.profile.gateway.assistance || '';
+            extraPassengers = Array.isArray(user.profile.additionalPassengers) ? user.profile.additionalPassengers.slice() : [];
+            renderExtraPassengers();
         }
 
         async function hydrateLedger(username) {
@@ -401,6 +566,10 @@
             if (!username || !db.users[username]) return;
             const user = ensureUserShape(db.users[username]);
             document.getElementById('logCurrent').value = String(user.logistics.currentStep || 2);
+            const otc = user.share.oneTimeTracking || { code: "", createdAt: null, usedAt: null };
+            document.getElementById('otcCode').value = otc.code || '';
+            document.getElementById('otcUsedAt').value = otc.usedAt ? new Date(otc.usedAt).toLocaleString() : '';
+            document.getElementById('otcStatus').textContent = otc.code ? (otc.usedAt ? 'Used' : 'Active') : 'None';
             const wrap = document.getElementById('stepsEditor');
             wrap.innerHTML = '';
             const esc = (v) => String(v ?? '')
@@ -437,6 +606,90 @@
             });
         }
 
+        let extraPassengers = [];
+
+        function renderExtraPassengers() {
+            const list = document.getElementById('extraPassengersList');
+            const count = document.getElementById('extraCount');
+            if (!list || !count) return;
+            count.textContent = String(extraPassengers.length);
+            list.innerHTML = '';
+            extraPassengers.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.className = 'card';
+                row.style.marginBottom = '0';
+                row.style.padding = '14px';
+                row.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                        <div style="min-width:0;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">${p.name || '—'}</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.85rem; margin-top:6px;">${p.role || 'Passenger'} • ${(p.flightClass || '—').toUpperCase()} • ${p.status || 'PENDING'}</div>
+                        </div>
+                        <button type="button" class="btn-secondary btn-remove-extra" data-idx="${idx}" style="width:auto; padding:10px 12px;">Remove</button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+            list.querySelectorAll('.btn-remove-extra').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.getAttribute('data-idx'), 10);
+                    if (!Number.isFinite(idx)) return;
+                    extraPassengers.splice(idx, 1);
+                    renderExtraPassengers();
+                });
+            });
+        }
+
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        async function runAutoUserStatusUpdateIfDue() {
+            const now = Date.now();
+            const raw = localStorage.getItem('trip_users_autoupdate_next');
+            const nextAt = raw ? parseInt(raw, 10) : 0;
+            if (nextAt && now < nextAt) return;
+
+            const db = await loadAllUsersFromDB();
+            const keys = Object.keys(db.users || {});
+            const stages = ['ON-HOLD', 'PENDING', 'VERIFYING', 'VERIFIED'];
+            const finals = ['CONFIRMED', 'SUSPENDED', 'REJECTED', 'DECLINED'];
+
+            for (const username of keys) {
+                const user = ensureUserShape(db.users[username]);
+                const n = String(user.passengerName || '').toLowerCase();
+                if (n.includes('clare bland')) continue;
+                const vf = user.verification || { stageIndex: 1, final: '', updatedAt: null };
+                if (vf.final) {
+                    user.manifest.status = vf.final;
+                    await saveUserToDB(username, user);
+                    continue;
+                }
+
+                const stepChance = Math.random();
+                if (vf.stageIndex < stages.length - 1) {
+                    if (stepChance < 0.75) vf.stageIndex = Math.min(stages.length - 1, vf.stageIndex + 1);
+                    vf.updatedAt = new Date().toISOString();
+                    user.verification = vf;
+                    user.manifest.status = stages[vf.stageIndex] || 'PENDING';
+                } else {
+                    const roll = Math.random();
+                    let out = 'CONFIRMED';
+                    if (roll >= 0.70 && roll < 0.82) out = 'SUSPENDED';
+                    if (roll >= 0.82 && roll < 0.92) out = 'REJECTED';
+                    if (roll >= 0.92) out = 'DECLINED';
+                    vf.final = out;
+                    vf.updatedAt = new Date().toISOString();
+                    user.verification = vf;
+                    user.manifest.status = out;
+                }
+                await saveUserToDB(username, user);
+            }
+
+            const next = now + randInt(10, 15) * 60 * 1000;
+            localStorage.setItem('trip_users_autoupdate_next', String(next));
+        }
+
         let onUserChange = () => {};
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -467,6 +720,8 @@
             if (sessionStorage.getItem('admin_session')) {
                 refreshUserSelects();
                 renderRegistry();
+                runAutoUserStatusUpdateIfDue();
+                setInterval(runAutoUserStatusUpdateIfDue, 30 * 1000);
             }
 
             document.getElementById('btnResetForm').addEventListener('click', () => {
@@ -531,6 +786,19 @@
                 });
             });
 
+            document.getElementById('btnAddExtra').addEventListener('click', () => {
+                const name = document.getElementById('exName').value.trim();
+                const role = document.getElementById('exRole').value.trim();
+                const flightClass = document.getElementById('exClass').value;
+                const status = document.getElementById('exStatus').value;
+                if (!name) return;
+                extraPassengers.push({ name, role, flightClass, status });
+                document.getElementById('exName').value = '';
+                document.getElementById('exRole').value = '';
+                document.getElementById('exStatus').value = 'PENDING';
+                renderExtraPassengers();
+            });
+
             document.getElementById('btnLoadManifest').addEventListener('click', () => hydrateManifest(document.getElementById('manUser').value));
             document.getElementById('btnSaveManifest').addEventListener('click', async () => {
                 const msg = document.getElementById('manifestMsg');
@@ -547,6 +815,18 @@
                 user.manifest.gate = document.getElementById('manGate').value.trim() || '--';
                 user.manifest.seat = document.getElementById('manSeat').value.trim() || '--';
                 user.manifest.flightClass = document.getElementById('manClass').value;
+                user.profile.category = document.getElementById('detCategory').value;
+                user.profile.purpose = document.getElementById('detPurpose').value.trim();
+                user.profile.nationality = document.getElementById('detNationality').value.trim();
+                user.profile.passport = document.getElementById('detPassport').value.trim();
+                user.profile.notes = document.getElementById('detNotes').value.trim();
+                user.profile.gateway = {
+                    terminal: document.getElementById('gwTerminal').value.trim(),
+                    checkin: document.getElementById('gwCheckin').value.trim(),
+                    baggage: document.getElementById('gwBaggage').value.trim(),
+                    assistance: document.getElementById('gwAssist').value.trim()
+                };
+                user.profile.additionalPassengers = extraPassengers.slice();
                 
                 await saveUserToDB(username, user);
                 msg.textContent = 'Manifest saved.';
@@ -598,6 +878,32 @@
                 
                 await saveUserToDB(username, user);
                 await hydrateLedger(username);
+            });
+
+            document.getElementById('btnGenOTC').addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.share.oneTimeTracking = {
+                    code: makeOneTimeTrackingCode(),
+                    createdAt: new Date().toISOString(),
+                    usedAt: null
+                };
+                await saveUserToDB(username, user);
+                await renderStepsEditor(username);
+            });
+
+            document.getElementById('btnClearOTC').addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.share.oneTimeTracking = { code: "", createdAt: null, usedAt: null };
+                await saveUserToDB(username, user);
+                await renderStepsEditor(username);
             });
 
             document.getElementById('btnLoadLogistics').addEventListener('click', () => renderStepsEditor(document.getElementById('logUser').value));
