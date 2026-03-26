@@ -1,4 +1,4 @@
-// appwrite.js
+
 // We use a try-catch so it won't crash if the Appwrite SDK isn't loaded yet
 let client, databases, account, ID, Query;
 
