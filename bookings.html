@@ -53,6 +53,8 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
     <script>
         function randInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -78,6 +80,16 @@
 
         function saveBookingState(state) {
             localStorage.setItem('trip_bookings_state', JSON.stringify(state));
+        }
+
+        function loadAdminBookingState() {
+            const raw = localStorage.getItem('trip_bookings_admin_state');
+            if (!raw) return null;
+            try { return JSON.parse(raw); } catch { return null; }
+        }
+
+        function saveAdminBookingState(state) {
+            localStorage.setItem('trip_bookings_admin_state', JSON.stringify(state));
         }
 
         function buildBookings() {
@@ -122,12 +134,100 @@
 
         function statusBadge(stat) {
             let color = 'var(--warning)';
+            if (stat === 'VERIFYING') color = 'var(--accent)';
+            if (stat === 'VERIFIED') color = 'var(--success)';
             if (stat === 'CONFIRMED') color = 'var(--success)';
-            if (stat === 'HOLD') color = 'var(--danger)';
+            if (stat === 'SUSPENDED' || stat === 'REJECTED' || stat === 'DECLINED' || stat === 'CANCELLED') color = 'var(--danger)';
+            if (stat === 'HOLD' || stat === 'ON-HOLD') color = 'var(--danger)';
             return `<span class="badge-pill" style="color:${color}; border-color:${color};">${stat}</span>`;
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        function toTimeParts(ts) {
+            const d = new Date(ts);
+            const hrs = String(d.getHours()).padStart(2, "0");
+            const mins = String(d.getMinutes()).padStart(2, "0");
+            return { date: d.toLocaleDateString(), time: `${hrs}:${mins}` };
+        }
+
+        function clampFuture(ts) {
+            const minFuture = Date.now() + 60 * 60 * 1000;
+            return Math.max(ts, minFuture);
+        }
+
+        function makeAdminBookingItems(db) {
+            const users = db && db.users ? db.users : {};
+            const usernames = Object.keys(users).sort((a, b) => a.localeCompare(b));
+
+            const now = Date.now();
+            let adminState = loadAdminBookingState();
+            if (!adminState || typeof adminState !== 'object' || !adminState.map) {
+                adminState = { nextAt: now + nextRefreshMillis(), map: {} };
+            }
+
+            const shouldRefresh = !adminState.nextAt || now > adminState.nextAt;
+            const baseTime = now + randInt(6, 72) * 60 * 60 * 1000;
+
+            const items = usernames.map((username, idx) => {
+                const u = users[username] || {};
+                const passengerName = u.passengerName || username;
+                const m = u.manifest || {};
+                const p = u.profile || {};
+                const from = m.from || 'LHR';
+                const to = m.to || 'ICN';
+                const route = `${from}-${to}`;
+                const cls = (m.flightClass || 'Business');
+                const role = p.category || 'Passenger';
+                const status = m.status || 'SCHEDULED';
+
+                const key = username;
+                const existing = adminState.map[key] || {};
+                let ts = typeof existing.ts === 'number' ? existing.ts : (baseTime + idx * randInt(22, 88) * 60 * 1000);
+                let price = typeof existing.price === 'number' ? existing.price : (randInt(1400, 18500) + Math.random());
+
+                if (shouldRefresh) {
+                    ts = clampFuture(ts + randInt(-18, 44) * 60 * 1000);
+                    price = Math.max(220, price + randInt(-160, 220) + Math.random());
+                }
+
+                adminState.map[key] = { ts, price };
+                const { date, time } = toTimeParts(ts);
+
+                return {
+                    id: `ADM-${username}`,
+                    name: passengerName,
+                    role,
+                    cls,
+                    route,
+                    time,
+                    date,
+                    price,
+                    status
+                };
+            });
+
+            if (shouldRefresh) {
+                adminState.nextAt = now + nextRefreshMillis();
+            }
+            saveAdminBookingState(adminState);
+
+            return { items, nextAt: adminState.nextAt };
+        }
+
+        function mergeBookings(adminItems, randomItems) {
+            const merged = [];
+            const maxLen = 28;
+            const a = adminItems.slice();
+            const r = randomItems.slice();
+
+            while (merged.length < maxLen && (a.length || r.length)) {
+                if (a.length) merged.push(a.shift());
+                if (merged.length >= maxLen) break;
+                if (r.length) merged.push(r.shift());
+            }
+            return merged;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
             if (!activeUser) return;
 
             const toggle = document.getElementById('navToggle');
@@ -144,12 +244,17 @@
                 state = buildBookings();
             }
 
-            const next = new Date(state.nextAt);
-            document.getElementById('subTxt').textContent = `Auto-refreshes every 10–15 minutes. Next update: ${next.toLocaleTimeString()}`;
+            const db = await loadAllUsersFromDB();
+            const adminPack = makeAdminBookingItems(db);
+
+            const next = new Date(Math.max(state.nextAt || 0, adminPack.nextAt || 0));
+            document.getElementById('subTxt').textContent = `Auto-refreshes every 10–15 minutes. Next update: ${next.toLocaleTimeString()} • Admin Users: ${adminPack.items.length} • Random: ${state.items.length}`;
 
             const grid = document.getElementById('bookingsGrid');
             grid.innerHTML = '';
-            state.items.forEach((b) => {
+
+            const combined = mergeBookings(adminPack.items, state.items);
+            combined.forEach((b) => {
                 const el = document.createElement('div');
                 el.className = 'booking-item';
                 el.innerHTML = `
