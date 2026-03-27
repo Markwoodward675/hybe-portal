@@ -49,7 +49,7 @@ async function appwriteRequest(path, { method = 'GET', body } = {}) {
 }
 
 function queryEqual(field, value) {
-  return `equal("${field}", ["${String(value).replaceAll('"', '\\"')}"])`;
+  return `equal("${field}",["${String(value).replaceAll('"', '\\"')}"])`;
 }
 
 async function findUserDocByUsername(username) {

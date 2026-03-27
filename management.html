@@ -8,9 +8,22 @@
     <link rel="stylesheet" href="styles.css">
     <style>
         @media (max-width: 900px) {
+            body { overflow-x: hidden; }
+            .trip-nav { flex-wrap: wrap; height: auto; padding: 10px 12px; }
+            .trip-nav-right { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+            .trip-nav-right > div { display: none; }
             .admin-shell { grid-template-columns: 1fr !important; }
             .admin-sidebar { display: none !important; }
             .admin-mobile-bar { display: flex !important; }
+            .admin-main { padding: 120px 12px 70px !important; }
+            .admin-row { grid-template-columns: 1fr !important; }
+            .two-col, .three-col { grid-template-columns: 1fr !important; }
+            .card { padding: 14px; }
+            .login-card { width: min(440px, calc(100vw - 24px)); }
+            .admin-mobile-bar { top: 74px; }
+            .admin-mobile-menu { top: auto; bottom: 0; max-height: 60vh; overflow: auto; border-radius: 16px 16px 0 0; }
+            .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+            .table-wrap .m-table { min-width: 860px; }
         }
         .admin-mobile-bar {
             display: none;
@@ -92,14 +105,13 @@
         <div class="trip-nav-right">
             <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Admin Command Center</div>
             <span id="adminSessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">ADMIN</span>
-            <button class="nav-toggle" id="adminMobileToggle" type="button" aria-label="Menu" aria-expanded="false" style="display:none;">☰</button>
             <button class="nav-signout" id="adminSignOutBtn" type="button">Exit Admin</button>
         </div>
     </nav>
     <div class="admin-mobile-bar">
         <div class="admin-mobile-title">Admin Sections</div>
         <div class="admin-mobile-actions">
-            <button class="btn-secondary" id="adminMobileMore" type="button">More</button>
+            <button class="nav-toggle" id="adminMobileToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
         </div>
     </div>
     <div class="admin-mobile-menu" id="adminMobileMenu">
@@ -122,6 +134,7 @@
                 <button type="button" data-target="secFinancial">Financial Control</button>
                 <button type="button" data-target="secLogistics">Logistics Sync</button>
                 <button type="button" data-target="secFlightForm">Flight Form</button>
+                <button type="button" data-target="secBoardingPass">Boarding Pass</button>
                 <button type="button" data-target="secSubmissions">Submissions</button>
                 <button type="button" data-target="secNotifications">Notifications</button>
                 <button type="button" data-target="secRegistry">User Registry</button>
@@ -390,6 +403,14 @@
                         <select class="user-select" id="finUser"></select>
                         <div class="ticket-k" style="margin-bottom:8px;">Ledger Balance (GBP)</div>
                         <input id="finBalance" type="text" placeholder="186.00">
+                        <div class="ticket-k" style="margin-bottom:8px;">Quick Adjust</div>
+                        <div class="two-col">
+                            <input id="finDelta" type="text" placeholder="e.g., 50.00">
+                            <div class="two-col" style="gap:8px;">
+                                <button class="btn-secondary" type="button" id="btnAddFunds" style="padding:14px 12px;">Add</button>
+                                <button class="btn-secondary" type="button" id="btnSubFunds" style="padding:14px 12px;">Subtract</button>
+                            </div>
+                        </div>
                         <button class="btn-primary" type="button" id="btnSaveBalance">Save Balance</button>
                         <div id="finMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
                     </div>
@@ -404,7 +425,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="card" style="padding:0; overflow:hidden;">
+                <div class="card table-wrap" style="padding:0; overflow:auto;">
                     <table class="m-table">
                         <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
                         <tbody id="txTable"></tbody>
@@ -530,9 +551,98 @@
                 </div>
             </section>
 
+            <section id="secBoardingPass" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Boarding Pass</h2>
+                <div class="card">
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Select Username</div>
+                            <select class="user-select" id="bpUser"></select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Status</div>
+                            <select id="bpStatus">
+                                <option value="PENDING">PENDING</option>
+                                <option value="VERIFYING">VERIFYING</option>
+                                <option value="VERIFIED">VERIFIED</option>
+                                <option value="CONFIRMED">CONFIRMED</option>
+                                <option value="SUSPENDED">SUSPENDED</option>
+                                <option value="REJECTED">REJECTED</option>
+                                <option value="DECLINED">DECLINED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Passenger Name</div>
+                            <input id="bpName" type="text" placeholder="Full Name">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Flight Number</div>
+                            <input id="bpFlightNo" type="text" placeholder="TRIP-402">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Class</div>
+                            <select id="bpClass">
+                                <option value="VVIP">VVIP</option>
+                                <option value="First">First</option>
+                                <option value="Business">Business</option>
+                                <option value="Economy">Economy</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">From (IATA)</div>
+                            <input id="bpFrom" type="text" placeholder="LHR">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">To (IATA)</div>
+                            <input id="bpTo" type="text" placeholder="ICN">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Departure</div>
+                            <input id="bpDepartAt" type="text" placeholder="2026-06-12 19:30">
+                        </div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Gate</div>
+                            <input id="bpGate" type="text" placeholder="D12">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Seat</div>
+                            <input id="bpSeat" type="text" placeholder="019A">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Terminal</div>
+                            <input id="bpTerminal" type="text" placeholder="T3">
+                        </div>
+                    </div>
+
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnLoadBP">Load</button>
+                        <button class="btn-primary" type="button" id="btnDeployBP">Deploy to User</button>
+                    </div>
+                    <div id="bpMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px;">Preview</div>
+                        <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Realistic Boarding Pass</div>
+                    </div>
+                    <div id="bpPreview"></div>
+                </div>
+            </section>
+
             <section id="secSubmissions" class="admin-sec" style="display:none;">
                 <h2 style="margin:0 0 18px; letter-spacing:-1px;">Submissions</h2>
-                <div class="card" style="padding:0; overflow:hidden;">
+                <div class="card table-wrap" style="padding:0; overflow:auto;">
                     <table class="m-table">
                         <thead>
                             <tr>
@@ -586,7 +696,7 @@
                     <div id="ntMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
                 </div>
 
-                <div class="card" style="padding:0; overflow:hidden;">
+                <div class="card table-wrap" style="padding:0; overflow:auto;">
                     <table class="m-table">
                         <thead>
                             <tr>
@@ -605,7 +715,7 @@
 
             <section id="secRegistry" class="admin-sec" style="display:none;">
                 <h2 style="margin:0 0 18px; letter-spacing:-1px;">User Registry Table</h2>
-                <div class="card" style="padding:0; overflow:hidden;">
+                <div class="card table-wrap" style="padding:0; overflow:auto;">
                     <table class="m-table">
                         <thead>
                             <tr>
@@ -780,6 +890,9 @@
             }
             if (targetId === 'secNotifications') {
                 renderNotifications();
+            }
+            if (targetId === 'secBoardingPass') {
+                hydrateBoardingPass(document.getElementById('bpUser') && document.getElementById('bpUser').value);
             }
             if (typeof onUserChange === 'function') {
                 onUserChange();
@@ -1059,6 +1172,117 @@
             }
         }
 
+        function renderBoardingPassPreview(model) {
+            const el = document.getElementById('bpPreview');
+            if (!el) return;
+            const m = model || {};
+            const dep = String(m.from || 'LHR').toUpperCase();
+            const arr = String(m.to || 'ICN').toUpperCase();
+            const route = `${dep}-${arr}`;
+            const cls = String(m.flightClass || 'Business');
+            const st = String(m.status || 'PENDING').toUpperCase();
+            const gate = String(m.gate || '—');
+            const seat = String(m.seat || '—');
+            const name = String(m.passengerName || '—');
+            const uname = String(m.username || '—');
+            const flightNo = String(m.flightNo || route);
+            const departAt = String(m.departAt || '—');
+            const terminal = String(m.terminal || '—');
+
+            el.innerHTML = `
+                <div class="ticket-8k ticket-surface boarding-pass" style="max-width: 980px; margin: 0 auto;">
+                    <div class="ticket-8k__main">
+                        <div class="ticket-8k__top">
+                            <div>
+                                <div class="ticket-8k__brandline">TRIP Airways</div>
+                                <div class="ticket-8k__sub">BOARDING PASS • ADMIN PREVIEW</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <span class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">${st}</span>
+                                <div style="margin-top:10px; color:var(--ticket-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">${flightNo}</div>
+                            </div>
+                        </div>
+                        <div class="ticket-8k__route">
+                            <div class="route-side">
+                                <div class="route-label">Departure</div>
+                                <div class="route-code dep">${dep}</div>
+                            </div>
+                            <div class="route-mid">
+                                <div class="route-line"></div>
+                                <div class="route-txt">${route}</div>
+                            </div>
+                            <div class="route-side" style="text-align:right;">
+                                <div class="route-label">Arrival</div>
+                                <div class="route-code arr">${arr}</div>
+                            </div>
+                        </div>
+                        <div class="ticket-8k__grid">
+                            <div>
+                                <div class="ticket-k">Passenger</div>
+                                <div class="ticket-passenger">${name}</div>
+                                <div class="ticket-small">Session ID: <span>${uname}</span></div>
+                            </div>
+                            <div class="ticket-grid-mini">
+                                <div><div class="ticket-k">Gate</div><div class="ticket-v">${gate}</div></div>
+                                <div><div class="ticket-k">Seat</div><div class="ticket-v">${seat}</div></div>
+                                <div><div class="ticket-k">Class</div><div class="ticket-v">${cls}</div></div>
+                                <div><div class="ticket-k">Terminal</div><div class="ticket-v">${terminal}</div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ticket-8k__stub">
+                        <div class="stub-meta">
+                            <div>
+                                <div class="ticket-k">Departure</div>
+                                <div class="stub-id">${departAt}</div>
+                            </div>
+                            <div>
+                                <div class="ticket-k">Status</div>
+                                <div class="stub-id">${st}</div>
+                            </div>
+                            <div>
+                                <div class="ticket-k">Deploy</div>
+                                <div style="margin-top:8px; color:var(--ticket-dim); font-weight:800; font-size:0.8rem;">Apply changes to user profile</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function hydrateBoardingPass(username) {
+            if (!username) return;
+            const db = await loadAllUsersFromDB();
+            if (!db.users[username]) return;
+            const user = ensureUserShape(db.users[username]);
+            const m = user.manifest || {};
+            const p = user.profile || {};
+            document.getElementById('bpStatus').value = m.status || 'PENDING';
+            document.getElementById('bpName').value = user.passengerName || '';
+            document.getElementById('bpFlightNo').value = (user.form && user.form.flightNo) ? user.form.flightNo : (m.flightNo || '');
+            document.getElementById('bpClass').value = m.flightClass || 'Business';
+            document.getElementById('bpFrom').value = m.from || 'LHR';
+            document.getElementById('bpTo').value = m.to || 'ICN';
+            document.getElementById('bpDepartAt').value = (user.form && user.form.departAt) ? user.form.departAt : '';
+            document.getElementById('bpGate').value = m.gate || '';
+            document.getElementById('bpSeat').value = m.seat || '';
+            document.getElementById('bpTerminal').value = (p.gateway && p.gateway.terminal) ? p.gateway.terminal : '';
+
+            renderBoardingPassPreview({
+                username,
+                status: document.getElementById('bpStatus').value,
+                passengerName: document.getElementById('bpName').value,
+                flightNo: document.getElementById('bpFlightNo').value,
+                flightClass: document.getElementById('bpClass').value,
+                from: document.getElementById('bpFrom').value,
+                to: document.getElementById('bpTo').value,
+                departAt: document.getElementById('bpDepartAt').value,
+                gate: document.getElementById('bpGate').value,
+                seat: document.getElementById('bpSeat').value,
+                terminal: document.getElementById('bpTerminal').value,
+            });
+        }
+
         async function hydrateLedger(username) {
             const db = await loadAllUsersFromDB();
             if (!username || !db.users[username]) return;
@@ -1310,10 +1534,8 @@
             // Build mobile menu from sidebar buttons
             (function initMobileMenu() {
                 const toggleBtn = document.getElementById('adminMobileToggle');
-                const moreBtn = document.getElementById('adminMobileMore');
                 const menu = document.getElementById('adminMobileMenu');
                 const grid = document.getElementById('adminMobileGrid');
-                if (toggleBtn) toggleBtn.style.display = 'inline-flex';
                 const srcButtons = Array.from(document.querySelectorAll('.admin-menu button'));
                 grid.innerHTML = '';
                 srcButtons.forEach((b) => {
@@ -1333,10 +1555,9 @@
                     if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(open));
                 }
                 if (toggleBtn) toggleBtn.addEventListener('click', toggleMenu);
-                if (moreBtn) moreBtn.addEventListener('click', toggleMenu);
                 document.addEventListener('click', (e) => {
                     if (!menu.classList.contains('open')) return;
-                    const within = menu.contains(e.target) || (toggleBtn && toggleBtn.contains(e.target)) || (moreBtn && moreBtn.contains(e.target));
+                    const within = menu.contains(e.target) || (toggleBtn && toggleBtn.contains(e.target));
                     if (!within) menu.classList.remove('open');
                 });
             })();
@@ -1518,6 +1739,51 @@
                 msg.textContent = 'Balance saved.';
                 await renderRegistry();
             });
+
+            function parseMoney(v) {
+                const s = String(v || '').replace(/[^0-9.\-]/g, '');
+                const n = Number(s);
+                return Number.isFinite(n) ? n : 0;
+            }
+
+            function fmtMoney(n) {
+                const v = Number(n);
+                return (Number.isFinite(v) ? v : 0).toFixed(2);
+            }
+
+            async function applyLedgerDelta(sign) {
+                const msg = document.getElementById('finMsg');
+                msg.textContent = '';
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const deltaRaw = document.getElementById('finDelta').value.trim();
+                const delta = Math.abs(parseMoney(deltaRaw));
+                if (!delta) {
+                    msg.textContent = 'Enter an amount to adjust.';
+                    return;
+                }
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                const current = parseMoney(user.ledger.balance);
+                const next = current + (sign * delta);
+                user.ledger.balance = fmtMoney(next);
+                user.ledger.transactions = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+                const date = new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+                const amt = `${sign > 0 ? '+' : '-'}£${fmtMoney(delta)}`;
+                user.ledger.transactions.push({ date, desc: sign > 0 ? 'Admin Credit' : 'Admin Debit', amount: amt });
+                await saveUserToDB(username, user);
+                document.getElementById('finBalance').value = user.ledger.balance;
+                document.getElementById('finDelta').value = '';
+                msg.textContent = sign > 0 ? 'Funds added.' : 'Funds subtracted.';
+                await hydrateLedger(username);
+                await renderRegistry();
+            }
+
+            const btnAddFunds = document.getElementById('btnAddFunds');
+            const btnSubFunds = document.getElementById('btnSubFunds');
+            if (btnAddFunds) btnAddFunds.addEventListener('click', () => applyLedgerDelta(1));
+            if (btnSubFunds) btnSubFunds.addEventListener('click', () => applyLedgerDelta(-1));
 
             document.getElementById('btnAddTx').addEventListener('click', async () => {
                 const username = document.getElementById('finUser').value;
@@ -1746,6 +2012,69 @@
                 await saveUserToDB(username, user);
                 msg.textContent = 'Signature cleared.';
                 hydrateFlightForm(username);
+            });
+
+            function getBoardingPassDraft() {
+                return {
+                    username: (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '',
+                    status: document.getElementById('bpStatus').value,
+                    passengerName: document.getElementById('bpName').value.trim(),
+                    flightNo: document.getElementById('bpFlightNo').value.trim(),
+                    flightClass: document.getElementById('bpClass').value,
+                    from: document.getElementById('bpFrom').value.trim().toUpperCase(),
+                    to: document.getElementById('bpTo').value.trim().toUpperCase(),
+                    departAt: document.getElementById('bpDepartAt').value.trim(),
+                    gate: document.getElementById('bpGate').value.trim(),
+                    seat: document.getElementById('bpSeat').value.trim(),
+                    terminal: document.getElementById('bpTerminal').value.trim(),
+                };
+            }
+
+            const bpUserSel = document.getElementById('bpUser');
+            if (bpUserSel) bpUserSel.addEventListener('change', () => hydrateBoardingPass(bpUserSel.value));
+            const bpInputs = ['bpStatus','bpName','bpFlightNo','bpClass','bpFrom','bpTo','bpDepartAt','bpGate','bpSeat','bpTerminal']
+                .map((id) => document.getElementById(id))
+                .filter(Boolean);
+            bpInputs.forEach((el) => el.addEventListener('input', () => renderBoardingPassPreview(getBoardingPassDraft())));
+            const btnLoadBP = document.getElementById('btnLoadBP');
+            if (btnLoadBP) btnLoadBP.addEventListener('click', () => hydrateBoardingPass((document.getElementById('bpUser') && document.getElementById('bpUser').value) || ''));
+            const btnDeployBP = document.getElementById('btnDeployBP');
+            if (btnDeployBP) btnDeployBP.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const draft = getBoardingPassDraft();
+                if (!draft.username) {
+                    if (msg) msg.textContent = 'Select a Username.';
+                    return;
+                }
+                const db = await loadAllUsersFromDB();
+                if (!db.users[draft.username]) {
+                    if (msg) msg.textContent = 'User not found.';
+                    return;
+                }
+                const user = ensureUserShape(db.users[draft.username]);
+                user.passengerName = draft.passengerName || user.passengerName;
+                user.manifest = user.manifest || {};
+                user.manifest.status = draft.status;
+                user.manifest.from = draft.from || user.manifest.from || 'LHR';
+                user.manifest.to = draft.to || user.manifest.to || 'ICN';
+                user.manifest.gate = draft.gate || user.manifest.gate || '--';
+                user.manifest.seat = draft.seat || user.manifest.seat || '--';
+                user.manifest.flightClass = draft.flightClass || user.manifest.flightClass || 'Business';
+                user.manifest.flightNo = draft.flightNo || user.manifest.flightNo || '';
+                user.profile = user.profile || {};
+                user.profile.gateway = user.profile.gateway || {};
+                user.profile.gateway.terminal = draft.terminal || user.profile.gateway.terminal || '';
+                user.form = user.form && typeof user.form === 'object' ? user.form : { flightNo: '', departAt: '', notes: '', lockedByAdmin: true, signature: null, updatedAt: null };
+                if (draft.flightNo) user.form.flightNo = draft.flightNo;
+                if (draft.departAt) user.form.departAt = draft.departAt;
+                user.form.updatedAt = new Date().toISOString();
+
+                if (msg) msg.textContent = 'Deploying...';
+                await saveUserToDB(draft.username, user);
+                if (msg) msg.textContent = 'Boarding pass deployed.';
+                renderBoardingPassPreview(getBoardingPassDraft());
+                await renderRegistry();
             });
 
             const btnCreateNotif = document.getElementById('btnCreateNotif');

@@ -2,7 +2,7 @@
 
 :root {
     --bg: #ffffff;
-    --card: #ffe4e6;
+    --card: rgba(255,255,255,0.86);
     --accent: #e11d48;
     --text: #0f172a;
     --text-dim: #475569;
@@ -184,8 +184,8 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     place-items: center;
     padding: 40px 20px;
     background:
-        radial-gradient(900px 500px at 20% 15%, rgba(225, 29, 72, 0.15), transparent 60%),
-        radial-gradient(900px 500px at 80% 30%, rgba(255, 180, 190, 0.15), transparent 55%),
+        radial-gradient(900px 500px at 20% 15%, rgba(225, 29, 72, 0.08), transparent 60%),
+        radial-gradient(900px 500px at 80% 30%, rgba(255, 180, 190, 0.08), transparent 55%),
         var(--bg);
 }
 .login-card {

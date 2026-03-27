@@ -199,6 +199,50 @@ document.addEventListener('DOMContentLoaded', () => {
     try { initPasswordPreviewToggles(); } catch {}
 });
 
+function enforceUserReadonly() {
+    try {
+        const path = String(window.location && window.location.pathname ? window.location.pathname : '');
+        if (path.startsWith('/auth/')) return;
+        if (path.endsWith('/management') || path.endsWith('/management.html')) return;
+        const body = document.body;
+        if (!body) return;
+        if (String(body.dataset.userEditable || '').toLowerCase() === 'true') return;
+
+        document.querySelectorAll('form').forEach((form) => {
+            const controls = form.querySelectorAll('input, select, textarea, button');
+            controls.forEach((el) => {
+                const tag = el.tagName.toLowerCase();
+                if (tag === 'button') {
+                    const t = String(el.getAttribute('type') || '').toLowerCase();
+                    if (t === 'submit' || t === 'button') el.disabled = true;
+                    return;
+                }
+                if (tag === 'input') {
+                    const type = String(el.getAttribute('type') || '').toLowerCase();
+                    if (type === 'hidden') return;
+                    if (type === 'checkbox' || type === 'radio' || type === 'file') {
+                        el.disabled = true;
+                        return;
+                    }
+                    el.readOnly = true;
+                    return;
+                }
+                if (tag === 'select' || tag === 'textarea') {
+                    el.disabled = true;
+                }
+            });
+        });
+
+        document.querySelectorAll('[contenteditable="true"]').forEach((el) => {
+            el.setAttribute('contenteditable', 'false');
+        });
+    } catch {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    try { enforceUserReadonly(); } catch {}
+});
+
 async function adminLogin(passcode) {
     return tripApi('/api/admin/login', { method: 'POST', body: { passcode } });
 }

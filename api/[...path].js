@@ -908,7 +908,12 @@ module.exports = async (req, res) => {
         return send(res, 200, { ok: true, username });
       }
 
-      const doc = await findUserDocByUsername(username);
+      let doc = null;
+      try {
+        doc = await findUserDocByUsername(username);
+      } catch {
+        return send(res, 503, { ok: false, error: 'Login service unavailable. Please try again.' });
+      }
       const userData = doc ? parseUserData(doc) : null;
       if (!userData || String(userData.pin) !== String(pin)) {
         return send(res, 401, { ok: false, error: 'Access denied. Credentials do not match a provisioned TRIP profile.' });
