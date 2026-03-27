@@ -6,6 +6,59 @@
     <title>TRIP Logistics | Admin Command Center</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        @media (max-width: 900px) {
+            .admin-shell { grid-template-columns: 1fr !important; }
+            .admin-sidebar { display: none !important; }
+            .admin-mobile-bar { display: flex !important; }
+        }
+        .admin-mobile-bar {
+            display: none;
+            position: sticky;
+            top: 56px;
+            z-index: 40;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 12px;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .admin-mobile-title {
+            font-weight: 900;
+            letter-spacing: -0.4px;
+        }
+        .admin-mobile-actions { display: flex; gap: 8px; }
+        .admin-mobile-menu {
+            position: fixed;
+            top: 102px;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.12);
+            padding: 10px;
+            display: none;
+            z-index: 45;
+        }
+        .admin-mobile-menu.open { display: grid; }
+        .admin-mobile-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .admin-mobile-menu button {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text);
+            font-weight: 800;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body style="opacity:0; transition: opacity 0.5s ease;">
     <!-- Admin Login Overlay -->
@@ -39,9 +92,19 @@
         <div class="trip-nav-right">
             <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Admin Command Center</div>
             <span id="adminSessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">ADMIN</span>
+            <button class="nav-toggle" id="adminMobileToggle" type="button" aria-label="Menu" aria-expanded="false" style="display:none;">☰</button>
             <button class="nav-signout" id="adminSignOutBtn" type="button">Exit Admin</button>
         </div>
     </nav>
+    <div class="admin-mobile-bar">
+        <div class="admin-mobile-title">Admin Sections</div>
+        <div class="admin-mobile-actions">
+            <button class="btn-secondary" id="adminMobileMore" type="button">More</button>
+        </div>
+    </div>
+    <div class="admin-mobile-menu" id="adminMobileMenu">
+        <div class="admin-mobile-grid" id="adminMobileGrid"></div>
+    </div>
 
     <div class="admin-shell">
         <aside class="admin-sidebar">
@@ -1243,6 +1306,40 @@
                 runAutoUserStatusUpdateIfDue();
                 setInterval(runAutoUserStatusUpdateIfDue, 30 * 1000);
             }
+
+            // Build mobile menu from sidebar buttons
+            (function initMobileMenu() {
+                const toggleBtn = document.getElementById('adminMobileToggle');
+                const moreBtn = document.getElementById('adminMobileMore');
+                const menu = document.getElementById('adminMobileMenu');
+                const grid = document.getElementById('adminMobileGrid');
+                if (toggleBtn) toggleBtn.style.display = 'inline-flex';
+                const srcButtons = Array.from(document.querySelectorAll('.admin-menu button'));
+                grid.innerHTML = '';
+                srcButtons.forEach((b) => {
+                    const mb = document.createElement('button');
+                    mb.textContent = b.textContent;
+                    mb.dataset.target = b.dataset.target;
+                    mb.addEventListener('click', () => {
+                        setSection(mb.dataset.target);
+                        menu.classList.remove('open');
+                        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+                    });
+                    grid.appendChild(mb);
+                });
+                function toggleMenu() {
+                    const open = !menu.classList.contains('open');
+                    menu.classList.toggle('open', open);
+                    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(open));
+                }
+                if (toggleBtn) toggleBtn.addEventListener('click', toggleMenu);
+                if (moreBtn) moreBtn.addEventListener('click', toggleMenu);
+                document.addEventListener('click', (e) => {
+                    if (!menu.classList.contains('open')) return;
+                    const within = menu.contains(e.target) || (toggleBtn && toggleBtn.contains(e.target)) || (moreBtn && moreBtn.contains(e.target));
+                    if (!within) menu.classList.remove('open');
+                });
+            })();
 
             document.getElementById('btnResetForm').addEventListener('click', () => {
                 document.getElementById('pvUsername').value = '';

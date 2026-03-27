@@ -134,6 +134,69 @@ async function tripApi(path, options = {}) {
     return json;
 }
 
+function initPasswordPreviewToggles() {
+    if (document.getElementById('pwToggleStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'pwToggleStyle';
+    style.textContent = `
+        .pw-wrap{ position:relative; }
+        .pw-toggle{
+            position:absolute;
+            right:10px;
+            top:50%;
+            transform:translateY(-50%);
+            width:36px;
+            height:36px;
+            border-radius:12px;
+            border:1px solid var(--border);
+            background:transparent;
+            color:var(--text);
+            cursor:pointer;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+        }
+        .pw-toggle svg{ width:18px; height:18px; }
+    `;
+    document.head.appendChild(style);
+
+    const iconEye = `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+        </svg>
+    `;
+    const iconEyeOff = `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M2.3 3.7 3.7 2.3 21.7 20.3 20.3 21.7 17.8 19.2A11.6 11.6 0 0 1 12 21C5 21 2 14 2 14c1-2.2 2.5-4.1 4.3-5.6L2.3 3.7Zm6 6 2 2a2.5 2.5 0 0 0 3.3 3.3l2 2A5 5 0 0 1 8.3 9.7ZM12 7c7 0 10 7 10 7a15 15 0 0 1-3.1 4.2l-2-2A12.7 12.7 0 0 0 19.8 14S16.8 9 12 9c-.7 0-1.4.1-2 .2l-1.8-1.8C9.4 7.1 10.6 7 12 7Z"/>
+        </svg>
+    `;
+
+    document.querySelectorAll('input[type="password"]').forEach((input) => {
+        if (input.dataset.pwToggleReady === '1') return;
+        input.dataset.pwToggleReady = '1';
+        const wrap = input.parentElement;
+        if (!wrap) return;
+        wrap.classList.add('pw-wrap');
+        input.style.paddingRight = '52px';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pw-toggle';
+        btn.setAttribute('aria-label', 'Show password');
+        btn.innerHTML = iconEye;
+        btn.addEventListener('click', () => {
+            const isHidden = input.type === 'password';
+            input.type = isHidden ? 'text' : 'password';
+            btn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+            btn.innerHTML = isHidden ? iconEyeOff : iconEye;
+        });
+        wrap.appendChild(btn);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    try { initPasswordPreviewToggles(); } catch {}
+});
+
 async function adminLogin(passcode) {
     return tripApi('/api/admin/login', { method: 'POST', body: { passcode } });
 }

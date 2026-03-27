@@ -2,11 +2,16 @@ const crypto = require('crypto');
 
 function requiredEnv(name) {
   const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
+  const strict = Boolean(process.env.VERCEL) || process.env.NODE_ENV === 'production';
+  if (!v && strict) throw new Error(`Missing env: ${name}`);
+  return v || '';
 }
 
-const SECRET = () => requiredEnv('TRIP_JWT_SECRET');
+const SECRET = () => {
+  const v = requiredEnv('TRIP_JWT_SECRET');
+  if (v) return v;
+  return 'trip-dev-secret';
+};
 
 function b64url(input) {
   return Buffer.from(input).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -48,4 +53,3 @@ function verifyToken(token) {
 }
 
 module.exports = { createToken, verifyToken };
-

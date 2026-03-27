@@ -2,8 +2,9 @@ const crypto = require('crypto');
 
 function requiredEnv(name) {
   const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
+  const strict = Boolean(process.env.VERCEL) || process.env.NODE_ENV === 'production';
+  if (!v && strict) throw new Error(`Missing env: ${name}`);
+  return v || '';
 }
 
 function normalizeEndpoint(endpoint) {
@@ -19,6 +20,9 @@ const USERS_COLLECTION_ID = requiredEnv('APPWRITE_COLLECTION_USERS_ID');
 const NOTIFICATIONS_COLLECTION_ID = process.env.APPWRITE_COLLECTION_NOTIFICATIONS_ID || 'notifications';
 
 async function appwriteRequest(path, { method = 'GET', body } = {}) {
+  if (!ENDPOINT || !PROJECT_ID || !API_KEY) {
+    throw new Error('Appwrite not configured');
+  }
   const url = `${ENDPOINT}${path.startsWith('/') ? '' : '/'}${path}`;
   const res = await fetch(url, {
     method,

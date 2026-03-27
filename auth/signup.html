@@ -64,10 +64,31 @@
                     msg.textContent = 'Full Name, Email, and Phone are required.';
                     return;
                 }
-                msg.textContent = 'Registration requested. Contact Admin to provision access PIN.';
+                msg.textContent = 'Submitting registration...';
+                try {
+                    const res = await fetch('/api/public/verify/request', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ fullName, email, phone, optionalId })
+                    });
+                    const out = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        msg.textContent = (out && out.error) ? out.error : 'Registration failed.';
+                        return;
+                    }
+                    if (out && out.requestId) {
+                        sessionStorage.setItem('trip_verify_request_id', out.requestId);
+                    }
+                    if (out && out.debugCode) {
+                        sessionStorage.setItem('trip_verify_debug_code', out.debugCode);
+                    }
+                    window.location.href = '/auth/verify.html';
+                } catch {
+                    msg.textContent = 'Registration failed.';
+                }
             });
         });
     </script>
 </body>
 </html>
-

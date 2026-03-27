@@ -19,9 +19,18 @@
 
             <p class="login-sub">If your account is not verified, you will not be allowed into any system.</p>
 
-            <div class="login-actions">
-                <button class="btn-primary" type="button" id="btnBack">Back to Login</button>
-                <div class="login-msg" id="vMsg"></div>
+            <div class="login-row">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Verification Code</div>
+                    <input id="vCode" type="password" inputmode="numeric" placeholder="••••••" autocomplete="one-time-code">
+                    <div style="margin-top:8px; color:var(--text-dim); font-weight:800; font-size:0.8rem;">Enter the code you received to verify registration.</div>
+                </div>
+                <div class="login-actions">
+                    <button class="btn-prime" type="button" id="btnVerify">Verify</button>
+                    <button class="btn-secondary" type="button" id="btnBack" style="margin-top:10px;">Back to Login</button>
+                    <div class="login-msg" id="vMsg"></div>
+                    <div id="vHint" style="margin-top:10px; color:var(--text-dim); font-weight:800; font-size:0.8rem;"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -32,8 +41,45 @@
             document.getElementById('btnBack').addEventListener('click', () => {
                 window.location.href = '/auth/login.html';
             });
+            const msg = document.getElementById('vMsg');
+            const hint = document.getElementById('vHint');
+            const rid = sessionStorage.getItem('trip_verify_request_id') || '';
+            const debug = sessionStorage.getItem('trip_verify_debug_code') || '';
+            if (debug) {
+                hint.textContent = `Dev code: ${debug}`;
+            }
+            document.getElementById('btnVerify').addEventListener('click', async () => {
+                msg.textContent = '';
+                const code = document.getElementById('vCode').value.trim();
+                if (!rid) {
+                    msg.textContent = 'No verification request found. Please sign up again.';
+                    return;
+                }
+                if (!code) {
+                    msg.textContent = 'Enter your verification code.';
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/public/verify/confirm', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ requestId: rid, code })
+                    });
+                    const out = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        msg.textContent = (out && out.error) ? out.error : 'Verification failed.';
+                        return;
+                    }
+                    sessionStorage.removeItem('trip_verify_request_id');
+                    sessionStorage.removeItem('trip_verify_debug_code');
+                    msg.textContent = 'Verified. Await Admin provisioning.';
+                    setTimeout(() => window.location.href = '/auth/login.html', 900);
+                } catch {
+                    msg.textContent = 'Verification failed.';
+                }
+            });
         });
     </script>
 </body>
 </html>
-
