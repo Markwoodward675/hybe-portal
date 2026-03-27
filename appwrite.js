@@ -114,8 +114,10 @@ async function tripApi(path, options = {}) {
     const contentType = (res.headers && res.headers.get) ? (res.headers.get('content-type') || '') : '';
     const text = await res.text();
     let json = null;
-    try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
-    if (!String(contentType).toLowerCase().includes('application/json')) {
+    let parsedOk = false;
+    try { json = text ? JSON.parse(text) : null; parsedOk = true; } catch { json = { raw: text }; }
+    const looksJson = /^\s*[\[{]/.test(String(text || ''));
+    if (!String(contentType).toLowerCase().includes('application/json') && !(parsedOk && looksJson)) {
         const err = new Error(`Non-JSON response for ${path}`);
         err.status = res.status;
         err.payload = {
