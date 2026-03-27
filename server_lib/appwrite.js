@@ -2,8 +2,6 @@ const crypto = require('crypto');
 
 function requiredEnv(name) {
   const v = process.env[name];
-  const strict = Boolean(process.env.VERCEL) || process.env.NODE_ENV === 'production';
-  if (!v && strict) throw new Error(`Missing env: ${name}`);
   return v || '';
 }
 

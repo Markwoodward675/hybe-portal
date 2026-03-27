@@ -473,31 +473,38 @@ Return ONLY JSON array, no markdown.`;
 }
 
 module.exports = async (req, res) => {
-  const q = req.query || {};
-  let parts = Array.isArray(q.path) ? q.path : (q.path ? [q.path] : []);
-  if (!parts.length) {
-    try {
-      const u = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
-      const p = u.pathname || '';
-      if (p.startsWith('/api/')) {
-        const rest = p.slice('/api/'.length);
-        parts = rest.split('/').filter(Boolean);
-      }
-    } catch {}
-  }
-  const scope = parts[0] || '';
-  const action = parts[1] || '';
+  try {
+    const q = req.query || {};
+    let parts = Array.isArray(q.path) ? q.path : (q.path ? [q.path] : []);
+    if (!parts.length) {
+      try {
+        const u = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+        const p = u.pathname || '';
+        if (p.startsWith('/api/')) {
+          const rest = p.slice('/api/'.length);
+          parts = rest.split('/').filter(Boolean);
+        }
+      } catch {}
+    }
+    const scope = parts[0] || '';
+    const action = parts[1] || '';
 
-  if (scope === 'admin') {
+    if (scope === 'admin') {
     if (action === 'config') {
       if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
       const configured = Boolean(process.env.TRIP_ADMIN_PASSCODE);
       const altConfigured = Boolean(process.env.TRIP_ADMIN_PASSCODE_ALT);
+      const missing = [];
+      ['APPWRITE_ENDPOINT', 'APPWRITE_PROJECT_ID', 'APPWRITE_API_KEY', 'APPWRITE_DATABASE_ID', 'APPWRITE_COLLECTION_USERS_ID', 'TRIP_JWT_SECRET'].forEach((k) => {
+        if (!process.env[k]) missing.push(k);
+      });
       return send(res, 200, {
         ok: true,
         configured,
         usingDefault: !configured,
         altConfigured,
+        appwriteConfigured: isAppwriteConfigured(),
+        missingEnv: missing,
       });
     }
 
@@ -658,8 +665,8 @@ module.exports = async (req, res) => {
             if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
             await upsertUser(u, userData);
             return send(res, 200, { ok: true });
-          } catch {
-            return send(res, 200, { ok: true, hint: 'No-op (dev local mode)' });
+          } catch (e) {
+            return send(res, 500, { error: e?.message || 'Upsert failed' });
           }
         }
         return send(res, 405, { error: 'Method not allowed' });
@@ -693,8 +700,8 @@ module.exports = async (req, res) => {
           if (!userData) return send(res, 400, { error: 'Missing userData' });
           await upsertUser(username, userData);
           return send(res, 200, { ok: true });
-        } catch {
-          return send(res, 200, { ok: true, hint: 'No-op (dev local mode)' });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Upsert failed' });
         }
       }
       if (req.method === 'DELETE') {
@@ -705,8 +712,8 @@ module.exports = async (req, res) => {
         try {
           const ok = await deleteUser(username);
           return send(res, 200, { ok });
-        } catch {
-          return send(res, 200, { ok: true, hint: 'No-op (dev local mode)' });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Delete failed' });
         }
       }
       return send(res, 405, { error: 'Method not allowed' });
@@ -816,8 +823,8 @@ module.exports = async (req, res) => {
           }));
           items.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
           return send(res, 200, { items });
-        } catch {
-          return send(res, 200, { items: [] });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Notifications load failed' });
         }
       }
 
@@ -839,8 +846,8 @@ module.exports = async (req, res) => {
             },
           });
           return send(res, 200, { ok: true });
-        } catch {
-          return send(res, 200, { ok: true, hint: 'No-op (dev local mode)' });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Notification create failed' });
         }
       }
 
@@ -859,8 +866,8 @@ module.exports = async (req, res) => {
             body: patch,
           });
           return send(res, 200, { ok: true });
-        } catch {
-          return send(res, 200, { ok: true, hint: 'No-op (dev local mode)' });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Notification update failed' });
         }
       }
 
@@ -872,8 +879,8 @@ module.exports = async (req, res) => {
             method: 'DELETE',
           });
           return send(res, 200, { ok: true });
-        } catch {
-          return send(res, 200, { ok: true, hint: 'No-op (dev local mode)' });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Notification delete failed' });
         }
       }
 
@@ -883,7 +890,7 @@ module.exports = async (req, res) => {
     return send(res, 404, { error: 'Not found' });
   }
 
-  if (scope === 'user') {
+    if (scope === 'user') {
     if (action === 'login') {
       if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
       const body = await readJson(req).catch(() => ({}));
@@ -1042,7 +1049,7 @@ module.exports = async (req, res) => {
     return send(res, 404, { error: 'Not found' });
   }
 
-  if (scope === 'public') {
+    if (scope === 'public') {
     if (action === 'verify' && parts[2] === 'request') {
       if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
       const body = await readJson(req).catch(() => ({}));
@@ -1212,5 +1219,14 @@ module.exports = async (req, res) => {
     return send(res, 404, { error: 'Not found' });
   }
 
-  return send(res, 404, { error: 'Not found' });
+    return send(res, 404, { error: 'Not found' });
+  } catch (e) {
+    try {
+      if (!res.headersSent) {
+        return send(res, 500, { error: e?.message || 'Internal Server Error' });
+      }
+    } catch {}
+    try { res.end(); } catch {}
+    return;
+  }
 };

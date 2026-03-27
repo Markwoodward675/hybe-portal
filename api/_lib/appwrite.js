@@ -2,8 +2,7 @@ const crypto = require('crypto');
 
 function requiredEnv(name) {
   const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
+  return v || '';
 }
 
 function normalizeEndpoint(endpoint) {
@@ -18,6 +17,9 @@ const DATABASE_ID = requiredEnv('APPWRITE_DATABASE_ID');
 const USERS_COLLECTION_ID = requiredEnv('APPWRITE_COLLECTION_USERS_ID');
 
 async function appwriteRequest(path, { method = 'GET', body } = {}) {
+  if (!ENDPOINT || !PROJECT_ID || !API_KEY || !DATABASE_ID || !USERS_COLLECTION_ID) {
+    throw new Error('Appwrite not configured');
+  }
   const url = `${ENDPOINT}${path.startsWith('/') ? '' : '/'}${path}`;
   const res = await fetch(url, {
     method,
@@ -127,4 +129,3 @@ module.exports = {
   upsertUser,
   deleteUser,
 };
-
