@@ -1,10 +1,15 @@
 {
   "version": 2,
   "cleanUrls": true,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/[...path].js" },
-    { "source": "/flight", "destination": "/flights/dashboard/index.html" },
-    { "source": "/flights", "destination": "/flights/dashboard/index.html" },
-    { "source": "/logistics", "destination": "/logistics/dashboard/index.html" }
+  "builds": [
+    { "src": "api/[...path].js", "use": "@vercel/node" },
+    { "src": "**/*", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "api/[...path].js" },
+    { "handle": "filesystem" },
+    { "src": "/flight", "dest": "/flights/dashboard/index.html" },
+    { "src": "/flights", "dest": "/flights/dashboard/index.html" },
+    { "src": "/logistics", "dest": "/logistics/dashboard/index.html" }
   ]
 }
