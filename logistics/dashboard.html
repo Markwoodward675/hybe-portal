@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Global Logistics | Tracking</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚚</text></svg>">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;" data-notifications="on">
+    <nav class="trip-nav">
+        <a href="/logistics/dashboard.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Global Logistics">
+            <span>TRIP Global Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="/logistics/dashboard.html" class="active">Tracking</a>
+                <a href="/logistics/requests.html">Requests</a>
+                <a href="/logistics/kyc.html">KYC</a>
+                <a href="/logistics/indemnity.html">Indemnity</a>
+                <a href="/logistics/submissions.html">Submissions</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px;">
+                <div style="font-weight:900; letter-spacing:-0.6px; font-size:1.1rem;">Cargo Tracking Dashboard</div>
+                <div id="svcBadge" class="badge-pill" style="color:var(--accent); border-color:var(--accent); background: rgba(225,29,72,0.10);">LOGISTICS</div>
+            </div>
+            <div style="margin-top:10px; color:var(--text-dim); font-weight:800;" id="whoLine">—</div>
+        </div>
+
+        <div class="card">
+            <div class="two-col">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Waybill ID</div>
+                    <div class="ticket-v" id="wbId" style="font-weight:900;">—</div>
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Delivery Estimate</div>
+                    <div class="ticket-v" id="wbEta" style="font-weight:900;">—</div>
+                </div>
+            </div>
+            <div class="two-col">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Cargo Weight</div>
+                    <div class="ticket-v" id="wbWeight" style="font-weight:900;">—</div>
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Vehicle Type</div>
+                    <div class="ticket-v" id="wbVehicle" style="font-weight:900;">—</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table class="m-table">
+                <thead><tr><th>Checkpoint</th><th>Location</th><th>Marker</th></tr></thead>
+                <tbody id="stepsBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px;">
+                <div style="font-weight:900; letter-spacing:-0.4px;">Shareable Waybill</div>
+                <div id="shareBadge" class="badge-pill" style="color:var(--text-dim); border-color:var(--border)">Admin Only</div>
+            </div>
+            <div id="shareNote" style="margin-top:10px; color:var(--text-dim); font-weight:800;">Ask Admin to generate a one-time logistics share link.</div>
+            <div style="margin-top:12px;">
+                <img id="wbQr" alt="Waybill QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
+            </div>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script src="/assets/js/notifications.js"></script>
+    <script src="/assets/js/hybridAI.js"></script>
+    <script>
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = '/index.html';
+        }
+
+        function statusPill(ok) {
+            const el = document.getElementById('sessionPill');
+            if (!el) return;
+            el.textContent = ok ? 'SERVER ACTIVE' : 'SESSION EXPIRED';
+            const color = ok ? 'var(--success)' : 'var(--danger)';
+            const bg = ok ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)';
+            el.style.color = color;
+            el.style.borderColor = color;
+            el.style.background = bg;
+        }
+
+        function setupNav() {
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try { if (window.HybridAI) window.HybridAI.init({ notifications: true, schemaInspect: false }); } catch {}
+            initThemeToggle();
+            setupNav();
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            let me = null;
+            try {
+                me = await requireServiceCategory('LOGISTICS');
+                if (!me) return;
+            } catch {
+                statusPill(false);
+                await signOut();
+                return;
+            }
+
+            statusPill(true);
+
+            const username = me.username;
+            const user = me.userData || {};
+            const lm = user.logisticsManifest || {};
+            const logistics = user.logistics || {};
+            const steps = Array.isArray(logistics.steps) ? logistics.steps : [];
+
+            document.getElementById('whoLine').textContent = `${user.passengerName || 'Shipment'} • ${username}`;
+            document.getElementById('wbId').textContent = lm.waybillId || '—';
+            document.getElementById('wbEta').textContent = lm.deliveryEstimate || '—';
+            document.getElementById('wbWeight').textContent = lm.cargoWeight || '—';
+            document.getElementById('wbVehicle').textContent = lm.vehicleType || '—';
+
+            const body = document.getElementById('stepsBody');
+            body.innerHTML = '';
+            steps.forEach((s) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td style="font-weight:900;">${s.title || '—'}</td><td>${s.location || '—'}</td><td style="color:var(--text-dim); font-weight:800;">${s.date || '—'}</td>`;
+                body.appendChild(tr);
+            });
+
+            const oneTime = user.share && user.share.oneTimeLogistics ? user.share.oneTimeLogistics : {};
+            const shareBadge = document.getElementById('shareBadge');
+            const shareNote = document.getElementById('shareNote');
+            const qrImg = document.getElementById('wbQr');
+            if (oneTime.code && !oneTime.usedAt) {
+                const url = `${window.location.origin}/logistics/waybill.html?u=${encodeURIComponent(username)}&tc=${encodeURIComponent(oneTime.code)}`;
+                const qr = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                qrImg.src = qr;
+                qrImg.style.display = 'block';
+                shareBadge.textContent = 'QR READY';
+                shareNote.textContent = 'Scan to open digital waybill.';
+            } else {
+                qrImg.style.display = 'none';
+                shareBadge.textContent = 'Admin Only';
+                shareNote.textContent = oneTime.usedAt ? 'Code already used. Ask Admin for a new link.' : 'Ask Admin to generate a one-time logistics share link.';
+            }
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>

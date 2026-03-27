@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Flight Form</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+            <span>TRIP Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="flight.html">Status</a>
+                <a href="passengers.html">Personnel</a>
+                <a href="tracking.html">Logistics</a>
+                <a href="ledger.html">Ledger</a>
+                <a href="bookings.html">Bookings</a>
+                <a href="form.html" class="active">Form</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px;">
+                <div style="font-weight:900; letter-spacing:-0.6px; font-size:1.1rem;">Flight & Logistics Service Form</div>
+                <div id="lockBadge" class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">PENDING</div>
+            </div>
+            <div id="formHint" style="margin-top:10px; color:var(--text-dim); font-weight:700; line-height:1.35;"></div>
+        </div>
+
+        <div class="card">
+            <div class="two-col">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Passenger</div>
+                    <div id="fPassenger" class="ticket-v" style="font-weight:900;">—</div>
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Username</div>
+                    <div id="fUsername" class="ticket-v" style="font-weight:900;">—</div>
+                </div>
+            </div>
+
+            <div class="two-col">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Route</div>
+                    <input id="fRoute" type="text" readonly>
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Flight Class</div>
+                    <input id="fClass" type="text" readonly>
+                </div>
+            </div>
+
+            <div class="two-col">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Flight Number</div>
+                    <input id="fFlightNo" type="text" readonly>
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Departure (Local)</div>
+                    <input id="fDepartAt" type="text" readonly>
+                </div>
+            </div>
+
+            <div>
+                <div class="ticket-k" style="margin-bottom:8px;">Special Instructions</div>
+                <textarea id="fNotes" rows="4" readonly></textarea>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="font-weight:900; letter-spacing:-0.4px;">Signature</div>
+            <div style="margin-top:8px; color:var(--text-dim); font-weight:700; line-height:1.35;">
+                Draw your signature below to acknowledge the service request.
+            </div>
+
+            <div style="margin-top:14px;">
+                <canvas id="sigCanvas" width="920" height="220" style="width:100%; height:220px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); touch-action: none;"></canvas>
+            </div>
+
+            <div class="two-col" style="margin-top:14px;">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Signed Name</div>
+                    <input id="sigName" type="text" placeholder="Full Name">
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Signed At</div>
+                    <input id="sigAt" type="text" readonly value="—">
+                </div>
+            </div>
+
+            <div class="two-col" style="margin-top:10px;">
+                <button class="btn-secondary" type="button" id="btnClearSig">Clear</button>
+                <button class="btn-primary" type="button" id="btnSubmitSig">Submit Signature</button>
+            </div>
+            <div id="sigMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = 'index.html';
+        }
+
+        function statusPill(ok) {
+            const el = document.getElementById('sessionPill');
+            if (!el) return;
+            el.textContent = ok ? 'SERVER ACTIVE' : 'SESSION EXPIRED';
+            const color = ok ? 'var(--success)' : 'var(--danger)';
+            const bg = ok ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)';
+            el.style.color = color;
+            el.style.borderColor = color;
+            el.style.background = bg;
+        }
+
+        function setupNav() {
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+        }
+
+        function initSignaturePad(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.lineWidth = 2.2;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = 'rgba(15,23,42,0.9)';
+            if (document.documentElement.getAttribute('data-theme') === 'dark') {
+                ctx.strokeStyle = 'rgba(226,232,240,0.92)';
+            }
+
+            let drawing = false;
+            let last = null;
+
+            const point = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const x = ((clientX - rect.left) / rect.width) * canvas.width;
+                const y = ((clientY - rect.top) / rect.height) * canvas.height;
+                return { x, y };
+            };
+
+            const start = (e) => {
+                drawing = true;
+                last = point(e);
+                e.preventDefault();
+            };
+
+            const move = (e) => {
+                if (!drawing) return;
+                const p = point(e);
+                ctx.beginPath();
+                ctx.moveTo(last.x, last.y);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+                last = p;
+                e.preventDefault();
+            };
+
+            const end = (e) => {
+                drawing = false;
+                last = null;
+                e.preventDefault();
+            };
+
+            canvas.addEventListener('pointerdown', start);
+            canvas.addEventListener('pointermove', move);
+            canvas.addEventListener('pointerup', end);
+            canvas.addEventListener('pointercancel', end);
+            canvas.addEventListener('touchstart', start, { passive: false });
+            canvas.addEventListener('touchmove', move, { passive: false });
+            canvas.addEventListener('touchend', end, { passive: false });
+
+            const clear = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            };
+
+            const isBlank = () => {
+                const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                for (let i = 3; i < data.length; i += 4) {
+                    if (data[i] !== 0) return false;
+                }
+                return true;
+            };
+
+            const exportDataUrl = () => canvas.toDataURL('image/png');
+            return { clear, isBlank, exportDataUrl };
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle();
+            setupNav();
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            let me = null;
+            try {
+                me = await requireServiceCategory('FLIGHT');
+                if (!me) return;
+            } catch {
+                statusPill(false);
+                await signOut();
+                return;
+            }
+            statusPill(true);
+
+            const username = me.username;
+            const user = me.userData;
+            const m = user.manifest || {};
+            const f = user.form || {};
+
+            document.getElementById('fPassenger').textContent = user.passengerName || username;
+            document.getElementById('fUsername').textContent = username;
+            document.getElementById('fRoute').value = `${m.from || 'LHR'}-${m.to || 'ICN'}`;
+            document.getElementById('fClass').value = String(m.flightClass || 'Business').toUpperCase();
+            document.getElementById('fFlightNo').value = f.flightNo || '';
+            document.getElementById('fDepartAt').value = f.departAt || '';
+            document.getElementById('fNotes').value = f.notes || '';
+
+            const locked = f.lockedByAdmin !== false;
+            const lockBadge = document.getElementById('lockBadge');
+            lockBadge.textContent = locked ? 'LOCKED' : 'DRAFT';
+            lockBadge.style.color = locked ? 'var(--success)' : 'var(--warning)';
+            lockBadge.style.borderColor = locked ? 'var(--success)' : 'var(--warning)';
+            lockBadge.style.background = locked ? 'rgba(16,185,129,0.10)' : 'rgba(245,158,11,0.10)';
+
+            const hint = document.getElementById('formHint');
+            hint.textContent = locked
+                ? 'This form is locked by Admin. You may sign and submit only.'
+                : 'This form is pending Admin lock. Some details may still change.';
+
+            const sigAt = document.getElementById('sigAt');
+            const sigName = document.getElementById('sigName');
+
+            if (f.signature && f.signature.dataUrl) {
+                sigName.value = f.signature.name || '';
+                sigName.disabled = true;
+                sigAt.value = f.signature.signedAt ? new Date(f.signature.signedAt).toLocaleString() : '—';
+            }
+
+            const canvas = document.getElementById('sigCanvas');
+            const pad = initSignaturePad(canvas);
+
+            if (!locked) {
+                document.getElementById('btnSubmitSig').disabled = true;
+                document.getElementById('btnClearSig').disabled = true;
+                sigName.disabled = true;
+                document.getElementById('sigMsg').textContent = 'Awaiting Admin lock. Signature disabled.';
+            }
+
+            if (f.signature && f.signature.dataUrl) {
+                const img = new Image();
+                img.onload = () => {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                };
+                img.src = f.signature.dataUrl;
+                document.getElementById('btnSubmitSig').disabled = true;
+                document.getElementById('btnClearSig').disabled = true;
+            }
+
+            document.getElementById('btnClearSig').addEventListener('click', () => {
+                if (f.signature && f.signature.dataUrl) return;
+                pad.clear();
+            });
+
+            document.getElementById('btnSubmitSig').addEventListener('click', async () => {
+                const msg = document.getElementById('sigMsg');
+                msg.textContent = '';
+                if (f.signature && f.signature.dataUrl) return;
+                if (pad.isBlank()) {
+                    msg.textContent = 'Signature is required.';
+                    return;
+                }
+                const nm = sigName.value.trim();
+                if (!nm) {
+                    msg.textContent = 'Enter your name.';
+                    return;
+                }
+                try {
+                    await fetch('/api/user/form', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ signatureDataUrl: pad.exportDataUrl(), name: nm })
+                    });
+                    msg.textContent = 'Signature submitted.';
+                    setTimeout(() => window.location.reload(), 650);
+                } catch {
+                    msg.textContent = 'Signature submit failed.';
+                }
+            });
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>

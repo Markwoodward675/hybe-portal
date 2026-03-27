@@ -1,0 +1,202 @@
+:root {
+  --accent-2: #ff4d6d;
+  --soft-pink: #ffe4e9;
+  --shadow-soft: 0 14px 40px rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme="dark"] {
+  --shadow-soft: 0 14px 40px rgba(0, 0, 0, 0.35);
+}
+
+.notify-stack {
+  position: fixed;
+  top: 84px;
+  right: 18px;
+  z-index: 4500;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 24px));
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .notify-stack {
+    top: 74px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+}
+
+.notify {
+  pointer-events: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent-2);
+  border-radius: 16px;
+  padding: 12px 12px 12px 12px;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(16px);
+  transform: translateY(-8px);
+  opacity: 0;
+  transition: transform 280ms ease, opacity 280ms ease;
+}
+
+.notify.is-in {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.notify-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.notify-title {
+  font-weight: 900;
+  letter-spacing: -0.4px;
+  font-size: 0.9rem;
+}
+
+.notify-time {
+  color: var(--text-dim);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.notify-msg {
+  margin-top: 6px;
+  color: var(--text);
+  font-weight: 800;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.notify-close {
+  margin-left: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tech-form {
+  display: grid;
+  gap: 14px;
+}
+
+.form-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.form-head h2 {
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: -0.8px;
+  font-size: 1.2rem;
+}
+
+.form-sub {
+  margin: 8px 0 0;
+  color: var(--text-dim);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.progress {
+  margin-top: 12px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+:root[data-theme="dark"] .progress {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.progress > div {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  transition: width 220ms ease;
+}
+
+.field {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.field input,
+.field textarea,
+.field select {
+  margin: 0;
+}
+
+.field label {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  color: var(--input-placeholder);
+  font-weight: 900;
+  font-size: 0.72rem;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  pointer-events: none;
+  transition: transform 160ms ease, color 160ms ease, opacity 160ms ease;
+  transform-origin: left top;
+}
+
+.field input:focus + label,
+.field input:not(:placeholder-shown) + label,
+.field textarea:focus + label,
+.field textarea:not(:placeholder-shown) + label,
+.field select:focus + label,
+.field select:not([value=""]) + label {
+  transform: translateY(-12px) scale(0.92);
+  color: var(--accent-2);
+  opacity: 0.95;
+}
+
+.help {
+  color: var(--text-dim);
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.err {
+  color: var(--danger);
+  font-weight: 900;
+  font-size: 0.8rem;
+  display: none;
+}
+
+.field.invalid .err {
+  display: block;
+}
+
+.sig-pad {
+  width: 100%;
+  height: 220px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  touch-action: none;
+}
+
+@media (max-width: 768px) {
+  .sig-pad { height: 200px; }
+}
+

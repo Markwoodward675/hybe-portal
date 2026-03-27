@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Airways | Boarding Pass</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <nav class="trip-nav">
+        <a href="/index.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Airways">
+            <span>TRIP Airways</span>
+        </a>
+        <div class="trip-nav-right">
+            <span class="badge-pill session-pill" style="color:var(--accent); border-color:var(--accent); background: rgba(225,29,72,0.10);">SHARED</span>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="ticket-8k ticket-surface boarding-pass" id="bpCard" style="display:none;">
+            <div class="ticket-8k__main">
+                <div class="ticket-8k__top">
+                    <div>
+                        <div class="ticket-8k__brandline">TRIP Airways</div>
+                        <div class="ticket-8k__sub">BOARDING PASS • SHARED VIEW</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span id="stBadge" class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">PENDING</span>
+                        <div style="margin-top:10px; color:var(--ticket-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Official Manifest</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__route">
+                    <div class="route-side">
+                        <div class="route-label">Departure</div>
+                        <div class="route-code dep" id="codeDep">LHR</div>
+                    </div>
+                    <div class="route-mid">
+                        <div class="route-line"></div>
+                        <div class="route-txt" id="routeTxt">LHR-ICN</div>
+                    </div>
+                    <div class="route-side" style="text-align:right;">
+                        <div class="route-label">Arrival</div>
+                        <div class="route-code arr" id="codeArr">ICN</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__grid">
+                    <div>
+                        <div class="ticket-k">Passenger</div>
+                        <div class="ticket-passenger" id="dispName">—</div>
+                        <div class="ticket-small">Session ID: <span id="dispUser">—</span></div>
+                    </div>
+                    <div class="ticket-grid-mini">
+                        <div>
+                            <div class="ticket-k">Gate</div>
+                            <div class="ticket-v" id="dispGate">—</div>
+                        </div>
+                        <div>
+                            <div class="ticket-k">Seat</div>
+                            <div class="ticket-v" id="dispSeat">—</div>
+                        </div>
+                        <div>
+                            <div class="ticket-k">Class</div>
+                            <div class="ticket-v" id="dispCls">—</div>
+                        </div>
+                        <div>
+                            <div class="ticket-k">Status</div>
+                            <div class="ticket-v" id="dispStatus">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="ticket-8k__stub">
+                <div class="stub-meta">
+                    <div>
+                        <div class="ticket-k">Tracking Code</div>
+                        <div class="stub-id" id="trackingCode">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">View</div>
+                        <div class="stub-id">READ-ONLY</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="errCard" style="display:none;">
+            <div style="font-weight:900; color:var(--danger);">Access denied</div>
+            <div id="errMsg" style="margin-top:10px; color:var(--text-dim); font-weight:800;"></div>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script>
+        function q(k) {
+            return new URLSearchParams(window.location.search).get(k) || '';
+        }
+
+        function setStatusBadge(status) {
+            const st = String(status || 'PENDING').toUpperCase();
+            document.getElementById('dispStatus').textContent = st;
+            const badge = document.getElementById('stBadge');
+            const map = {
+                CONFIRMED: 'var(--success)',
+                VERIFIED: 'var(--success)',
+                CANCELLED: 'var(--danger)',
+                DECLINED: 'var(--danger)',
+                REJECTED: 'var(--danger)',
+                SUSPENDED: 'var(--warning)',
+                VERIFYING: 'var(--warning)',
+                PENDING: 'var(--warning)',
+                'ON-HOLD': 'var(--warning)'
+            };
+            const c = map[st] || 'var(--warning)';
+            badge.textContent = st;
+            badge.style.color = c;
+            badge.style.borderColor = c;
+            badge.style.background = c === 'var(--success)' ? 'rgba(16,185,129,0.10)' : (c === 'var(--danger)' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const u = q('u');
+            const tc = q('tc');
+            const bp = document.getElementById('bpCard');
+            const errCard = document.getElementById('errCard');
+            const errMsg = document.getElementById('errMsg');
+
+            try {
+                const out = await publicDetails(u, tc);
+                const user = out && out.userData ? out.userData : null;
+                const username = out && out.username ? out.username : u;
+                if (!user) throw new Error('No user data');
+                const m = user.manifest || {};
+
+                const from = m.from || 'LHR';
+                const to = m.to || 'ICN';
+                document.getElementById('codeDep').textContent = from;
+                document.getElementById('codeArr').textContent = to;
+                document.getElementById('routeTxt').textContent = `${from}-${to}`;
+                document.getElementById('dispGate').textContent = m.gate || '--';
+                document.getElementById('dispSeat').textContent = m.seat || '--';
+                document.getElementById('dispCls').textContent = String(m.flightClass || 'Business').toUpperCase();
+                document.getElementById('dispName').textContent = user.passengerName || username;
+                document.getElementById('dispUser').textContent = username;
+                setStatusBadge(m.status || 'PENDING');
+                document.getElementById('trackingCode').textContent = tc || '—';
+
+                bp.style.display = 'grid';
+            } catch (e) {
+                errCard.style.display = 'block';
+                errMsg.textContent = 'Invalid or used code.';
+            }
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>
+

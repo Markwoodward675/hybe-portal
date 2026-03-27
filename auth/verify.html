@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" data-force-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP | Verify</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body>
+    <div class="login-shell">
+        <div class="login-card">
+            <div class="login-brand">
+                <img class="trip-logo" src="/logo.png" alt="TRIP">
+                <div>
+                    <h1>Verify Account</h1>
+                    <div style="color:var(--text-dim); font-weight:700; font-size:0.8rem; margin-top:2px;">Email verification required</div>
+                </div>
+            </div>
+
+            <p class="login-sub">If your account is not verified, you will not be allowed into any system.</p>
+
+            <div class="login-actions">
+                <button class="btn-primary" type="button" id="btnBack">Back to Login</button>
+                <div class="login-msg" id="vMsg"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('btnBack').addEventListener('click', () => {
+                window.location.href = '/auth/login.html';
+            });
+        });
+    </script>
+</body>
+</html>
+

@@ -16,6 +16,7 @@ const PROJECT_ID = requiredEnv('APPWRITE_PROJECT_ID');
 const API_KEY = requiredEnv('APPWRITE_API_KEY');
 const DATABASE_ID = requiredEnv('APPWRITE_DATABASE_ID');
 const USERS_COLLECTION_ID = requiredEnv('APPWRITE_COLLECTION_USERS_ID');
+const NOTIFICATIONS_COLLECTION_ID = process.env.APPWRITE_COLLECTION_NOTIFICATIONS_ID || 'notifications';
 
 async function appwriteRequest(path, { method = 'GET', body } = {}) {
   const url = `${ENDPOINT}${path.startsWith('/') ? '' : '/'}${path}`;
@@ -83,15 +84,23 @@ function parseUserData(doc) {
   } catch {
     parsed = null;
   }
+  if (parsed && !parsed.serviceCategory && doc?.service_category) {
+    parsed.serviceCategory = String(doc.service_category);
+  }
   return parsed;
 }
 
 async function upsertUser(username, userData) {
+  const cat = userData && (userData.serviceCategory || userData.service_category) ? String(userData.serviceCategory || userData.service_category).toUpperCase() : '';
+  const service_category = cat === 'LOGISTICS' ? 'LOGISTICS' : (cat === 'FLIGHT' ? 'FLIGHT' : undefined);
   const existing = await findUserDocByUsername(username);
   if (existing) {
     return appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(existing.$id)}`, {
       method: 'PATCH',
-      body: { data: JSON.stringify(userData) },
+      body: {
+        data: JSON.stringify(userData),
+        ...(service_category ? { service_category } : {}),
+      },
     });
   }
   const documentId = crypto.randomUUID();
@@ -102,6 +111,7 @@ async function upsertUser(username, userData) {
       data: {
         username,
         data: JSON.stringify(userData),
+        ...(service_category ? { service_category } : {}),
       },
       permissions: [],
     },
@@ -120,6 +130,7 @@ async function deleteUser(username) {
 module.exports = {
   DATABASE_ID,
   USERS_COLLECTION_ID,
+  NOTIFICATIONS_COLLECTION_ID,
   appwriteRequest,
   findUserDocByUsername,
   listAllUserDocs,
@@ -127,4 +138,3 @@ module.exports = {
   upsertUser,
   deleteUser,
 };
-

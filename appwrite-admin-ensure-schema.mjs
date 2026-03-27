@@ -193,6 +193,10 @@ async function ensureAttributes() {
       await createStringAttribute({ key: 'data', size: 200000, required: true });
     }
   }
+
+  if (!keys.has('service_category')) {
+    await createStringAttribute({ key: 'service_category', size: 24, required: false });
+  }
 }
 
 async function listIndexes() {
@@ -219,21 +223,34 @@ async function waitForIndex(key) {
 async function ensureIndexes() {
   const indexes = await listIndexes();
   const keys = new Set(indexes.map((i) => i.key));
-  if (keys.has('username_idx')) return;
+  if (!keys.has('username_idx')) {
+    try {
+      await request(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/indexes`, {
+        method: 'POST',
+        body: {
+          key: 'username_idx',
+          type: 'key',
+          attributes: ['username'],
+          orders: ['ASC'],
+        },
+      });
+      await waitForIndex('username_idx');
+    } catch {}
+  }
 
-  try {
-    await request(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/indexes`, {
-      method: 'POST',
-      body: {
-        key: 'username_idx',
-        type: 'key',
-        attributes: ['username'],
-        orders: ['ASC'],
-      },
-    });
-    await waitForIndex('username_idx');
-  } catch {
-    // Index creation isn't strictly required for this app; ignore if Appwrite rejects parameters.
+  if (!keys.has('service_category_idx')) {
+    try {
+      await request(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/indexes`, {
+        method: 'POST',
+        body: {
+          key: 'service_category_idx',
+          type: 'key',
+          attributes: ['service_category'],
+          orders: ['ASC'],
+        },
+      });
+      await waitForIndex('service_category_idx');
+    } catch {}
   }
 }
 

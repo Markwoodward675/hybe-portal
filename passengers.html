@@ -49,6 +49,7 @@
                 <a href="tracking.html">Logistics</a>
                 <a href="ledger.html">Ledger</a>
                 <a href="bookings.html">Bookings</a>
+                <a href="form.html">Form</a>
                 <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
             </div>
         </div>
@@ -92,7 +93,7 @@
     <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
     <script src="appwrite.js"></script>
     <script>
-        const rosterBase = [
+        let rosterBase = [
             { n: "Adebayo K.", role: "Business Owner", c: "Business" },
             { n: "Isabella Chen", role: "Tech Founder", c: "First" },
             { n: "David & Priya Shah", role: "Family Vacation", c: "Business" },
@@ -112,6 +113,7 @@
             { n: "Confidential Client 17", role: "Diplomatic Liaison", c: "First" },
             { n: "Confidential Client 18", role: "High Profile Client", c: "VVIP" }
         ];
+        let aiHiddenRoster = [];
 
         function randInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -125,12 +127,58 @@
             const roles = ["Business Owner", "Family Vacation", "Private Investor", "High Profile Client", "Couple • Maternity", "Medical Specialist"];
             const classes = ["Economy", "Business", "First", "VVIP"];
             const out = [];
+            if (Array.isArray(aiHiddenRoster) && aiHiddenRoster.length) {
+                for (let i = 0; i < Math.min(count, aiHiddenRoster.length); i++) {
+                    out.push(aiHiddenRoster[i]);
+                }
+                if (out.length >= count) return out.slice(0, count);
+            }
             for (let i = 1; i <= count; i++) {
                 const r = roles[(i * 7) % roles.length];
                 const c = classes[(i * 5) % classes.length];
                 out.push({ n: `Confidential Passenger ${String(i).padStart(2, "0")}`, role: r, c });
             }
             return out;
+        }
+
+        function loadAiRosterCache() {
+            const raw = localStorage.getItem('trip_ai_roster_v1');
+            if (!raw) return null;
+            try { return JSON.parse(raw); } catch { return null; }
+        }
+
+        function saveAiRosterCache(payload) {
+            try { localStorage.setItem('trip_ai_roster_v1', JSON.stringify(payload)); } catch {}
+        }
+
+        async function hydrateAiRoster() {
+            const cached = loadAiRosterCache();
+            if (cached && cached.items && cached.expiresAt && Date.now() < cached.expiresAt) {
+                applyAiRoster(cached.items);
+                return;
+            }
+            try {
+                const res = await fetch('/api/public/ai/passengers?limit=50', { credentials: 'include' });
+                const out = await res.json().catch(() => ({}));
+                const items = out && Array.isArray(out.items) ? out.items : [];
+                if (items.length) {
+                    saveAiRosterCache({ items, expiresAt: Date.now() + 10 * 60 * 1000 });
+                    applyAiRoster(items);
+                }
+            } catch {}
+        }
+
+        function applyAiRoster(items) {
+            const roles = ["Business Owner", "Family Vacation", "Private Investor", "High Profile Client", "Couple • Maternity", "Medical Specialist"];
+            const mapped = items.slice(0, 50).map((p, idx) => {
+                const n = String(p.fullName || `Passenger ${idx + 1}`);
+                const role = roles[idx % roles.length];
+                const c = String(p.flightClass || p.flightClass === '' ? p.flightClass : 'Business') || 'Business';
+                return { n, role, c };
+            });
+            rosterBase = mapped.slice(0, 18);
+            aiHiddenRoster = mapped.slice(18);
+            localStorage.removeItem('trip_roster_state_v2');
         }
 
         function loadRosterState() {
@@ -280,6 +328,8 @@
                 return;
             }
             setPill('SERVER ACTIVE', 'ok');
+
+            await hydrateAiRoster();
 
             const passengerName = user.passengerName || activeUser;
             const m = user.manifest || {};

@@ -18,18 +18,26 @@ try {
 // Database & Collection IDs (You must create these in your Appwrite Console)
 const DB_ID = 'trip_portal';
 const COL_USERS = 'users';
+const COL_NOTIFICATIONS = 'notifications';
 
 function getPreferredTheme() {
     const saved = localStorage.getItem('trip_theme');
     if (saved === 'light' || saved === 'dark') return saved;
+    const forced = document.documentElement.getAttribute('data-force-theme');
+    if (forced === 'light' || forced === 'dark') return forced;
+    const def = document.documentElement.getAttribute('data-default-theme');
+    if (def === 'light' || def === 'dark') return def;
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     return prefersDark ? 'dark' : 'light';
 }
 
-function applyTheme(theme) {
+function applyTheme(theme, options = {}) {
     const t = (theme === 'dark') ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', t);
-    try { localStorage.setItem('trip_theme', t); } catch {}
+    const persist = options && options.persist !== undefined ? Boolean(options.persist) : true;
+    if (persist) {
+        try { localStorage.setItem('trip_theme', t); } catch {}
+    }
     return t;
 }
 
@@ -54,8 +62,43 @@ function initThemeToggle(buttonId = 'themeToggle') {
     });
 }
 
+function serviceCategoryOf(userData) {
+    const raw = userData && (userData.serviceCategory || userData.service_category);
+    const v = String(raw || 'FLIGHT').toUpperCase();
+    return (v === 'LOGISTICS') ? 'LOGISTICS' : 'FLIGHT';
+}
+
+async function requireServiceCategory(expected) {
+    const exp = String(expected || '').toUpperCase();
+    const me = await userMe();
+    const actual = serviceCategoryOf(me && me.userData);
+    if (exp && actual !== exp) {
+        window.location.href = actual === 'LOGISTICS' ? '/logistics/dashboard.html' : '/flight/dashboard.html';
+        return null;
+    }
+    return me;
+}
+
+function subscribeNotifications(onEvent) {
+    if (!client || typeof client.subscribe !== 'function') return null;
+    const cb = typeof onEvent === 'function' ? onEvent : () => {};
+    const channel = `databases.${DB_ID}.collections.${COL_NOTIFICATIONS}.documents`;
+    try {
+        return client.subscribe(channel, cb);
+    } catch {
+        return null;
+    }
+}
+
 (() => {
-    try { applyTheme(getPreferredTheme()); } catch {}
+    try {
+        const forced = document.documentElement.getAttribute('data-force-theme');
+        if (forced) {
+            applyTheme(forced, { persist: false });
+        } else {
+            applyTheme(getPreferredTheme(), { persist: false });
+        }
+    } catch {}
 })();
 
 async function tripApi(path, options = {}) {

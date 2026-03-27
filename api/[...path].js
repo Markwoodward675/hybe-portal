@@ -5,6 +5,7 @@ const {
   appwriteRequest,
   DATABASE_ID,
   USERS_COLLECTION_ID,
+  NOTIFICATIONS_COLLECTION_ID,
   findUserDocByUsername,
   listAllUserDocs,
   parseUserData,
@@ -96,13 +97,33 @@ async function listAttributes() {
   return Array.isArray(out?.attributes) ? out.attributes : [];
 }
 
+async function listAttributesFor(collectionId) {
+  const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(collectionId)}/attributes`);
+  return Array.isArray(out?.attributes) ? out.attributes : [];
+}
+
 async function getAttribute(key) {
   return appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/attributes/${encodeURIComponent(key)}`);
+}
+
+async function getAttributeFor(collectionId, key) {
+  return appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(collectionId)}/attributes/${encodeURIComponent(key)}`);
 }
 
 async function waitAvailableAttribute(key) {
   for (let i = 0; i < 30; i++) {
     const a = await getAttribute(key);
+    const status = a?.status;
+    if (status === 'available') return;
+    if (status === 'failed') throw new Error(`Attribute ${key} failed`);
+    await sleep(1500);
+  }
+  throw new Error(`Timed out waiting for attribute ${key}`);
+}
+
+async function waitAvailableAttributeFor(collectionId, key) {
+  for (let i = 0; i < 30; i++) {
+    const a = await getAttributeFor(collectionId, key);
     const status = a?.status;
     if (status === 'available') return;
     if (status === 'failed') throw new Error(`Attribute ${key} failed`);
@@ -119,6 +140,51 @@ async function createStringAttribute(key, size, required) {
   await waitAvailableAttribute(key);
 }
 
+async function createStringAttributeFor(collectionId, key, size, required) {
+  await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(collectionId)}/attributes/string`, {
+    method: 'POST',
+    body: { key, size, required, default: null, array: false },
+  });
+  await waitAvailableAttributeFor(collectionId, key);
+}
+
+async function createBooleanAttributeFor(collectionId, key, required) {
+  await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(collectionId)}/attributes/boolean`, {
+    method: 'POST',
+    body: { key, required, default: null, array: false },
+  });
+  await waitAvailableAttributeFor(collectionId, key);
+}
+
+async function updateStringAttributeFor(collectionId, key, size, required) {
+  await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(collectionId)}/attributes/string/${encodeURIComponent(key)}`, {
+    method: 'PUT',
+    body: { key, size, required, default: null, array: false },
+  });
+  await waitAvailableAttributeFor(collectionId, key);
+}
+
+async function ensureStringAttributeFor(collectionId, key, size, required) {
+  const attrs = await listAttributesFor(collectionId).catch(() => []);
+  const existing = Array.isArray(attrs) ? attrs.find((a) => a.key === key) : null;
+  if (!existing) {
+    await createStringAttributeFor(collectionId, key, size, required);
+    return { action: 'created', key };
+  }
+  if (existing.type !== 'string') return { action: 'skipped_type', key, type: existing.type };
+  const currentSize = Number(existing.size) || 0;
+  const desiredSize = Number(size) || 0;
+  if (desiredSize > currentSize && currentSize > 0) {
+    try {
+      await updateStringAttributeFor(collectionId, key, desiredSize, Boolean(existing.required));
+      return { action: 'updated_size', key, from: currentSize, to: desiredSize };
+    } catch {
+      return { action: 'update_failed', key, from: currentSize, to: desiredSize };
+    }
+  }
+  return { action: 'ok', key };
+}
+
 async function ensureAttributes() {
   const attrs = await listAttributes();
   const keys = new Set(attrs.map((a) => a.key));
@@ -130,6 +196,52 @@ async function ensureAttributes() {
       await createStringAttribute('data', 200000, true);
     }
   }
+  if (!keys.has('service_category')) {
+    await createStringAttribute('service_category', 24, false);
+  }
+}
+
+async function ensureNotificationsCollection() {
+  const colPath = `/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}`;
+  const ok = await exists(colPath);
+  if (!ok) {
+    await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections`, {
+      method: 'POST',
+      body: {
+        collectionId: NOTIFICATIONS_COLLECTION_ID,
+        name: 'Notifications',
+        documentSecurity: false,
+        permissions: ['read("any")'],
+      },
+    });
+  }
+
+  const attrs = await listAttributesFor(NOTIFICATIONS_COLLECTION_ID).catch(() => []);
+  const keys = new Set((attrs || []).map((a) => a.key));
+  if (!keys.has('title')) await createStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'title', 120, true);
+  if (!keys.has('message')) await createStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'message', 2000, true);
+  if (!keys.has('tone')) await createStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'tone', 24, false);
+  if (!keys.has('active')) await createBooleanAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'active', false);
+  if (!keys.has('createdAt')) await createStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'createdAt', 64, false);
+}
+
+async function schemaSync() {
+  const actions = [];
+  await ensureDatabase();
+  await ensureCollection();
+  await lockCollectionPermissions();
+
+  actions.push(await ensureStringAttributeFor(USERS_COLLECTION_ID, 'username', 255, true));
+  actions.push(await ensureStringAttributeFor(USERS_COLLECTION_ID, 'data', 1000000, true));
+  actions.push(await ensureStringAttributeFor(USERS_COLLECTION_ID, 'service_category', 24, false));
+
+  await ensureNotificationsCollection();
+  actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'title', 120, true));
+  actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'message', 2000, true));
+  actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'tone', 24, false));
+  actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'createdAt', 64, false));
+
+  return actions;
 }
 
 function hashInt(seed) {
@@ -173,6 +285,104 @@ function makeBookingForUser(username, userData, block) {
     price,
     status,
   };
+}
+
+async function generateAiPassengers(limit) {
+  const max = Math.max(1, Math.min(50, Number(limit) || 30));
+  const cached = globalThis.__tripAiPassengersCache;
+  if (cached && cached.items && cached.expiresAt && Date.now() < cached.expiresAt && cached.items.length >= max) {
+    return cached.items.slice(0, max);
+  }
+
+  const fallback = (() => {
+    const names = [
+      { fullName: 'Adebayo K.', nationality: 'Nigerian', gender: 'Male' },
+      { fullName: 'Isabella Chen', nationality: 'Chinese', gender: 'Female' },
+      { fullName: 'Marie Dubois', nationality: 'French', gender: 'Female' },
+      { fullName: 'Hassan Al‑Rashid', nationality: 'Emirati', gender: 'Male' },
+      { fullName: 'Rina Yamamoto', nationality: 'Japanese', gender: 'Female' },
+      { fullName: 'Owen Parker', nationality: 'British', gender: 'Male' },
+      { fullName: 'Ama Mensah', nationality: 'Ghanaian', gender: 'Female' },
+      { fullName: 'Sipho Dlamini', nationality: 'South African', gender: 'Male' },
+      { fullName: 'Fatima Abdullahi', nationality: 'Nigerian', gender: 'Female' },
+      { fullName: 'Michael Johnson', nationality: 'American', gender: 'Male' },
+    ];
+    const classes = ['Economy', 'Business', 'First'];
+    const out = [];
+    for (let i = 0; i < max; i++) {
+      const n = names[i % names.length];
+      out.push({
+        fullName: n.fullName,
+        nationality: n.nationality,
+        gender: n.gender,
+        type: i % 7 === 0 ? 'Child' : 'Adult',
+        seat: `${(10 + (i % 24))}${String.fromCharCode(65 + (i % 6))}`,
+        flightNo: `TRIP-${100 + (i % 900)}`,
+        flightClass: classes[i % classes.length],
+      });
+    }
+    return out;
+  })();
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    globalThis.__tripAiPassengersCache = { items: fallback, expiresAt: Date.now() + 10 * 60 * 1000 };
+    return fallback;
+  }
+
+  try {
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const prompt = `Generate ${max} realistic passenger profiles as strict JSON array.
+Each item must contain: fullName, nationality, gender, type, seat, flightNo, flightClass.
+Constraints:
+- flightNo format: TRIP-XXX (100-999)
+- seat like 12A, 14C etc.
+- flightClass one of: Economy, Business, First
+- nationality should match name plausibly, include African + international mix.
+Return ONLY JSON array, no markdown.`;
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: 'You generate realistic but fictional passenger data.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.6,
+      }),
+    });
+
+    const text = await res.text();
+    let json = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+    const content = json && json.choices && json.choices[0] && json.choices[0].message ? json.choices[0].message.content : '';
+    const arr = content ? JSON.parse(content) : null;
+    if (!Array.isArray(arr)) throw new Error('Bad AI output');
+    const items = arr.slice(0, max).map((x) => ({
+      fullName: String(x.fullName || ''),
+      nationality: String(x.nationality || ''),
+      gender: String(x.gender || ''),
+      type: String(x.type || ''),
+      seat: String(x.seat || ''),
+      flightNo: String(x.flightNo || ''),
+      flightClass: String(x.flightClass || ''),
+    })).filter((x) => x.fullName);
+    const safe = items.length ? items : fallback;
+    globalThis.__tripAiPassengersCache = { items: safe, expiresAt: Date.now() + 10 * 60 * 1000 };
+    return safe;
+  } catch {
+    globalThis.__tripAiPassengersCache = { items: fallback, expiresAt: Date.now() + 10 * 60 * 1000 };
+    return fallback;
+  }
 }
 
 module.exports = async (req, res) => {
@@ -238,9 +448,62 @@ module.exports = async (req, res) => {
         await ensureCollection();
         await lockCollectionPermissions();
         await ensureAttributes();
+        await ensureNotificationsCollection();
         return send(res, 200, { ok: true });
       } catch (e) {
         return send(res, 500, { error: e?.message || 'Schema ensure failed' });
+      }
+    }
+
+    if (action === 'schema' && parts[2] === 'inspect') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+      try {
+        const colsOut = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections?limit=100`);
+        const cols = Array.isArray(colsOut?.collections) ? colsOut.collections : [];
+        const collections = [];
+        for (const c of cols) {
+          const colId = c.$id || c.collectionId || c.id;
+          const attrsOut = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(colId)}/attributes`).catch(() => ({}));
+          const idxOut = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(colId)}/indexes`).catch(() => ({}));
+          const attrs = Array.isArray(attrsOut?.attributes) ? attrsOut.attributes : [];
+          const indexes = Array.isArray(idxOut?.indexes) ? idxOut.indexes : [];
+          collections.push({
+            id: colId,
+            name: c.name || '',
+            documentSecurity: Boolean(c.documentSecurity),
+            attributes: attrs.map((a) => ({
+              key: a.key,
+              type: a.type,
+              status: a.status,
+              required: Boolean(a.required),
+              array: Boolean(a.array),
+              size: a.size,
+              format: a.format,
+              relatedCollection: a.relatedCollection,
+              relationType: a.relationType,
+            })),
+            indexes: indexes.map((i) => ({
+              key: i.key,
+              type: i.type,
+              status: i.status,
+              attributes: i.attributes,
+              orders: i.orders,
+            })),
+          });
+        }
+        return send(res, 200, { databaseId: DATABASE_ID, collections });
+      } catch (e) {
+        return send(res, 500, { error: e?.message || 'Schema inspect failed' });
+      }
+    }
+
+    if (action === 'schema' && parts[2] === 'sync') {
+      if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
+      try {
+        const actions = await schemaSync();
+        return send(res, 200, { ok: true, actions, syncedAt: new Date().toISOString() });
+      } catch (e) {
+        return send(res, 500, { error: e?.message || 'Schema sync failed' });
       }
     }
 
@@ -286,6 +549,129 @@ module.exports = async (req, res) => {
       return send(res, 405, { error: 'Method not allowed' });
     }
 
+    if (action === 'submissions') {
+      if (req.method === 'GET') {
+        const docs = await listAllUserDocs(1000);
+        const items = [];
+        docs.forEach((doc) => {
+          const u = parseUserData(doc);
+          if (!u || !doc.username) return;
+          const subs = u.submissions && typeof u.submissions === 'object' ? u.submissions : {};
+          ['kyc', 'requests', 'indemnity'].forEach((k) => {
+            const arr = subs[k];
+            if (!Array.isArray(arr)) return;
+            arr.forEach((s) => {
+              if (!s || typeof s !== 'object') return;
+              items.push({
+                username: doc.username,
+                type: String(s.type || k),
+                id: String(s.id || ''),
+                status: String(s.status || 'PENDING'),
+                submittedAt: s.submittedAt || null,
+                title: s.title || '',
+                signature: s.signature || null,
+              });
+            });
+          });
+        });
+        items.sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
+        return send(res, 200, { items });
+      }
+
+      if (req.method === 'PATCH') {
+        const body = await readJson(req).catch(() => ({}));
+        const username = String(body.username || '').trim();
+        const type = String(body.type || '').toLowerCase();
+        const id = String(body.id || '').trim();
+        const status = String(body.status || '').toUpperCase();
+        const allowedTypes = new Set(['kyc', 'requests', 'indemnity']);
+        const allowedStatus = new Set(['PENDING', 'APPROVED', 'REJECTED']);
+        if (!username || !allowedTypes.has(type) || !id || !allowedStatus.has(status)) {
+          return send(res, 400, { error: 'Invalid payload' });
+        }
+        const doc = await findUserDocByUsername(username);
+        const userData = doc ? parseUserData(doc) : null;
+        if (!userData) return send(res, 404, { error: 'Not found' });
+        userData.submissions = userData.submissions && typeof userData.submissions === 'object' ? userData.submissions : {};
+        userData.submissions[type] = Array.isArray(userData.submissions[type]) ? userData.submissions[type] : [];
+        const idx = userData.submissions[type].findIndex((x) => x && String(x.id) === id);
+        if (idx === -1) return send(res, 404, { error: 'Not found' });
+        userData.submissions[type][idx] = {
+          ...userData.submissions[type][idx],
+          status,
+          reviewedAt: new Date().toISOString(),
+        };
+        await upsertUser(username, userData);
+        return send(res, 200, { ok: true });
+      }
+
+      return send(res, 405, { error: 'Method not allowed' });
+    }
+
+    if (action === 'notifications') {
+      if (req.method === 'GET') {
+        const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents?limit=100`);
+        const docs = Array.isArray(out?.documents) ? out.documents : [];
+        const items = docs.map((d) => ({
+          id: d.$id,
+          title: d.title || '',
+          message: d.message || '',
+          tone: d.tone || 'accent',
+          active: d.active !== false,
+          createdAt: d.createdAt || d.$createdAt || null,
+          updatedAt: d.$updatedAt || null,
+        }));
+        items.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+        return send(res, 200, { items });
+      }
+
+      if (req.method === 'POST') {
+        const body = await readJson(req).catch(() => ({}));
+        const title = String(body.title || '').trim();
+        const message = String(body.message || '').trim();
+        const tone = String(body.tone || 'accent').trim();
+        const active = body.active !== false;
+        if (!title || !message) return send(res, 400, { error: 'Missing title or message' });
+        const documentId = crypto.randomUUID();
+        await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents`, {
+          method: 'POST',
+          body: {
+            documentId,
+            data: { title, message, tone, active, createdAt: new Date().toISOString() },
+            permissions: [],
+          },
+        });
+        return send(res, 200, { ok: true });
+      }
+
+      if (req.method === 'PATCH') {
+        const body = await readJson(req).catch(() => ({}));
+        const id = String(body.id || '').trim();
+        if (!id) return send(res, 400, { error: 'Missing id' });
+        const patch = {};
+        if (body.title !== undefined) patch.title = String(body.title || '').trim();
+        if (body.message !== undefined) patch.message = String(body.message || '').trim();
+        if (body.tone !== undefined) patch.tone = String(body.tone || 'accent').trim();
+        if (body.active !== undefined) patch.active = Boolean(body.active);
+        await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          body: patch,
+        });
+        return send(res, 200, { ok: true });
+      }
+
+      if (req.method === 'DELETE') {
+        const id = parts[2] ? String(parts[2]).trim() : '';
+        if (!id) return send(res, 400, { error: 'Missing id' });
+        await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+        return send(res, 200, { ok: true });
+      }
+
+      return send(res, 405, { error: 'Method not allowed' });
+    }
+
     return send(res, 404, { error: 'Not found' });
   }
 
@@ -325,10 +711,120 @@ module.exports = async (req, res) => {
       return send(res, 200, { username: doc.username, userData: safe });
     }
 
+    if (action === 'form') {
+      if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
+      const payload = requireUser(req, res);
+      if (!payload || !payload.u) return;
+
+      const body = await readJson(req).catch(() => ({}));
+      const signatureDataUrl = String(body.signatureDataUrl || '');
+      const name = String(body.name || '').trim();
+      if (!signatureDataUrl.startsWith('data:image/png;base64,') || !name) {
+        return send(res, 400, { error: 'Invalid payload' });
+      }
+
+      const username = String(payload.u);
+      const doc = await findUserDocByUsername(username);
+      const userData = doc ? parseUserData(doc) : null;
+      if (!userData) return send(res, 401, { error: 'Unauthorized' });
+
+      userData.form = userData.form && typeof userData.form === 'object' ? userData.form : {};
+      userData.form.signature = {
+        dataUrl: signatureDataUrl,
+        name,
+        signedAt: new Date().toISOString(),
+      };
+
+      await upsertUser(doc.username, userData);
+      return send(res, 200, { ok: true });
+    }
+
+    if (action === 'submissions') {
+      const payload = requireUser(req, res);
+      if (!payload || !payload.u) return;
+      const username = String(payload.u);
+      const doc = await findUserDocByUsername(username);
+      const userData = doc ? parseUserData(doc) : null;
+      if (!userData) return send(res, 401, { error: 'Unauthorized' });
+
+      userData.submissions = userData.submissions && typeof userData.submissions === 'object' ? userData.submissions : {};
+      userData.submissions.kyc = Array.isArray(userData.submissions.kyc) ? userData.submissions.kyc : [];
+      userData.submissions.requests = Array.isArray(userData.submissions.requests) ? userData.submissions.requests : [];
+      userData.submissions.indemnity = Array.isArray(userData.submissions.indemnity) ? userData.submissions.indemnity : [];
+
+      if (req.method === 'GET') {
+        return send(res, 200, { submissions: userData.submissions });
+      }
+
+      if (req.method === 'POST') {
+        const body = await readJson(req).catch(() => ({}));
+        const type = String(body.type || '').toLowerCase();
+        const allowedTypes = new Set(['kyc', 'requests', 'indemnity']);
+        if (!allowedTypes.has(type)) return send(res, 400, { error: 'Invalid type' });
+
+        const data = body.data && typeof body.data === 'object' ? body.data : {};
+        const signatureDataUrl = body.signatureDataUrl ? String(body.signatureDataUrl) : '';
+        const signatureName = body.signatureName ? String(body.signatureName).trim() : '';
+        const needsSig = type === 'kyc' || type === 'indemnity';
+        if (needsSig) {
+          if (!signatureDataUrl.startsWith('data:image/png;base64,')) return send(res, 400, { error: 'Signature required' });
+          if (!signatureName) return send(res, 400, { error: 'Signature name required' });
+        }
+
+        const id = crypto.randomUUID();
+        const item = {
+          id,
+          type,
+          status: 'PENDING',
+          submittedAt: new Date().toISOString(),
+          title: String(body.title || ''),
+          data,
+          ...(needsSig
+            ? { signature: { dataUrl: signatureDataUrl, name: signatureName, signedAt: new Date().toISOString() } }
+            : {}),
+        };
+
+        userData.submissions[type].unshift(item);
+        await upsertUser(doc.username, userData);
+        return send(res, 200, { ok: true, id });
+      }
+
+      return send(res, 405, { error: 'Method not allowed' });
+    }
+
     return send(res, 404, { error: 'Not found' });
   }
 
   if (scope === 'public') {
+    if (action === 'ai' && parts[2] === 'passengers') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+      const limit = req.query.limit;
+      const items = await generateAiPassengers(limit);
+      return send(res, 200, { items });
+    }
+
+    if (action === 'notifications') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+      try {
+        const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents?limit=100`);
+        const docs = Array.isArray(out?.documents) ? out.documents : [];
+        const items = docs
+          .map((d) => ({
+            id: d.$id,
+            title: d.title || '',
+            message: d.message || '',
+            tone: d.tone || 'accent',
+            active: d.active !== false,
+            createdAt: d.createdAt || d.$createdAt || null,
+          }))
+          .filter((x) => x.active);
+        items.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+        return send(res, 200, { items });
+      } catch {
+        return send(res, 200, { items: [] });
+      }
+    }
+
     if (action === 'details') {
       if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
       const username = String(req.query.u || '').trim();
@@ -352,6 +848,35 @@ module.exports = async (req, res) => {
       const safe = { ...userData };
       delete safe.pin;
       return send(res, 200, { username: doc.username, userData: safe });
+    }
+
+    if (action === 'logistics') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+      const username = String(req.query.u || '').trim();
+      const tc = String(req.query.tc || '').trim();
+      if (!username || !tc) return send(res, 400, { error: 'Missing params' });
+
+      const doc = await findUserDocByUsername(username);
+      const userData = doc ? parseUserData(doc) : null;
+      if (!userData) return send(res, 404, { error: 'Not found' });
+
+      const share = userData.share || {};
+      const oneTime = share.oneTimeLogistics || {};
+      const codeOk = oneTime.code && String(oneTime.code) === tc && !oneTime.usedAt;
+      if (!codeOk) return send(res, 401, { error: 'Invalid or expired link' });
+
+      userData.share = userData.share || {};
+      userData.share.oneTimeLogistics = userData.share.oneTimeLogistics || {};
+      userData.share.oneTimeLogistics.usedAt = new Date().toISOString();
+      await upsertUser(doc.username, userData);
+
+      const steps = userData.logistics && Array.isArray(userData.logistics.steps) ? userData.logistics.steps : [];
+      return send(res, 200, {
+        username: doc.username,
+        passengerName: userData.passengerName || doc.username,
+        manifest: userData.logisticsManifest && typeof userData.logisticsManifest === 'object' ? userData.logisticsManifest : {},
+        steps,
+      });
     }
 
     if (action === 'bookings') {

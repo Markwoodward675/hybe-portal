@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Airways | Status</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;" data-notifications="on">
+    <nav class="trip-nav">
+        <a href="/flight/dashboard.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Airways">
+            <span>TRIP Airways</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="/flight/dashboard.html" class="active">Status</a>
+                <a href="/flight/personnel.html">Personnel</a>
+                <a href="/flight/boarding.html">Boarding</a>
+                <a href="/flight/ledger.html">Ledger</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="ticket-8k ticket-surface boarding-pass">
+            <div class="ticket-8k__main">
+                <div class="ticket-8k__top">
+                    <div>
+                        <div class="ticket-8k__brandline">TRIP Airways</div>
+                        <div class="ticket-8k__sub">BOARDING PASS • PRIVATE ACCESS</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span id="stBadge" class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">PENDING</span>
+                        <div style="margin-top:10px; color:var(--ticket-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Official Manifest</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__route">
+                    <div class="route-side">
+                        <div class="route-label">Departure</div>
+                        <div class="route-code dep" id="codeDep">LHR</div>
+                    </div>
+                    <div class="route-mid">
+                        <div class="route-icons">
+                            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="opacity:0.9;">
+                                <path fill="currentColor" d="M2.5 19.2l1.1-1.1 6.2 1.6 2.7-2.7-7.1-4.4 1.4-1.4 8.8 2.3 3.4-3.4c.8-.8 2.1-.8 2.9 0s.8 2.1 0 2.9l-3.4 3.4 2.3 8.8-1.4 1.4-4.4-7.1-2.7 2.7 1.6 6.2-1.1 1.1-3.1-5.1-5.1-3.1z"/>
+                            </svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="opacity:0.9; transform: rotate(180deg);">
+                                <path fill="currentColor" d="M2.5 19.2l1.1-1.1 6.2 1.6 2.7-2.7-7.1-4.4 1.4-1.4 8.8 2.3 3.4-3.4c.8-.8 2.1-.8 2.9 0s.8 2.1 0 2.9l-3.4 3.4 2.3 8.8-1.4 1.4-4.4-7.1-2.7 2.7 1.6 6.2-1.1 1.1-3.1-5.1-5.1-3.1z"/>
+                            </svg>
+                        </div>
+                        <div class="route-line"></div>
+                        <div class="route-txt" id="routeTxt">LHR-ICN</div>
+                    </div>
+                    <div class="route-side" style="text-align:right;">
+                        <div class="route-label">Arrival</div>
+                        <div class="route-code arr" id="codeArr">ICN</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__grid">
+                    <div>
+                        <div class="ticket-k">Passenger</div>
+                        <div class="ticket-passenger" id="dispName">—</div>
+                        <div class="ticket-small">Session ID: <span id="dispUser">—</span></div>
+                    </div>
+                    <div class="ticket-grid-mini">
+                        <div>
+                            <div class="ticket-k">Gate</div>
+                            <div class="ticket-v" id="dispGate">—</div>
+                        </div>
+                        <div>
+                            <div class="ticket-k">Seat</div>
+                            <div class="ticket-v" id="dispSeat">—</div>
+                        </div>
+                        <div>
+                            <div class="ticket-k">Class</div>
+                            <div class="ticket-v" id="dispCls">—</div>
+                        </div>
+                        <div>
+                            <div class="ticket-k">Status</div>
+                            <div class="ticket-v" id="dispStatus">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="ticket-8k__stub">
+                <div class="stub-meta">
+                    <div>
+                        <div class="ticket-k">Flight Form</div>
+                        <div class="stub-id"><a href="/form.html" style="color:var(--ticket-ink); text-decoration:none; font-weight:900;">Open Form</a></div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Tracking Code</div>
+                        <div class="stub-id" id="trackingCode">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Boarding Pass QR</div>
+                        <div style="margin-top:8px;">
+                            <img id="bpQr" alt="Boarding Pass QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--ticket-border); background:#fff; display:none;">
+                            <div id="bpQrNote" style="margin-top:8px; color:var(--ticket-dim); font-weight:800; font-size:0.8rem;">Admin must generate a code.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="/appwrite.js"></script>
+    <script src="/assets/js/notifications.js"></script>
+    <script src="/assets/js/hybridAI.js"></script>
+    <script>
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = '/index.html';
+        }
+
+        function statusPill(ok) {
+            const el = document.getElementById('sessionPill');
+            if (!el) return;
+            el.textContent = ok ? 'SERVER ACTIVE' : 'SESSION EXPIRED';
+            const color = ok ? 'var(--success)' : 'var(--danger)';
+            const bg = ok ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)';
+            el.style.color = color;
+            el.style.borderColor = color;
+            el.style.background = bg;
+        }
+
+        function setStatusBadge(status) {
+            const st = String(status || 'PENDING').toUpperCase();
+            document.getElementById('dispStatus').textContent = st;
+            const badge = document.getElementById('stBadge');
+            const map = {
+                CONFIRMED: 'var(--success)',
+                VERIFIED: 'var(--success)',
+                CANCELLED: 'var(--danger)',
+                DECLINED: 'var(--danger)',
+                REJECTED: 'var(--danger)',
+                SUSPENDED: 'var(--warning)',
+                VERIFYING: 'var(--warning)',
+                PENDING: 'var(--warning)',
+                'ON-HOLD': 'var(--warning)'
+            };
+            const c = map[st] || 'var(--warning)';
+            badge.textContent = st;
+            badge.style.color = c;
+            badge.style.borderColor = c;
+            badge.style.background = c === 'var(--success)' ? 'rgba(16,185,129,0.10)' : (c === 'var(--danger)' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)');
+        }
+
+        function setupNav() {
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try { if (window.HybridAI) window.HybridAI.init({ notifications: true, schemaInspect: false }); } catch {}
+            initThemeToggle();
+            setupNav();
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            let me = null;
+            try {
+                me = await requireServiceCategory('FLIGHT');
+                if (!me) return;
+            } catch {
+                statusPill(false);
+                await signOut();
+                return;
+            }
+
+            statusPill(true);
+
+            const username = me.username;
+            const user = me.userData || {};
+            const m = user.manifest || {};
+            const from = m.from || 'LHR';
+            const to = m.to || 'ICN';
+            document.getElementById('codeDep').textContent = from;
+            document.getElementById('codeArr').textContent = to;
+            document.getElementById('routeTxt').textContent = `${from}-${to}`;
+            document.getElementById('dispGate').textContent = m.gate || '--';
+            document.getElementById('dispSeat').textContent = m.seat || '--';
+            document.getElementById('dispCls').textContent = String(m.flightClass || 'Business').toUpperCase();
+            document.getElementById('dispName').textContent = user.passengerName || username;
+            document.getElementById('dispUser').textContent = username;
+            setStatusBadge(m.status || 'PENDING');
+
+            const oneTime = user.share && user.share.oneTimeTracking ? user.share.oneTimeTracking : {};
+            document.getElementById('trackingCode').textContent = oneTime.code || '—';
+            const qrImg = document.getElementById('bpQr');
+            const qrNote = document.getElementById('bpQrNote');
+            if (oneTime.code && !oneTime.usedAt) {
+                const url = `${window.location.origin}/flight/boarding-pass.html?u=${encodeURIComponent(username)}&tc=${encodeURIComponent(oneTime.code)}`;
+                const qr = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                qrImg.src = qr;
+                qrImg.style.display = 'block';
+                qrNote.textContent = 'Scan to open shared boarding pass.';
+            } else {
+                qrImg.style.display = 'none';
+                qrNote.textContent = oneTime.usedAt ? 'Code already used.' : 'Admin must generate a code.';
+            }
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>

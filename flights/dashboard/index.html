@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Flights Airways | Dashboard</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <script src="/assets/js/appwrite.js"></script>
+    <script src="/assets/js/app.js"></script>
+    <script>
+        (async () => {
+            if (!enforceSystemAccess('flights')) return;
+            const me = await protectRoute();
+            if (!me) return;
+            window.location.replace('/flight/dashboard.html');
+        })();
+    </script>
+</body>
+</html>

@@ -1,7 +1,13 @@
 {
   "version": 2,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/flight", "destination": "/flights/dashboard/index.html" },
+    { "source": "/flights", "destination": "/flights/dashboard/index.html" },
+    { "source": "/logistics", "destination": "/logistics/dashboard/index.html" }
+  ],
   "routes": [
-    { "src": "^/api/(.*)$", "dest": "/api/[...path].js" },
+    { "src": "^/api/(.*)$", "dest": "api/[...path].js" },
     { "handle": "filesystem" }
   ],
   "builds": [
@@ -27,4 +33,3 @@
     }
   ]
 }
-

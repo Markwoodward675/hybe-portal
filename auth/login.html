@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" data-force-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP | Login</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body>
+    <div class="login-shell">
+        <div class="login-card">
+            <div class="login-brand">
+                <img class="trip-logo" src="/logo.png" alt="TRIP">
+                <div>
+                    <h1>TRIP</h1>
+                    <div style="color:var(--text-dim); font-weight:700; font-size:0.8rem; margin-top:2px;">Secure Gateway</div>
+                </div>
+            </div>
+
+            <p class="login-sub">Sign in with your provisioned Username and Access PIN.</p>
+
+            <form id="loginForm" class="login-row">
+                <div>
+                    <label style="display:block; font-weight:800; font-size:0.7rem; letter-spacing:1px; color:var(--text-dim); text-transform:uppercase; margin:0 0 8px;">Username</label>
+                    <input id="username" type="text" inputmode="text" autocomplete="username" required>
+                </div>
+                <div>
+                    <label style="display:block; font-weight:800; font-size:0.7rem; letter-spacing:1px; color:var(--text-dim); text-transform:uppercase; margin:0 0 8px;">Access PIN</label>
+                    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" required>
+                </div>
+
+                <div class="login-actions">
+                    <button class="btn-prime" type="submit" id="loginBtn">Login</button>
+                    <div class="login-msg" id="loginMsg"></div>
+                    <div class="verify-wrap" id="verifyWrap">
+                        <div class="spinner"></div>
+                        <div style="font-weight:800; letter-spacing:0.2px;">Securely Verifying...</div>
+                    </div>
+                </div>
+            </form>
+
+            <div style="margin-top:14px; color:var(--text-dim); font-weight:800; font-size:0.85rem; text-align:center;">
+                New user? <a href="/auth/signup.html" style="color:var(--accent); font-weight:900; text-decoration:none;">Create account</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="/assets/js/appwrite.js"></script>
+    <script src="/assets/js/app.js"></script>
+    <script>
+        function setBusy(isBusy) {
+            document.getElementById('loginBtn').disabled = isBusy;
+            document.getElementById('username').disabled = isBusy;
+            document.getElementById('pin').disabled = isBusy;
+            document.getElementById('verifyWrap').style.display = isBusy ? 'flex' : 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const form = document.getElementById('loginForm');
+            const msg = document.getElementById('loginMsg');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                msg.textContent = '';
+                const username = document.getElementById('username').value.trim();
+                const pin = document.getElementById('pin').value.trim();
+                if (!username || !pin) {
+                    msg.textContent = 'Enter your Username and Access PIN.';
+                    return;
+                }
+                setBusy(true);
+                try {
+                    const out = await userLogin(username, pin);
+                    sessionStorage.setItem('active_session', out && out.username ? out.username : username);
+                    const me = await userMe();
+                    const cat = serviceCategoryOf(me && me.userData);
+                    window.location.href = cat === 'LOGISTICS' ? '/logistics/dashboard/index.html' : '/flights/dashboard/index.html';
+                } catch (e) {
+                    setBusy(false);
+                    msg.textContent = 'Login failed.';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

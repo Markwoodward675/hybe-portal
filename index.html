@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-force-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -75,10 +75,14 @@
                 try {
                     const out = await userLogin(username, pin);
                     const u = out && out.username ? out.username : username;
-                    setTimeout(() => {
-                        sessionStorage.setItem('active_session', u);
-                        window.location.href = 'flight.html';
-                    }, 850);
+                    sessionStorage.setItem('active_session', u);
+                    try {
+                        const me = await userMe();
+                        const cat = serviceCategoryOf(me && me.userData);
+                        window.location.href = cat === 'LOGISTICS' ? '/logistics/dashboard.html' : '/flight/dashboard.html';
+                    } catch {
+                        window.location.href = '/flight/dashboard.html';
+                    }
                     return;
                 } catch (e) {
                     const hint = (e && e.payload && e.payload.hint) ? ` ${e.payload.hint}` : '';
@@ -98,7 +102,8 @@
 
                 setTimeout(() => {
                     sessionStorage.setItem('active_session', userKey);
-                    window.location.href = 'flight.html';
+                    const cat = serviceCategoryOf(user && user.serviceCategory ? user : { serviceCategory: 'FLIGHT' });
+                    window.location.href = cat === 'LOGISTICS' ? '/logistics/dashboard.html' : '/flight/dashboard.html';
                 }, 850);
             });
         });

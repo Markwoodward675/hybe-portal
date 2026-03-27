@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Global Logistics | Requests</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <nav class="trip-nav">
+        <a href="/logistics/dashboard.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Global Logistics">
+            <span>TRIP Global Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="/logistics/dashboard.html">Tracking</a>
+                <a href="/logistics/requests.html" class="active">Requests</a>
+                <a href="/logistics/kyc.html">KYC</a>
+                <a href="/logistics/indemnity.html">Indemnity</a>
+                <a href="/logistics/submissions.html">Submissions</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="card">
+            <div class="form-head">
+                <h2>Secure Submission Portal</h2>
+                <div class="badge-pill" style="color:var(--text-dim); border-color:var(--border);">REQUEST</div>
+            </div>
+            <p class="form-sub">Submit a logistics service request. Admin will review and update status.</p>
+            <div class="progress"><div id="prog"></div></div>
+        </div>
+
+        <div class="card">
+            <form id="reqForm" class="tech-form">
+                <div class="field">
+                    <input id="fullName" type="text" placeholder=" " required>
+                    <label for="fullName">Full Name</label>
+                    <div class="help">Matches your registered identity.</div>
+                    <div class="err">Required.</div>
+                </div>
+                <div class="field">
+                    <input id="email" type="email" placeholder=" " required>
+                    <label for="email">Email</label>
+                    <div class="help">Used for status notifications.</div>
+                    <div class="err">Invalid email.</div>
+                </div>
+                <div class="field">
+                    <input id="phone" type="tel" placeholder=" " required>
+                    <label for="phone">Phone</label>
+                    <div class="help">Include country code if available.</div>
+                    <div class="err">Required.</div>
+                </div>
+                <div class="field">
+                    <input id="subject" type="text" placeholder=" " required>
+                    <label for="subject">Request Title</label>
+                    <div class="help">Short description of request.</div>
+                    <div class="err">Required.</div>
+                </div>
+                <div class="field">
+                    <textarea id="details" rows="5" placeholder=" " required></textarea>
+                    <label for="details">Request Details</label>
+                    <div class="help">Provide routing, handling, and timing requirements.</div>
+                    <div class="err">Required.</div>
+                </div>
+
+                <div class="two-col">
+                    <button class="btn-secondary" type="button" id="btnClear">Clear</button>
+                    <button class="btn-primary" type="submit" id="btnSubmit">Submit Request</button>
+                </div>
+                <div id="msg" style="color:var(--text-dim); font-weight:900; min-height:22px;"></div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script src="/assets/js/app.js"></script>
+    <script>
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = '/auth/login.html';
+        }
+
+        function setupNav() {
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+        }
+
+        function statusPill(ok) {
+            const el = document.getElementById('sessionPill');
+            if (!el) return;
+            el.textContent = ok ? 'SERVER ACTIVE' : 'SESSION EXPIRED';
+            const color = ok ? 'var(--success)' : 'var(--danger)';
+            const bg = ok ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)';
+            el.style.color = color;
+            el.style.borderColor = color;
+            el.style.background = bg;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle();
+            setupNav();
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            if (!enforceSystemAccess('logistics')) return;
+            const me = await protectRoute();
+            if (!me) return;
+            try { await requireServiceCategory('LOGISTICS'); } catch {}
+            statusPill(true);
+
+            const form = document.getElementById('reqForm');
+            const msg = document.getElementById('msg');
+            const prog = document.getElementById('prog');
+
+            async function fillProfile() {
+                try {
+                    const me2 = await userMe();
+                    const u = me2 && me2.userData ? me2.userData : {};
+                    document.getElementById('fullName').value = u.fullName || u.passengerName || '';
+                    document.getElementById('email').value = u.email || '';
+                    document.getElementById('phone').value = u.phone || '';
+                } catch {}
+            }
+            await fillProfile();
+
+            function validate() {
+                const fields = [
+                    ['fullName', (v) => Boolean(v.trim())],
+                    ['email', (v) => validateEmail(v)],
+                    ['phone', (v) => Boolean(normalizePhone(v))],
+                    ['subject', (v) => Boolean(v.trim())],
+                    ['details', (v) => Boolean(v.trim())],
+                ];
+                let ok = 0;
+                fields.forEach(([id, fn]) => {
+                    const el = document.getElementById(id);
+                    const good = fn(el.value);
+                    el.parentElement.classList.toggle('invalid', !good);
+                    if (good) ok += 1;
+                });
+                prog.style.width = `${Math.round((ok / fields.length) * 100)}%`;
+                return ok === fields.length;
+            }
+
+            ['input', 'change', 'blur'].forEach((evt) => {
+                form.addEventListener(evt, () => validate(), true);
+            });
+            validate();
+
+            document.getElementById('btnClear').addEventListener('click', () => {
+                ['subject', 'details'].forEach((id) => (document.getElementById(id).value = ''));
+                msg.textContent = '';
+                validate();
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                msg.textContent = '';
+                if (!validate()) {
+                    msg.textContent = 'Fix the highlighted fields.';
+                    return;
+                }
+                document.getElementById('btnSubmit').disabled = true;
+                try {
+                    await fetch('/api/user/submissions', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            type: 'requests',
+                            title: document.getElementById('subject').value.trim(),
+                            data: {
+                                fullName: document.getElementById('fullName').value.trim(),
+                                email: document.getElementById('email').value.trim(),
+                                phone: normalizePhone(document.getElementById('phone').value),
+                                details: document.getElementById('details').value.trim(),
+                            }
+                        })
+                    });
+                    msg.textContent = 'Request submitted. Awaiting Admin review.';
+                } catch {
+                    msg.textContent = 'Submission failed.';
+                } finally {
+                    document.getElementById('btnSubmit').disabled = false;
+                }
+            });
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>
