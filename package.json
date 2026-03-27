@@ -1,0 +1,8 @@
+{
+  "name": "hybe-portal-white",
+  "private": true,
+  "scripts": {
+    "vercel-build": "node -e \"console.log('Static build: no-op (vanilla HTML/CSS/JS)')\""
+  }
+}
+
