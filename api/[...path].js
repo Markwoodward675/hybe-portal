@@ -148,6 +148,14 @@ async function createStringAttributeFor(collectionId, key, size, required) {
   await waitAvailableAttributeFor(collectionId, key);
 }
 
+async function createLargeStringAttributeFor(collectionId, key, required) {
+  try {
+    await createStringAttributeFor(collectionId, key, 1000000, required);
+  } catch {
+    await createStringAttributeFor(collectionId, key, 200000, required);
+  }
+}
+
 async function createBooleanAttributeFor(collectionId, key, required) {
   await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(collectionId)}/attributes/boolean`, {
     method: 'POST',
@@ -201,6 +209,36 @@ async function ensureAttributes() {
   }
 }
 
+async function ensureSubmissionsCollection() {
+  const colId = 'submissions';
+  const colPath = `/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(colId)}`;
+  const ok = await exists(colPath);
+  if (!ok) {
+    await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections`, {
+      method: 'POST',
+      body: {
+        collectionId: colId,
+        name: 'Submissions',
+        documentSecurity: false,
+        permissions: [],
+      },
+    });
+  }
+
+  const attrs = await listAttributesFor(colId).catch(() => []);
+  const keys = new Set((attrs || []).map((a) => a.key));
+  if (!keys.has('username')) await createStringAttributeFor(colId, 'username', 255, true);
+  if (!keys.has('type')) await createStringAttributeFor(colId, 'type', 24, true);
+  if (!keys.has('title')) await createStringAttributeFor(colId, 'title', 180, false);
+  if (!keys.has('status')) await createStringAttributeFor(colId, 'status', 24, false);
+  if (!keys.has('submittedAt')) await createStringAttributeFor(colId, 'submittedAt', 64, false);
+  if (!keys.has('reviewedAt')) await createStringAttributeFor(colId, 'reviewedAt', 64, false);
+  if (!keys.has('data')) await createLargeStringAttributeFor(colId, 'data', false);
+  if (!keys.has('signatureDataUrl')) await createLargeStringAttributeFor(colId, 'signatureDataUrl', false);
+  if (!keys.has('signatureName')) await createStringAttributeFor(colId, 'signatureName', 180, false);
+  if (!keys.has('signatureSignedAt')) await createStringAttributeFor(colId, 'signatureSignedAt', 64, false);
+}
+
 async function ensureNotificationsCollection() {
   const colPath = `/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}`;
   const ok = await exists(colPath);
@@ -235,6 +273,7 @@ async function schemaSync() {
   actions.push(await ensureStringAttributeFor(USERS_COLLECTION_ID, 'data', 1000000, true));
   actions.push(await ensureStringAttributeFor(USERS_COLLECTION_ID, 'service_category', 24, false));
 
+  await ensureSubmissionsCollection();
   await ensureNotificationsCollection();
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'title', 120, true));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'message', 2000, true));
@@ -448,6 +487,7 @@ module.exports = async (req, res) => {
         await ensureCollection();
         await lockCollectionPermissions();
         await ensureAttributes();
+        await ensureSubmissionsCollection();
         await ensureNotificationsCollection();
         return send(res, 200, { ok: true });
       } catch (e) {
@@ -551,31 +591,47 @@ module.exports = async (req, res) => {
 
     if (action === 'submissions') {
       if (req.method === 'GET') {
-        const docs = await listAllUserDocs(1000);
-        const items = [];
-        docs.forEach((doc) => {
-          const u = parseUserData(doc);
-          if (!u || !doc.username) return;
-          const subs = u.submissions && typeof u.submissions === 'object' ? u.submissions : {};
-          ['kyc', 'requests', 'indemnity'].forEach((k) => {
-            const arr = subs[k];
-            if (!Array.isArray(arr)) return;
-            arr.forEach((s) => {
-              if (!s || typeof s !== 'object') return;
-              items.push({
-                username: doc.username,
-                type: String(s.type || k),
-                id: String(s.id || ''),
-                status: String(s.status || 'PENDING'),
-                submittedAt: s.submittedAt || null,
-                title: s.title || '',
-                signature: s.signature || null,
+        try {
+          const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/submissions/documents?limit=100`);
+          const docs = Array.isArray(out?.documents) ? out.documents : [];
+          const items = docs.map((d) => ({
+            username: d.username,
+            type: String(d.type || ''),
+            id: d.$id,
+            status: String(d.status || 'PENDING'),
+            submittedAt: d.submittedAt || d.$createdAt || null,
+            title: d.title || '',
+            signature: d.signatureDataUrl ? { dataUrl: d.signatureDataUrl, name: d.signatureName || '', signedAt: d.signatureSignedAt || null } : null,
+          }));
+          items.sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
+          return send(res, 200, { items });
+        } catch {
+          const docs = await listAllUserDocs(1000);
+          const items = [];
+          docs.forEach((doc) => {
+            const u = parseUserData(doc);
+            if (!u || !doc.username) return;
+            const subs = u.submissions && typeof u.submissions === 'object' ? u.submissions : {};
+            ['kyc', 'requests', 'indemnity'].forEach((k) => {
+              const arr = subs[k];
+              if (!Array.isArray(arr)) return;
+              arr.forEach((s) => {
+                if (!s || typeof s !== 'object') return;
+                items.push({
+                  username: doc.username,
+                  type: String(s.type || k),
+                  id: String(s.id || ''),
+                  status: String(s.status || 'PENDING'),
+                  submittedAt: s.submittedAt || null,
+                  title: s.title || '',
+                  signature: s.signature || null,
+                });
               });
             });
           });
-        });
-        items.sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
-        return send(res, 200, { items });
+          items.sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
+          return send(res, 200, { items });
+        }
       }
 
       if (req.method === 'PATCH') {
@@ -589,6 +645,14 @@ module.exports = async (req, res) => {
         if (!username || !allowedTypes.has(type) || !id || !allowedStatus.has(status)) {
           return send(res, 400, { error: 'Invalid payload' });
         }
+
+        try {
+          await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/submissions/documents/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: { status, reviewedAt: new Date().toISOString() },
+          });
+        } catch {}
+
         const doc = await findUserDocByUsername(username);
         const userData = doc ? parseUserData(doc) : null;
         if (!userData) return send(res, 404, { error: 'Not found' });
@@ -601,6 +665,11 @@ module.exports = async (req, res) => {
           status,
           reviewedAt: new Date().toISOString(),
         };
+        if (type === 'kyc') {
+          userData.kyc = userData.kyc && typeof userData.kyc === 'object' ? userData.kyc : {};
+          userData.kyc.status = status;
+          userData.kyc.reviewedAt = new Date().toISOString();
+        }
         await upsertUser(username, userData);
         return send(res, 200, { ok: true });
       }
@@ -786,6 +855,26 @@ module.exports = async (req, res) => {
 
         userData.submissions[type].unshift(item);
         await upsertUser(doc.username, userData);
+
+        try {
+          await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/submissions/documents`, {
+            method: 'POST',
+            body: {
+              documentId: id,
+              data: {
+                username: doc.username,
+                type,
+                title: item.title,
+                status: item.status,
+                submittedAt: item.submittedAt,
+                data: JSON.stringify(data),
+                ...(needsSig ? { signatureDataUrl, signatureName, signatureSignedAt: item.signature.signedAt } : {}),
+              },
+              permissions: [],
+            },
+          });
+        } catch {}
+
         return send(res, 200, { ok: true, id });
       }
 
