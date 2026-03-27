@@ -468,7 +468,18 @@ Return ONLY JSON array, no markdown.`;
 }
 
 module.exports = async (req, res) => {
-  const parts = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path] : []);
+  const q = req.query || {};
+  let parts = Array.isArray(q.path) ? q.path : (q.path ? [q.path] : []);
+  if (!parts.length) {
+    try {
+      const u = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+      const p = u.pathname || '';
+      if (p.startsWith('/api/')) {
+        const rest = p.slice('/api/'.length);
+        parts = rest.split('/').filter(Boolean);
+      }
+    } catch {}
+  }
   const scope = parts[0] || '';
   const action = parts[1] || '';
 

@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
   if (!userData || String(userData.pin) !== String(pin)) {
     res.statusCode = 401;
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ ok: false }));
+    res.end(JSON.stringify({ ok: false, error: 'Access denied. Credentials do not match a provisioned TRIP profile.' }));
     return;
   }
 
@@ -54,4 +54,3 @@ module.exports = async (req, res) => {
   res.setHeader('content-type', 'application/json');
   res.end(JSON.stringify({ ok: true, username: doc.username }));
 };
-

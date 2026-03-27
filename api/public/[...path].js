@@ -63,48 +63,9 @@ function makeBookingForUser(username, userData, block) {
 }
 
 module.exports = async (req, res) => {
+  const handler = require('../[...path].js');
   const parts = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path] : []);
-
-  if (parts[0] === 'details') {
-    if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-    const username = String(req.query.u || '').trim();
-    const tc = String(req.query.tc || '').trim();
-    if (!username || !tc) return send(res, 400, { error: 'Missing params' });
-
-    const doc = await findUserDocByUsername(username);
-    const userData = doc ? parseUserData(doc) : null;
-    if (!userData) return send(res, 404, { error: 'Not found' });
-
-    const share = userData.share || {};
-    const oneTime = share.oneTimeTracking || {};
-    const codeOk = oneTime.code && String(oneTime.code) === tc && !oneTime.usedAt;
-    if (!codeOk) return send(res, 401, { error: 'Invalid or used code' });
-
-    userData.share = userData.share || {};
-    userData.share.oneTimeTracking = userData.share.oneTimeTracking || {};
-    userData.share.oneTimeTracking.usedAt = new Date().toISOString();
-    await upsertUser(doc.username, userData);
-
-    const safe = { ...userData };
-    delete safe.pin;
-    return send(res, 200, { username: doc.username, userData: safe });
-  }
-
-  if (parts[0] === 'bookings') {
-    if (!requireUser(req, res)) return;
-    if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-
-    const block = Math.floor(Date.now() / (15 * 60 * 1000));
-    const docs = await listAllUserDocs(500);
-    const items = docs
-      .map((doc) => ({ username: doc.username, userData: parseUserData(doc) }))
-      .filter((x) => x.username && x.userData)
-      .map((x) => makeBookingForUser(x.username, x.userData, block))
-      .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
-
-    return send(res, 200, { items, block });
-  }
-
-  return send(res, 404, { error: 'Not found' });
+  req.query = req.query || {};
+  req.query.path = ['public', ...parts];
+  return handler(req, res);
 };
-

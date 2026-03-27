@@ -3,92 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRIP | Signup</title>
+    <title>TRIP | Login</title>
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
 <body>
-    <div class="login-shell">
-        <div class="login-card">
-            <div class="login-brand">
-                <img class="trip-logo" src="/logo.png" alt="TRIP">
-                <div>
-                    <h1>Create Account</h1>
-                    <div style="color:var(--text-dim); font-weight:700; font-size:0.8rem; margin-top:2px;">Secure Registration</div>
-                </div>
-            </div>
-
-            <p class="login-sub">Register to access TRIP Flights or TRIP Global Logistics.</p>
-
-            <div class="login-row">
-                <div>
-                    <div class="ticket-k" style="margin-bottom:8px;">Full Name</div>
-                    <input id="suName" type="text" autocomplete="name">
-                </div>
-                <div>
-                    <div class="ticket-k" style="margin-bottom:8px;">Email</div>
-                    <input id="suEmail" type="email" autocomplete="email">
-                </div>
-                <div>
-                    <div class="ticket-k" style="margin-bottom:8px;">Phone</div>
-                    <input id="suPhone" type="tel" autocomplete="tel">
-                </div>
-                <div>
-                    <div class="ticket-k" style="margin-bottom:8px;">Optional ID</div>
-                    <input id="suId" type="text" autocomplete="off">
-                </div>
-                <div class="login-actions">
-                    <button class="btn-prime" type="button" id="btnSignup">Create Account</button>
-                    <div class="login-msg" id="suMsg"></div>
-                </div>
-            </div>
-
-            <div style="margin-top:14px; color:var(--text-dim); font-weight:800; font-size:0.85rem; text-align:center;">
-                Already registered? <a href="/auth/login.html" style="color:var(--accent); font-weight:900; text-decoration:none;">Login</a>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
-    <script src="/appwrite.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const msg = document.getElementById('suMsg');
-            document.getElementById('btnSignup').addEventListener('click', async () => {
-                msg.textContent = '';
-                msg.style.color = 'var(--text-dim)';
-                const fullName = document.getElementById('suName').value.trim();
-                const email = document.getElementById('suEmail').value.trim();
-                const phone = document.getElementById('suPhone').value.trim();
-                const optionalId = document.getElementById('suId').value.trim();
-                if (!fullName || !email || !phone) {
-                    msg.textContent = 'Full Name, Email, and Phone are required.';
-                    return;
-                }
-                msg.textContent = 'Submitting registration...';
-                try {
-                    const res = await fetch('/api/public/verify/request', {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ fullName, email, phone, optionalId })
-                    });
-                    const out = await res.json().catch(() => ({}));
-                    if (!res.ok) {
-                        msg.textContent = (out && out.error) ? out.error : 'Registration failed.';
-                        return;
-                    }
-                    if (out && out.requestId) {
-                        sessionStorage.setItem('trip_verify_request_id', out.requestId);
-                    }
-                    if (out && out.debugCode) {
-                        sessionStorage.setItem('trip_verify_debug_code', out.debugCode);
-                    }
-                    window.location.href = '/auth/verify.html';
-                } catch {
-                    msg.textContent = 'Registration failed.';
-                }
-            });
-        });
+        window.location.replace('/auth/login.html');
     </script>
 </body>
 </html>
