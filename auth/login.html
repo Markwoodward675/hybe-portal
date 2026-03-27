@@ -78,8 +78,8 @@
                     window.location.href = cat === 'LOGISTICS' ? '/logistics/dashboard/index.html' : '/flights/dashboard/index.html';
                 } catch (e) {
                     setBusy(false);
-                    if (e && (e.status === 401 || e.status === 403)) {
-                        msg.textContent = (e.payload && e.payload.error) ? e.payload.error : 'Access denied.';
+                    if (e && e.payload && e.payload.error) {
+                        msg.textContent = e.payload.error;
                         return;
                     }
                     msg.textContent = 'Login failed.';

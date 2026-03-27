@@ -335,6 +335,11 @@ function isAppwriteConfigured() {
   );
 }
 
+function devUsersStore() {
+  if (!globalThis.__tripDevUsersStore) globalThis.__tripDevUsersStore = {};
+  return globalThis.__tripDevUsersStore;
+}
+
 function makeBookingForUser(username, userData, block) {
   const m = userData.manifest || {};
   const p = userData.profile || {};
@@ -622,6 +627,9 @@ module.exports = async (req, res) => {
       const username = parts[2] ? String(parts[2]).trim() : '';
       if (!username) {
         if (req.method === 'GET') {
+          if (!isAppwriteConfigured()) {
+            return send(res, 200, { users: devUsersStore(), hint: 'Dev store (Appwrite not configured)' });
+          }
           try {
             const docs = await listAllUserDocs(1000);
             const users = {};
@@ -635,6 +643,14 @@ module.exports = async (req, res) => {
           }
         }
         if (req.method === 'POST') {
+          if (!isAppwriteConfigured()) {
+            const body = await readJson(req).catch(() => ({}));
+            const u = String(body.username || '').trim();
+            const userData = body.userData;
+            if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
+            devUsersStore()[u] = userData;
+            return send(res, 200, { ok: true, hint: 'Saved to dev store (Appwrite not configured)' });
+          }
           try {
             const body = await readJson(req).catch(() => ({}));
             const u = String(body.username || '').trim();
@@ -650,6 +666,11 @@ module.exports = async (req, res) => {
       }
 
       if (req.method === 'GET') {
+        if (!isAppwriteConfigured()) {
+          const u = devUsersStore()[username];
+          if (!u) return send(res, 404, { error: 'Not found' });
+          return send(res, 200, { username, userData: u });
+        }
         try {
           const doc = await findUserDocByUsername(username);
           if (!doc) return send(res, 404, { error: 'Not found' });
@@ -659,6 +680,13 @@ module.exports = async (req, res) => {
         }
       }
       if (req.method === 'PUT' || req.method === 'PATCH') {
+        if (!isAppwriteConfigured()) {
+          const body = await readJson(req).catch(() => ({}));
+          const userData = body.userData;
+          if (!userData) return send(res, 400, { error: 'Missing userData' });
+          devUsersStore()[username] = userData;
+          return send(res, 200, { ok: true, hint: 'Saved to dev store (Appwrite not configured)' });
+        }
         try {
           const body = await readJson(req).catch(() => ({}));
           const userData = body.userData;
@@ -670,6 +698,10 @@ module.exports = async (req, res) => {
         }
       }
       if (req.method === 'DELETE') {
+        if (!isAppwriteConfigured()) {
+          delete devUsersStore()[username];
+          return send(res, 200, { ok: true, hint: 'Deleted from dev store (Appwrite not configured)' });
+        }
         try {
           const ok = await deleteUser(username);
           return send(res, 200, { ok });
@@ -859,9 +891,21 @@ module.exports = async (req, res) => {
       const pin = String(body.pin || '').trim();
       if (!username || !pin) return send(res, 400, { error: 'Missing credentials' });
 
+      if (!isAppwriteConfigured()) {
+        const u = devUsersStore()[username];
+        if (!u || String(u.pin) !== String(pin)) {
+          return send(res, 401, { ok: false, error: 'Access denied. Credentials do not match a provisioned TRIP profile.' });
+        }
+        const token = createToken({ typ: 'user', u: username, exp: Date.now() + 6 * 60 * 60 * 1000 });
+        res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
+        return send(res, 200, { ok: true, username });
+      }
+
       const doc = await findUserDocByUsername(username);
       const userData = doc ? parseUserData(doc) : null;
-      if (!userData || String(userData.pin) !== String(pin)) return send(res, 401, { ok: false });
+      if (!userData || String(userData.pin) !== String(pin)) {
+        return send(res, 401, { ok: false, error: 'Access denied. Credentials do not match a provisioned TRIP profile.' });
+      }
 
       const token = createToken({ typ: 'user', u: doc.username, exp: Date.now() + 6 * 60 * 60 * 1000 });
       res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
@@ -878,6 +922,13 @@ module.exports = async (req, res) => {
       if (!payload || !payload.u) return;
 
       const username = String(payload.u);
+      if (!isAppwriteConfigured()) {
+        const u = devUsersStore()[username];
+        if (!u) return send(res, 401, { error: 'Unauthorized' });
+        const safe = { ...u };
+        delete safe.pin;
+        return send(res, 200, { username, userData: safe });
+      }
       const doc = await findUserDocByUsername(username);
       const userData = doc ? parseUserData(doc) : null;
       if (!userData) return send(res, 401, { error: 'Unauthorized' });

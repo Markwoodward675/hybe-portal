@@ -85,9 +85,9 @@
                     }
                     return;
                 } catch (e) {
-                    if (e && (e.status === 401 || e.status === 403)) {
+                    if (e && e.payload && e.payload.error) {
                         setBusy(false);
-                        msg.textContent = (e.payload && e.payload.error) ? e.payload.error : 'Access denied.';
+                        msg.textContent = e.payload.error;
                         return;
                     }
                     const hint = (e && e.payload && e.payload.hint) ? ` ${e.payload.hint}` : '';
