@@ -284,6 +284,31 @@ async function listAttributesFor(collectionId) {
   return Array.isArray(out?.attributes) ? out.attributes : [];
 }
 
+async function listIndexesFor(collectionId) {
+  const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(collectionId)}/indexes`);
+  return Array.isArray(out?.indexes) ? out.indexes : [];
+}
+
+async function createIndexFor(collectionId, key, type, attributes, orders) {
+  await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(collectionId)}/indexes`, {
+    method: 'POST',
+    body: {
+      key,
+      type,
+      attributes,
+      orders: Array.isArray(orders) ? orders : [],
+    },
+  });
+}
+
+async function ensureIndexFor(collectionId, key, type, attributes, orders) {
+  const idx = await listIndexesFor(collectionId).catch(() => []);
+  const existsKey = (idx || []).some((i) => i && i.key === key && i.status === 'available');
+  if (existsKey) return { key, status: 'exists' };
+  await createIndexFor(collectionId, key, type, attributes, orders);
+  return { key, status: 'created' };
+}
+
 async function getAttribute(key) {
   return appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/attributes/${encodeURIComponent(key)}`);
 }
@@ -637,6 +662,7 @@ async function schemaSync() {
   await ensureSubmissionsCollection();
   await ensureNotificationsCollection();
   await ensureLivePopupsCollection();
+  actions.push(await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_lc_unique', 'unique', ['username_lc'], []));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'title', 120, true));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'message', 2000, true));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'tone', 24, false));
@@ -881,8 +907,14 @@ module.exports = async (req, res) => {
           const colOk = await exists(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}`);
           const attrs = colOk ? await listAttributes() : [];
           const hasUsername = attrs.some((a) => a.key === 'username' && a.status === 'available');
+          const hasUsernameLc = attrs.some((a) => a.key === 'username_lc' && a.status === 'available');
           const hasData = attrs.some((a) => a.key === 'data' && a.status === 'available');
-          const status = `DB:${dbOk ? 'OK' : 'MISSING'} • COL:${colOk ? 'OK' : 'MISSING'} • username:${hasUsername ? 'OK' : 'MISSING'} • data:${hasData ? 'OK' : 'MISSING'} • perms:LOCKED`;
+          let idxOk = false;
+          try {
+            const idx = colOk ? await listIndexesFor(USERS_COLLECTION_ID) : [];
+            idxOk = (idx || []).some((i) => i && i.key === 'idx_username_lc_unique' && i.status === 'available');
+          } catch {}
+          const status = `DB:${dbOk ? 'OK' : 'MISSING'} • COL:${colOk ? 'OK' : 'MISSING'} • username:${hasUsername ? 'OK' : 'MISSING'} • username_lc:${hasUsernameLc ? 'OK' : 'MISSING'} • idx_username_lc_unique:${idxOk ? 'OK' : 'MISSING'} • data:${hasData ? 'OK' : 'MISSING'} • perms:LOCKED`;
           return send(res, 200, { status });
         } catch (e) {
           return send(res, 200, { status: 'Appwrite not available (dev local mode)' });
@@ -901,6 +933,7 @@ module.exports = async (req, res) => {
         await ensureSubmissionsCollection();
         await ensureNotificationsCollection();
         await ensureLivePopupsCollection();
+        await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_lc_unique', 'unique', ['username_lc'], []);
         return send(res, 200, { ok: true });
       } catch (e) {
         return send(res, 500, { error: e?.message || 'Schema ensure failed' });
@@ -986,13 +1019,16 @@ module.exports = async (req, res) => {
         }
         if (req.method === 'POST') {
           if (!isAppwriteConfigured()) {
+            if (process.env.VERCEL) {
+              return send(res, 503, { error: 'Appwrite not configured. Admin provisioning is unavailable on Vercel without Appwrite env.' });
+            }
             const body = await readJson(req).catch(() => ({}));
             const u = String(body.username || '').trim();
             const userData = body.userData;
             if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
             devUsersStore()[u] = userData;
             const local = upsertLocalUser(u, userData);
-            return send(res, 200, { ok: true, hint: 'Saved to dev store (Appwrite not configured)', local });
+            return send(res, 200, { ok: true, storedIn: 'dev', hint: 'Saved to dev store (Appwrite not configured)', local });
           }
           try {
             const body = await readJson(req).catch(() => ({}));
@@ -1018,7 +1054,7 @@ module.exports = async (req, res) => {
                 kv = { ok: false, hint: e?.message || 'KV write failed' };
               }
             }
-            return send(res, 200, { ok: true, local, kv });
+            return send(res, 200, { ok: true, storedIn: 'appwrite', local, kv });
           } catch (e) {
             return send(res, 500, { error: e?.message || 'Upsert failed' });
           }
@@ -1042,12 +1078,15 @@ module.exports = async (req, res) => {
       }
       if (req.method === 'PUT' || req.method === 'PATCH') {
         if (!isAppwriteConfigured()) {
+          if (process.env.VERCEL) {
+            return send(res, 503, { error: 'Appwrite not configured. Admin updates are unavailable on Vercel without Appwrite env.' });
+          }
           const body = await readJson(req).catch(() => ({}));
           const userData = body.userData;
           if (!userData) return send(res, 400, { error: 'Missing userData' });
           devUsersStore()[username] = userData;
           const local = upsertLocalUser(username, userData);
-          return send(res, 200, { ok: true, hint: 'Saved to dev store (Appwrite not configured)', local });
+          return send(res, 200, { ok: true, storedIn: 'dev', hint: 'Saved to dev store (Appwrite not configured)', local });
         }
         try {
           const body = await readJson(req).catch(() => ({}));
@@ -1072,7 +1111,7 @@ module.exports = async (req, res) => {
               kv = { ok: false, hint: e?.message || 'KV write failed' };
             }
           }
-          return send(res, 200, { ok: true, local, kv });
+          return send(res, 200, { ok: true, storedIn: 'appwrite', local, kv });
         } catch (e) {
           return send(res, 500, { error: e?.message || 'Upsert failed' });
         }

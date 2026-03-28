@@ -529,6 +529,60 @@ document.addEventListener('DOMContentLoaded', () => {
     try { startLivePopups(); } catch {}
 });
 
+function categorizeUserPage(pathname) {
+    const p = String(pathname || '');
+    if (p.startsWith('/flight/') || p.startsWith('/flights/')) return 'FLIGHT';
+    if (p.startsWith('/logistics/') || p.startsWith('/logistics/dashboard/')) return 'LOGISTICS';
+    const base = p.split('/').pop() || '';
+    const flightLegacy = new Set(['flight.html', 'passengers.html', 'bookings.html', 'ledger.html']);
+    const logisticsLegacy = new Set(['tracking.html', 'logistics-view.html']);
+    if (flightLegacy.has(base)) return 'FLIGHT';
+    if (logisticsLegacy.has(base)) return 'LOGISTICS';
+    return null;
+}
+
+function filterNavMenuByServiceCategory(serviceCategory) {
+    const cat = String(serviceCategory || '').toUpperCase();
+    const menu = document.getElementById('navMenu') || document.querySelector('.trip-links');
+    if (!menu) return;
+
+    const nodes = Array.from(menu.querySelectorAll('a[href]'));
+    nodes.forEach((a) => {
+        const href = String(a.getAttribute('href') || '');
+        const h = href.toLowerCase();
+        let keep = true;
+        if (cat === 'FLIGHT') {
+            if (h.includes('/logistics/') || h.includes('tracking.html') || h.includes('logistics-view.html')) keep = false;
+        } else if (cat === 'LOGISTICS') {
+            if (h.includes('/flight/') || h.includes('/flights/') || h.includes('flight.html') || h.includes('passengers.html') || h.includes('bookings.html')) keep = false;
+        }
+        if (!keep) a.style.display = 'none';
+    });
+}
+
+async function enforceServiceCategoryAccess() {
+    try {
+        const active = sessionStorage.getItem('active_session');
+        if (!active) return;
+
+        const me = await loadActiveUserFromDB().catch(() => null);
+        if (!me || !me.userData) return;
+
+        const cat = serviceCategoryOf(me.userData);
+        document.body.dataset.serviceCategory = cat;
+        filterNavMenuByServiceCategory(cat);
+
+        const pageCat = categorizeUserPage(window.location && window.location.pathname ? window.location.pathname : '');
+        if (pageCat && pageCat !== cat) {
+            window.location.replace(cat === 'LOGISTICS' ? '/logistics/dashboard.html' : '/flight/dashboard.html');
+        }
+    } catch {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    enforceServiceCategoryAccess();
+});
+
 async function adminLogin(passcode) {
     return tripApi('/api/admin/login', { method: 'POST', body: { passcode } });
 }

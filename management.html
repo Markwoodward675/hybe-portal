@@ -2071,13 +2071,21 @@
                     newUser.logisticsManifest.courierId = document.getElementById('pvCourier').value.trim();
                 }
                 
-                const saveRes = await saveUserToDB(username, newUser);
-                if (saveRes && saveRes.savedTo === 'local') {
-                    msg.textContent = `User provisioned locally only (admin session expired). Re-login Admin, then create user again: ${username}`;
+                let saveRes = null;
+                try { saveRes = await saveUserToDB(username, newUser); } catch (e) {
+                    msg.textContent = (e && e.payload && e.payload.error) ? e.payload.error : 'Provisioning failed.';
+                    return;
+                }
+                if (saveRes && saveRes.storedIn === 'dev') {
+                    msg.textContent = `User provisioned in DEV only (not persistent). Configure Appwrite and run Schema Ensure: ${username}`;
+                    return;
+                }
+                if (saveRes && saveRes.storedIn !== 'appwrite') {
+                    msg.textContent = `User provisioned with warnings. Re-run Schema Ensure and try again: ${username}`;
                     return;
                 }
 
-                msg.textContent = `User provisioned in cloud: ${username}`;
+                msg.textContent = `User provisioned in Appwrite: ${username}`;
                 await refreshUserSelects();
                 await renderRegistry();
             });
