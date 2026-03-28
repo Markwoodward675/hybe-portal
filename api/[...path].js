@@ -90,6 +90,10 @@ function pinHash(pin) {
   return crypto.createHash('sha256').update(`${secret}:${String(pin || '')}`, 'utf8').digest('hex');
 }
 
+function normalizePin(v) {
+  return String(v === undefined || v === null ? '' : v).trim();
+}
+
 function gen6() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -373,6 +377,7 @@ async function ensureAttributes() {
   const attrs = await listAttributes();
   const keys = new Set(attrs.map((a) => a.key));
   if (!keys.has('username')) await createStringAttribute('username', 255, true);
+  if (!keys.has('username_lc')) await createStringAttribute('username_lc', 255, false);
   if (!keys.has('data')) {
     try {
       await createStringAttribute('data', 1000000, true);
@@ -474,6 +479,7 @@ async function schemaSync() {
   await lockCollectionPermissions();
 
   actions.push(await ensureStringAttributeFor(USERS_COLLECTION_ID, 'username', 255, true));
+  actions.push(await ensureStringAttributeFor(USERS_COLLECTION_ID, 'username_lc', 255, false));
   actions.push(await ensureStringAttributeFor(USERS_COLLECTION_ID, 'data', 1000000, true));
   actions.push(await ensureStringAttributeFor(USERS_COLLECTION_ID, 'service_category', 24, false));
 
@@ -839,8 +845,9 @@ module.exports = async (req, res) => {
           try {
             const body = await readJson(req).catch(() => ({}));
             const u = String(body.username || '').trim();
-            const userData = body.userData;
+            const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
             if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
+            if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
             await upsertUser(u, userData);
             const local = upsertLocalUser(u, userData);
             let kv = null;
@@ -851,7 +858,7 @@ module.exports = async (req, res) => {
                   name: String(userData.passengerName || userData.name || ''),
                   role: String(userData.role || 'passenger'),
                   serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
-                  pinHash: pinHash(userData.pin),
+                  pinHash: pinHash(normalizePin(userData.pin)),
                   updatedAt: new Date().toISOString(),
                 }, 30 * 24 * 60 * 60);
                 kv = { ok: true };
@@ -892,8 +899,9 @@ module.exports = async (req, res) => {
         }
         try {
           const body = await readJson(req).catch(() => ({}));
-          const userData = body.userData;
+          const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
           if (!userData) return send(res, 400, { error: 'Missing userData' });
+          if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
           await upsertUser(username, userData);
           const local = upsertLocalUser(username, userData);
           let kv = null;
@@ -904,7 +912,7 @@ module.exports = async (req, res) => {
                 name: String(userData.passengerName || userData.name || ''),
                 role: String(userData.role || 'passenger'),
                 serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
-                pinHash: pinHash(userData.pin),
+                pinHash: pinHash(normalizePin(userData.pin)),
                 updatedAt: new Date().toISOString(),
               }, 30 * 24 * 60 * 60);
               kv = { ok: true };
@@ -1119,7 +1127,7 @@ module.exports = async (req, res) => {
       if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
       const body = await readJson(req).catch(() => ({}));
       const username = String(body.username || '').trim();
-      const pin = String(body.pin || '').trim();
+      const pin = normalizePin(body.pin);
       if (!username || !pin) return send(res, 400, { error: 'Missing credentials' });
 
       if (!process.env.VERCEL) {
@@ -1134,7 +1142,7 @@ module.exports = async (req, res) => {
 
       if (!isAppwriteConfigured()) {
         const u = devUsersStore()[username];
-        if (!u || String(u.pin) !== String(pin)) {
+        if (!u || normalizePin(u.pin) !== pin) {
           return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
         }
         const token = createToken({ typ: 'user', u: username, exp: Date.now() + 6 * 60 * 60 * 1000 });
@@ -1143,19 +1151,25 @@ module.exports = async (req, res) => {
       }
 
       let doc = null;
+      let appwriteFailed = false;
       try {
         doc = await findUserDocByUsername(username);
       } catch {
         doc = null;
+        appwriteFailed = true;
       }
       if (doc) {
         const userData = parseUserData(doc);
-        if (!userData || String(userData.pin) !== String(pin)) {
+        if (!userData || normalizePin(userData.pin) !== pin) {
           return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
         }
         const token = createToken({ typ: 'user', u: doc.username, exp: Date.now() + 6 * 60 * 60 * 1000 });
         res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
         return send(res, 200, { ok: true, username: doc.username });
+      }
+
+      if (!appwriteFailed) {
+        return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
       }
 
       if (kvConfigured()) {
@@ -1544,6 +1558,46 @@ module.exports = async (req, res) => {
       const legacyShare = userData.share || {};
       const flightShare = userData.flight && userData.flight.share ? userData.flight.share : {};
       const stored = flightShare.boardingPassKey || legacyShare.boardingPassKey || '';
+      const ok = stored && String(stored) === key;
+      if (!ok) return send(res, 401, { error: 'Invalid key' });
+
+      const safe = { ...userData };
+      delete safe.pin;
+      return send(res, 200, { username: doc.username, userData: safe });
+    }
+
+    if (action === 'eticket') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+      const username = String(req.query.u || '').trim();
+      const key = String(req.query.k || '').trim();
+      if (!username || !key) return send(res, 400, { error: 'Missing params' });
+
+      const doc = await findUserDocByUsername(username);
+      const userData = doc ? parseUserData(doc) : null;
+      if (!userData) return send(res, 404, { error: 'Not found' });
+
+      const flightShare = userData.flight && userData.flight.share ? userData.flight.share : {};
+      const stored = flightShare.eticketKey || '';
+      const ok = stored && String(stored) === key;
+      if (!ok) return send(res, 401, { error: 'Invalid key' });
+
+      const safe = { ...userData };
+      delete safe.pin;
+      return send(res, 200, { username: doc.username, userData: safe });
+    }
+
+    if (action === 'earrival') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+      const username = String(req.query.u || '').trim();
+      const key = String(req.query.k || '').trim();
+      if (!username || !key) return send(res, 400, { error: 'Missing params' });
+
+      const doc = await findUserDocByUsername(username);
+      const userData = doc ? parseUserData(doc) : null;
+      if (!userData) return send(res, 404, { error: 'Not found' });
+
+      const flightShare = userData.flight && userData.flight.share ? userData.flight.share : {};
+      const stored = flightShare.earrivalKey || '';
       const ok = stored && String(stored) === key;
       if (!ok) return send(res, 401, { error: 'Invalid key' });
 

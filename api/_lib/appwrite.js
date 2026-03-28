@@ -53,10 +53,28 @@ function queryEqual(field, value) {
 }
 
 async function findUserDocByUsername(username) {
-  const q = encodeURIComponent(queryEqual('username', username));
-  const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q}&limit=1`);
-  const docs = Array.isArray(out?.documents) ? out.documents : [];
-  return docs[0] || null;
+  const u = String(username || '').trim();
+  if (!u) return null;
+  const ulc = u.toLowerCase();
+
+  try {
+    const q1 = encodeURIComponent(queryEqual('username_lc', ulc));
+    const out1 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q1}&limit=1`);
+    const docs1 = Array.isArray(out1?.documents) ? out1.documents : [];
+    if (docs1[0]) return docs1[0];
+  } catch {}
+
+  const q2 = encodeURIComponent(queryEqual('username', u));
+  const out2 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q2}&limit=1`);
+  const docs2 = Array.isArray(out2?.documents) ? out2.documents : [];
+  if (docs2[0]) return docs2[0];
+
+  try {
+    const all = await listAllUserDocs(1000);
+    return all.find((d) => String(d?.username || '').trim().toLowerCase() === ulc) || null;
+  } catch {
+    return null;
+  }
 }
 
 async function listAllUserDocs(limit = 1000) {
@@ -89,11 +107,15 @@ function parseUserData(doc) {
 }
 
 async function upsertUser(username, userData) {
+  const safeUserData = userData && typeof userData === 'object' ? { ...userData } : userData;
+  if (safeUserData && safeUserData.pin !== undefined && safeUserData.pin !== null) {
+    safeUserData.pin = String(safeUserData.pin).trim();
+  }
   const existing = await findUserDocByUsername(username);
   if (existing) {
     return appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(existing.$id)}`, {
       method: 'PATCH',
-      body: { data: JSON.stringify(userData) },
+      body: { data: JSON.stringify(safeUserData), username_lc: String(username || '').trim().toLowerCase() },
     });
   }
   const documentId = crypto.randomUUID();
@@ -103,7 +125,8 @@ async function upsertUser(username, userData) {
       documentId,
       data: {
         username,
-        data: JSON.stringify(userData),
+        username_lc: String(username || '').trim().toLowerCase(),
+        data: JSON.stringify(safeUserData),
       },
       permissions: [],
     },

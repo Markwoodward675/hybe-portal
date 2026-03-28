@@ -707,6 +707,27 @@
                         </div>
                     </div>
 
+                    <div class="two-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">PNR / Booking Ref</div>
+                            <input id="bpPnr" type="text" placeholder="X7K9Q2">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Boarding Time</div>
+                            <input id="bpBoardAt" type="text" placeholder="16:45">
+                        </div>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Boarding Group</div>
+                            <input id="bpGroup" type="text" placeholder="A">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Sequence No</div>
+                            <input id="bpSeq" type="text" placeholder="0042">
+                        </div>
+                    </div>
+
                     <div class="admin-actionbar" style="margin-top:10px;">
                         <button class="btn-secondary" type="button" id="btnLoadBP">Load</button>
                         <button class="btn-primary" type="button" id="btnDeployBP">Deploy to User</button>
@@ -731,6 +752,52 @@
                         <div id="bpShareUrl" style="margin-top:10px; color:var(--text-dim); font-weight:800; word-break:break-all;"></div>
                         <div style="margin-top:12px;">
                             <img id="bpQr" alt="Boarding Pass QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
+                        </div>
+                    </div>
+
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">QR E‑Ticket Link</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Admin generated</div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Share Key</div>
+                                <input id="etShareKey" type="text" readonly placeholder="Generate key">
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <div class="two-col" style="gap:8px;">
+                                    <button class="btn-secondary" type="button" id="btnGenETKey">Generate</button>
+                                    <button class="btn-secondary" type="button" id="btnClearETKey">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="etShareUrl" style="margin-top:10px; color:var(--text-dim); font-weight:800; word-break:break-all;"></div>
+                        <div style="margin-top:12px;">
+                            <img id="etQr" alt="E‑Ticket QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
+                        </div>
+                    </div>
+
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">QR E‑Arrival Link</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Admin generated</div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Share Key</div>
+                                <input id="eaShareKey" type="text" readonly placeholder="Generate key">
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <div class="two-col" style="gap:8px;">
+                                    <button class="btn-secondary" type="button" id="btnGenEAKey">Generate</button>
+                                    <button class="btn-secondary" type="button" id="btnClearEAKey">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="eaShareUrl" style="margin-top:10px; color:var(--text-dim); font-weight:800; word-break:break-all;"></div>
+                        <div style="margin-top:12px;">
+                            <img id="eaQr" alt="E‑Arrival QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
                         </div>
                     </div>
                     <div id="bpMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
@@ -1299,6 +1366,10 @@
             const flightNo = String(m.flightNo || route);
             const departAt = String(m.departAt || '—');
             const terminal = String(m.terminal || '—');
+            const pnr = String(m.pnr || '—');
+            const boardAt = String(m.boardAt || '—');
+            const group = String(m.group || '—');
+            const seq = String(m.seq || '—');
 
             el.innerHTML = `
                 <div class="ticket-8k ticket-surface boarding-pass" style="max-width: 980px; margin: 0 auto;">
@@ -1306,7 +1377,7 @@
                         <div class="ticket-8k__top">
                             <div>
                                 <div class="ticket-8k__brandline">TRIP Airways</div>
-                                <div class="ticket-8k__sub">BOARDING PASS • ADMIN PREVIEW</div>
+                                <div class="ticket-8k__sub">BOARDING PASS</div>
                             </div>
                             <div style="text-align:right;">
                                 <span class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">${st}</span>
@@ -1331,7 +1402,7 @@
                             <div>
                                 <div class="ticket-k">Passenger</div>
                                 <div class="ticket-passenger">${name}</div>
-                                <div class="ticket-small">Session ID: <span>${uname}</span></div>
+                                <div class="ticket-small">Passenger ID: <span>${uname}</span></div>
                             </div>
                             <div class="ticket-grid-mini">
                                 <div><div class="ticket-k">Gate</div><div class="ticket-v">${gate}</div></div>
@@ -1339,6 +1410,19 @@
                                 <div><div class="ticket-k">Class</div><div class="ticket-v">${cls}</div></div>
                                 <div><div class="ticket-k">Terminal</div><div class="ticket-v">${terminal}</div></div>
                             </div>
+                        </div>
+                        <div class="ticket-grid-mini" style="margin-top:12px;">
+                            <div><div class="ticket-k">PNR</div><div class="ticket-v">${pnr}</div></div>
+                            <div><div class="ticket-k">Board</div><div class="ticket-v">${boardAt}</div></div>
+                            <div><div class="ticket-k">Group</div><div class="ticket-v">${group}</div></div>
+                            <div><div class="ticket-k">Seq</div><div class="ticket-v">${seq}</div></div>
+                        </div>
+                        <div style="margin-top:14px; border-top:1px dashed rgba(11, 18, 32, 0.18); padding-top:12px; display:flex; justify-content:space-between; gap:12px; align-items:end;">
+                            <div style="flex:1;">
+                                <div class="ticket-k">Issued</div>
+                                <div class="ticket-v" style="font-weight:900;">${departAt}</div>
+                            </div>
+                            <div style="width: 220px; height: 48px; border-radius: 12px; border:1px solid rgba(11, 18, 32, 0.18); background: repeating-linear-gradient(90deg, rgba(11,18,32,0.85) 0, rgba(11,18,32,0.85) 2px, transparent 2px, transparent 6px);"></div>
                         </div>
                     </div>
                     <div class="ticket-8k__stub">
@@ -1352,8 +1436,8 @@
                                 <div class="stub-id">${st}</div>
                             </div>
                             <div>
-                                <div class="ticket-k">Deploy</div>
-                                <div style="margin-top:8px; color:var(--ticket-dim); font-weight:800; font-size:0.8rem;">Apply changes to user profile</div>
+                                <div class="ticket-k">PNR</div>
+                                <div class="stub-id">${pnr}</div>
                             </div>
                         </div>
                     </div>
@@ -1381,6 +1465,10 @@
             document.getElementById('bpGate').value = bd.gate || '';
             document.getElementById('bpSeat').value = bd.seat || '';
             document.getElementById('bpTerminal').value = bd.terminal || '';
+            document.getElementById('bpPnr').value = sch.pnr || '';
+            document.getElementById('bpBoardAt').value = sch.boardAt || '';
+            document.getElementById('bpGroup').value = bd.group || '';
+            document.getElementById('bpSeq').value = sch.seq || '';
 
             const shareKey = f.share && f.share.boardingPassKey ? String(f.share.boardingPassKey) : '';
             const keyInput = document.getElementById('bpShareKey');
@@ -1400,6 +1488,42 @@
                 if (qrImg) qrImg.style.display = 'none';
             }
 
+            const etKey = f.share && f.share.eticketKey ? String(f.share.eticketKey) : '';
+            const etInput = document.getElementById('etShareKey');
+            const etUrl = document.getElementById('etShareUrl');
+            const etQr = document.getElementById('etQr');
+            if (etInput) etInput.value = etKey;
+            if (etKey) {
+                const base = window.location.origin;
+                const url = `${base}/flight/e-ticket.html?u=${encodeURIComponent(username)}&k=${encodeURIComponent(etKey)}`;
+                if (etUrl) etUrl.textContent = url;
+                if (etQr) {
+                    etQr.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                    etQr.style.display = 'block';
+                }
+            } else {
+                if (etUrl) etUrl.textContent = '';
+                if (etQr) etQr.style.display = 'none';
+            }
+
+            const eaKey = f.share && f.share.earrivalKey ? String(f.share.earrivalKey) : '';
+            const eaInput = document.getElementById('eaShareKey');
+            const eaUrl = document.getElementById('eaShareUrl');
+            const eaQr = document.getElementById('eaQr');
+            if (eaInput) eaInput.value = eaKey;
+            if (eaKey) {
+                const base = window.location.origin;
+                const url = `${base}/flight/e-arrival.html?u=${encodeURIComponent(username)}&k=${encodeURIComponent(eaKey)}`;
+                if (eaUrl) eaUrl.textContent = url;
+                if (eaQr) {
+                    eaQr.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                    eaQr.style.display = 'block';
+                }
+            } else {
+                if (eaUrl) eaUrl.textContent = '';
+                if (eaQr) eaQr.style.display = 'none';
+            }
+
             renderBoardingPassPreview({
                 username,
                 status: document.getElementById('bpStatus').value,
@@ -1412,6 +1536,10 @@
                 gate: document.getElementById('bpGate').value,
                 seat: document.getElementById('bpSeat').value,
                 terminal: document.getElementById('bpTerminal').value,
+                pnr: document.getElementById('bpPnr').value,
+                boardAt: document.getElementById('bpBoardAt').value,
+                group: document.getElementById('bpGroup').value,
+                seq: document.getElementById('bpSeq').value,
             });
         }
 
@@ -2252,12 +2380,16 @@
                     gate: document.getElementById('bpGate').value.trim(),
                     seat: document.getElementById('bpSeat').value.trim(),
                     terminal: document.getElementById('bpTerminal').value.trim(),
+                    pnr: document.getElementById('bpPnr').value.trim(),
+                    boardAt: document.getElementById('bpBoardAt').value.trim(),
+                    group: document.getElementById('bpGroup').value.trim(),
+                    seq: document.getElementById('bpSeq').value.trim(),
                 };
             }
 
             const bpUserSel = document.getElementById('bpUser');
             if (bpUserSel) bpUserSel.addEventListener('change', () => hydrateBoardingPass(bpUserSel.value));
-            const bpInputs = ['bpStatus','bpName','bpFlightNo','bpClass','bpFrom','bpTo','bpDepartAt','bpGate','bpSeat','bpTerminal']
+            const bpInputs = ['bpStatus','bpName','bpFlightNo','bpClass','bpFrom','bpTo','bpDepartAt','bpGate','bpSeat','bpTerminal','bpPnr','bpBoardAt','bpGroup','bpSeq']
                 .map((id) => document.getElementById(id))
                 .filter(Boolean);
             bpInputs.forEach((el) => el.addEventListener('input', () => renderBoardingPassPreview(getBoardingPassDraft())));
@@ -2289,9 +2421,13 @@
                 user.flight.boarding.seat = draft.seat || user.flight.boarding.seat || '--';
                 user.flight.boarding.terminal = draft.terminal || user.flight.boarding.terminal || '';
                 user.flight.boarding.cabin = String(draft.flightClass || user.flight.boarding.cabin || 'Business').toUpperCase();
+                user.flight.boarding.group = draft.group || user.flight.boarding.group || '';
                 user.flight.schedule = user.flight.schedule && typeof user.flight.schedule === 'object' ? user.flight.schedule : {};
                 user.flight.schedule.flightNo = draft.flightNo || user.flight.schedule.flightNo || '';
                 user.flight.schedule.departAt = draft.departAt || user.flight.schedule.departAt || '';
+                user.flight.schedule.pnr = draft.pnr || user.flight.schedule.pnr || '';
+                user.flight.schedule.boardAt = draft.boardAt || user.flight.schedule.boardAt || '';
+                user.flight.schedule.seq = draft.seq || user.flight.schedule.seq || '';
                 ensureFlightShape(user);
 
                 if (msg) msg.textContent = 'Deploying...';
@@ -2340,6 +2476,81 @@
                 user.flight.share.boardingPassKey = '';
                 await saveUserToDB(username, user);
                 if (msg) msg.textContent = 'QR key cleared.';
+                hydrateBoardingPass(username);
+            });
+
+            function makeDocKey(prefix) {
+                const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                const bytes = new Uint8Array(16);
+                if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+                let out = `${String(prefix || 'DOC')}-`;
+                for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+                return out;
+            }
+
+            const btnGenETKey = document.getElementById('btnGenETKey');
+            const btnClearETKey = document.getElementById('btnClearETKey');
+            if (btnGenETKey) btnGenETKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.eticketKey = makeDocKey('ET');
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'E‑Ticket key generated.';
+                hydrateBoardingPass(username);
+            });
+            if (btnClearETKey) btnClearETKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.eticketKey = '';
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'E‑Ticket key cleared.';
+                hydrateBoardingPass(username);
+            });
+
+            const btnGenEAKey = document.getElementById('btnGenEAKey');
+            const btnClearEAKey = document.getElementById('btnClearEAKey');
+            if (btnGenEAKey) btnGenEAKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.earrivalKey = makeDocKey('EA');
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'E‑Arrival key generated.';
+                hydrateBoardingPass(username);
+            });
+            if (btnClearEAKey) btnClearEAKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.earrivalKey = '';
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'E‑Arrival key cleared.';
                 hydrateBoardingPass(username);
             });
 

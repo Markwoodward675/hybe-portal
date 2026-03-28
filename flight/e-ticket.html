@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRIP Airways | Boarding Pass</title>
+    <title>TRIP Airways | E‑Ticket</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="page-elegant" style="opacity:0;">
@@ -18,16 +18,16 @@
     </nav>
 
     <div class="container" style="max-width: 980px;">
-        <div class="ticket-8k ticket-surface boarding-pass" id="bpCard" style="display:none;">
+        <div class="ticket-8k ticket-surface boarding-pass" id="card" style="display:none;">
             <div class="ticket-8k__main">
                 <div class="ticket-8k__top">
                     <div>
                         <div class="ticket-8k__brandline">TRIP Airways</div>
-                        <div class="ticket-8k__sub">BOARDING PASS • SHARED VIEW</div>
+                        <div class="ticket-8k__sub">E‑TICKET</div>
                     </div>
                     <div style="text-align:right;">
                         <span id="stBadge" class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">PENDING</span>
-                        <div style="margin-top:10px; color:var(--ticket-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Official Manifest</div>
+                        <div style="margin-top:10px; color:var(--ticket-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;" id="flightNo">—</div>
                     </div>
                 </div>
 
@@ -50,44 +50,33 @@
                     <div>
                         <div class="ticket-k">Passenger</div>
                         <div class="ticket-passenger" id="dispName">—</div>
-                        <div class="ticket-small">Session ID: <span id="dispUser">—</span></div>
+                        <div class="ticket-small">Passenger ID: <span id="dispUser">—</span></div>
                     </div>
                     <div class="ticket-grid-mini">
-                        <div>
-                            <div class="ticket-k">Gate</div>
-                            <div class="ticket-v" id="dispGate">—</div>
-                        </div>
-                        <div>
-                            <div class="ticket-k">Seat</div>
-                            <div class="ticket-v" id="dispSeat">—</div>
-                        </div>
-                        <div>
-                            <div class="ticket-k">Class</div>
-                            <div class="ticket-v" id="dispCls">—</div>
-                        </div>
-                        <div>
-                            <div class="ticket-k">Terminal</div>
-                            <div class="ticket-v" id="dispTerminal">—</div>
-                        </div>
+                        <div><div class="ticket-k">PNR</div><div class="ticket-v" id="pnr">—</div></div>
+                        <div><div class="ticket-k">Cabin</div><div class="ticket-v" id="cabin">—</div></div>
+                        <div><div class="ticket-k">Seat</div><div class="ticket-v" id="seat">—</div></div>
+                        <div><div class="ticket-k">Fare</div><div class="ticket-v" id="fare">—</div></div>
                     </div>
                 </div>
 
-                <div class="ticket-grid-mini" style="margin-top:12px;">
-                    <div><div class="ticket-k">Flight</div><div class="ticket-v" id="dispFlightNo">—</div></div>
-                    <div><div class="ticket-k">PNR</div><div class="ticket-v" id="dispPnr">—</div></div>
-                    <div><div class="ticket-k">Board</div><div class="ticket-v" id="dispBoardAt">—</div></div>
-                    <div><div class="ticket-k">Group</div><div class="ticket-v" id="dispGroup">—</div></div>
+                <div style="margin-top:14px; border-top:1px dashed rgba(11, 18, 32, 0.18); padding-top:12px; display:flex; justify-content:space-between; gap:12px; align-items:end;">
+                    <div style="flex:1;">
+                        <div class="ticket-k">Departure</div>
+                        <div class="ticket-v" style="font-weight:900;" id="departAt">—</div>
+                    </div>
+                    <div style="width: 220px; height: 48px; border-radius: 12px; border:1px solid rgba(11, 18, 32, 0.18); background: repeating-linear-gradient(90deg, rgba(11,18,32,0.85) 0, rgba(11,18,32,0.85) 2px, transparent 2px, transparent 6px);"></div>
                 </div>
             </div>
             <div class="ticket-8k__stub">
                 <div class="stub-meta">
                     <div>
-                        <div class="ticket-k">Tracking Code</div>
-                        <div class="stub-id" id="trackingCode">—</div>
+                        <div class="ticket-k">Document</div>
+                        <div class="stub-id">E‑TICKET</div>
                     </div>
                     <div>
                         <div class="ticket-k">Status</div>
-                        <div class="stub-id" id="dispStatus">—</div>
+                        <div class="stub-id" id="stTxt">—</div>
                     </div>
                     <div>
                         <div class="ticket-k">PDF</div>
@@ -111,7 +100,7 @@
 
         function setStatusBadge(status) {
             const st = String(status || 'PENDING').toUpperCase();
-            document.getElementById('dispStatus').textContent = st;
+            document.getElementById('stTxt').textContent = st;
             const badge = document.getElementById('stBadge');
             const map = {
                 CONFIRMED: 'var(--success)',
@@ -133,51 +122,50 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             const u = q('u');
-            const tc = q('tc');
             const key = q('k');
-            const bp = document.getElementById('bpCard');
+            const card = document.getElementById('card');
             const errCard = document.getElementById('errCard');
             const errMsg = document.getElementById('errMsg');
 
             try {
-                const out = key ? await publicBoardingPass(u, key) : await publicDetails(u, tc);
+                const out = await publicETicket(u, key);
                 const user = out && out.userData ? out.userData : null;
                 const username = out && out.username ? out.username : u;
                 if (!user) throw new Error('No user data');
                 const f = user.flight || {};
                 const r = f.route || {};
                 const b = f.boarding || {};
-                const m = user.manifest || {};
+                const s = f.schedule || {};
+                const fare = f.fare || {};
 
-                const from = r.from || m.from || 'LHR';
-                const to = r.to || m.to || 'ICN';
+                const from = r.from || 'LHR';
+                const to = r.to || 'ICN';
                 document.getElementById('codeDep').textContent = from;
                 document.getElementById('codeArr').textContent = to;
                 document.getElementById('routeTxt').textContent = `${from}-${to}`;
-                document.getElementById('dispGate').textContent = b.gate || m.gate || '--';
-                document.getElementById('dispSeat').textContent = b.seat || m.seat || '--';
-                document.getElementById('dispCls').textContent = String(b.cabin || m.flightClass || 'Business').toUpperCase();
-                document.getElementById('dispTerminal').textContent = b.terminal || '--';
                 document.getElementById('dispName').textContent = user.passengerName || username;
                 document.getElementById('dispUser').textContent = username;
-                document.getElementById('dispFlightNo').textContent = (f.schedule && f.schedule.flightNo) ? f.schedule.flightNo : (m.flightNo || `${from}-${to}`);
-                document.getElementById('dispPnr').textContent = (f.schedule && f.schedule.pnr) ? f.schedule.pnr : '—';
-                document.getElementById('dispBoardAt').textContent = (f.schedule && f.schedule.boardAt) ? f.schedule.boardAt : '—';
-                document.getElementById('dispGroup').textContent = (b && b.group) ? b.group : '—';
-                setStatusBadge(f.status || m.status || 'PENDING');
-                document.getElementById('trackingCode').textContent = key || tc || '—';
+                document.getElementById('flightNo').textContent = s.flightNo || `${from}-${to}`;
+                document.getElementById('pnr').textContent = s.pnr || '—';
+                document.getElementById('cabin').textContent = String(b.cabin || '—').toUpperCase();
+                document.getElementById('seat').textContent = b.seat || '—';
+                document.getElementById('departAt').textContent = s.departAt || '—';
+                document.getElementById('fare').textContent = fare.amount !== null && fare.amount !== undefined
+                    ? `${String(fare.currency || 'GBP').toUpperCase()} ${Number(fare.amount).toFixed(2)}`
+                    : String(fare.currency || 'GBP').toUpperCase();
 
-                bp.style.display = 'grid';
-            } catch (e) {
+                setStatusBadge(f.status || 'PENDING');
+                card.style.display = 'grid';
+            } catch {
                 errCard.style.display = 'block';
-                errMsg.textContent = 'Invalid or used code.';
+                errMsg.textContent = 'Invalid or expired link.';
             }
 
             const btnPdf = document.getElementById('btnPdf');
             if (btnPdf) btnPdf.addEventListener('click', () => window.print());
-
             requestAnimationFrame(() => { document.body.style.opacity = '1'; });
         });
     </script>
 </body>
 </html>
+

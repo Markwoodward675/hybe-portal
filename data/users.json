@@ -1,7 +1,30 @@
 [
-  { "id": "u-001", "username": "trip-personnel-016", "pin": "1234", "role": "user", "name": "Clare Bland Elizabeth" },
-  { "id": "u-002", "username": "passenger-016", "pin": "1234", "role": "passenger", "name": "Clare Bland Elizabeth" },
-  { "id": "u-003", "username": "trip_user01", "pin": "2468", "role": "passenger", "name": "Adebayo K." },
-  { "id": "u-004", "username": "trip_user02", "pin": "1357", "role": "passenger", "name": "Isabella Chen" }
+  {
+    "id": "u-001",
+    "username": "trip-personnel-016",
+    "pin": "1234",
+    "role": "user",
+    "name": "Clare Bland Elizabeth"
+  },
+  {
+    "id": "u-002",
+    "username": "Passenger-016",
+    "pin": "0007",
+    "role": "passenger",
+    "name": "Test P"
+  },
+  {
+    "id": "u-003",
+    "username": "trip_user01",
+    "pin": "2468",
+    "role": "passenger",
+    "name": "Adebayo K."
+  },
+  {
+    "id": "u-004",
+    "username": "trip_user02",
+    "pin": "1357",
+    "role": "passenger",
+    "name": "Isabella Chen"
+  }
 ]
-

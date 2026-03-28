@@ -141,8 +141,12 @@ function ensureFlightShape(userData) {
     const seat = String((flight.boarding && flight.boarding.seat) || manifest.seat || '--');
     const cabin = String((flight.boarding && flight.boarding.cabin) || manifest.flightClass || 'Business').toUpperCase();
     const terminal = String((flight.boarding && flight.boarding.terminal) || (u.profile && u.profile.gateway && u.profile.gateway.terminal) || '');
+    const group = String((flight.boarding && flight.boarding.group) || '');
     const flightNo = String((flight.schedule && flight.schedule.flightNo) || form.flightNo || manifest.flightNo || '');
     const departAt = String((flight.schedule && flight.schedule.departAt) || form.departAt || '');
+    const pnr = String((flight.schedule && flight.schedule.pnr) || '');
+    const boardAt = String((flight.schedule && flight.schedule.boardAt) || '');
+    const seq = String((flight.schedule && flight.schedule.seq) || '');
 
     const currency = String((flight.fare && flight.fare.currency) || ledger.currencyCode || ledger.currency || 'GBP').toUpperCase();
     const amountRaw = (flight.fare && flight.fare.amount !== undefined) ? flight.fare.amount : null;
@@ -154,13 +158,17 @@ function ensureFlightShape(userData) {
         route: { from, via, to },
         schedule: {
             flightNo,
-            departAt
+            departAt,
+            pnr,
+            boardAt,
+            seq
         },
         boarding: {
             terminal,
             gate,
             seat,
-            cabin
+            cabin,
+            group
         },
         fare: {
             currency,
@@ -400,6 +408,18 @@ async function publicBoardingPass(username, key) {
     const u = encodeURIComponent(username);
     const k = encodeURIComponent(key);
     return tripApi(`/api/public/boardingpass?u=${u}&k=${k}`);
+}
+
+async function publicETicket(username, key) {
+    const u = encodeURIComponent(username);
+    const k = encodeURIComponent(key);
+    return tripApi(`/api/public/eticket?u=${u}&k=${k}`);
+}
+
+async function publicEArrival(username, key) {
+    const u = encodeURIComponent(username);
+    const k = encodeURIComponent(key);
+    return tripApi(`/api/public/earrival?u=${u}&k=${k}`);
 }
 
 async function publicBookings() {
