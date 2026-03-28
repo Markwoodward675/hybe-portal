@@ -144,10 +144,12 @@ async function findUserDocByUsername(username) {
     if (docs1[0]) return docs1[0];
   } catch {}
 
-  const q2 = encodeURIComponent(queryEqual('username', u));
-  const out2 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q2}&limit=1`);
-  const docs2 = Array.isArray(out2?.documents) ? out2.documents : [];
-  if (docs2[0]) return docs2[0];
+  try {
+    const q2 = encodeURIComponent(queryEqual('username', u));
+    const out2 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q2}&limit=1`);
+    const docs2 = Array.isArray(out2?.documents) ? out2.documents : [];
+    if (docs2[0]) return docs2[0];
+  } catch {}
 
   try {
     const all = await listAllUserDocs(1000);

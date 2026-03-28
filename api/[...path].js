@@ -727,6 +727,7 @@ async function schemaSync() {
   await ensureNotificationsCollection();
   await ensureLivePopupsCollection();
   await ensureKycBucket();
+  actions.push(await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_key', 'key', ['username'], []));
   actions.push(await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_lc_unique', 'unique', ['username_lc'], []));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'title', 120, true));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'message', 2000, true));
@@ -975,11 +976,13 @@ module.exports = async (req, res) => {
           const hasUsernameLc = attrs.some((a) => a.key === 'username_lc' && a.status === 'available');
           const hasData = attrs.some((a) => a.key === 'data' && a.status === 'available');
           let idxOk = false;
+          let idxUsernameOk = false;
           try {
             const idx = colOk ? await listIndexesFor(USERS_COLLECTION_ID) : [];
             idxOk = (idx || []).some((i) => i && i.key === 'idx_username_lc_unique' && i.status === 'available');
+            idxUsernameOk = (idx || []).some((i) => i && i.key === 'idx_username_key' && i.status === 'available');
           } catch {}
-          const status = `DB:${dbOk ? 'OK' : 'MISSING'} • COL:${colOk ? 'OK' : 'MISSING'} • username:${hasUsername ? 'OK' : 'MISSING'} • username_lc:${hasUsernameLc ? 'OK' : 'MISSING'} • idx_username_lc_unique:${idxOk ? 'OK' : 'MISSING'} • data:${hasData ? 'OK' : 'MISSING'} • perms:LOCKED`;
+          const status = `DB:${dbOk ? 'OK' : 'MISSING'} • COL:${colOk ? 'OK' : 'MISSING'} • username:${hasUsername ? 'OK' : 'MISSING'} • idx_username_key:${idxUsernameOk ? 'OK' : 'MISSING'} • username_lc:${hasUsernameLc ? 'OK' : 'MISSING'} • idx_username_lc_unique:${idxOk ? 'OK' : 'MISSING'} • data:${hasData ? 'OK' : 'MISSING'} • perms:LOCKED`;
           return send(res, 200, { status });
         } catch (e) {
           return send(res, 200, { status: 'Appwrite not available (dev local mode)' });
@@ -999,6 +1002,7 @@ module.exports = async (req, res) => {
         await ensureNotificationsCollection();
         await ensureLivePopupsCollection();
         await ensureKycBucket();
+        await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_key', 'key', ['username'], []);
         await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_lc_unique', 'unique', ['username_lc'], []);
         return send(res, 200, { ok: true });
       } catch (e) {
