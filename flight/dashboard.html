@@ -187,24 +187,37 @@
 
             const username = me.username;
             const user = me.userData || {};
+            const f = user.flight || {};
+            const r = f.route || {};
+            const b = f.boarding || {};
+            const s = f.schedule || {};
             const m = user.manifest || {};
-            const from = m.from || 'LHR';
-            const to = m.to || 'ICN';
+
+            const from = (r.from || m.from || 'LHR');
+            const to = (r.to || m.to || 'ICN');
             document.getElementById('codeDep').textContent = from;
             document.getElementById('codeArr').textContent = to;
             document.getElementById('routeTxt').textContent = `${from}-${to}`;
-            document.getElementById('dispGate').textContent = m.gate || '--';
-            document.getElementById('dispSeat').textContent = m.seat || '--';
-            document.getElementById('dispCls').textContent = String(m.flightClass || 'Business').toUpperCase();
+            document.getElementById('dispGate').textContent = b.gate || m.gate || '--';
+            document.getElementById('dispSeat').textContent = b.seat || m.seat || '--';
+            document.getElementById('dispCls').textContent = String(b.cabin || m.flightClass || 'Business').toUpperCase();
             document.getElementById('dispName').textContent = user.passengerName || username;
             document.getElementById('dispUser').textContent = username;
-            setStatusBadge(m.status || 'PENDING');
+            setStatusBadge(f.status || m.status || 'PENDING');
 
-            const oneTime = user.share && user.share.oneTimeTracking ? user.share.oneTimeTracking : {};
-            document.getElementById('trackingCode').textContent = oneTime.code || '—';
+            const share = f.share && typeof f.share === 'object' ? f.share : (user.share || {});
+            const bpKey = share.boardingPassKey ? String(share.boardingPassKey) : '';
+            const oneTime = share.oneTimeTracking ? share.oneTimeTracking : {};
+            document.getElementById('trackingCode').textContent = bpKey || oneTime.code || '—';
             const qrImg = document.getElementById('bpQr');
             const qrNote = document.getElementById('bpQrNote');
-            if (oneTime.code && !oneTime.usedAt) {
+            if (bpKey) {
+                const url = `${window.location.origin}/flight/boarding-pass.html?u=${encodeURIComponent(username)}&k=${encodeURIComponent(bpKey)}`;
+                const qr = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                qrImg.src = qr;
+                qrImg.style.display = 'block';
+                qrNote.textContent = 'Scan to open shared boarding pass.';
+            } else if (oneTime.code && !oneTime.usedAt) {
                 const url = `${window.location.origin}/flight/boarding-pass.html?u=${encodeURIComponent(username)}&tc=${encodeURIComponent(oneTime.code)}`;
                 const qr = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
                 qrImg.src = qr;

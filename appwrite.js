@@ -374,6 +374,161 @@ document.addEventListener('DOMContentLoaded', () => {
     try { enforceUserReadonly(); } catch {}
 });
 
+function shouldStartLivePopups() {
+    const path = String(window.location && window.location.pathname ? window.location.pathname : '');
+    if (path.startsWith('/auth/')) return false;
+    if (path.endsWith('/index.html') || path === '/' || path === '') {
+        const hasLogin = Boolean(document.querySelector('form#loginForm') || document.querySelector('.login-shell'));
+        if (hasLogin) return false;
+    }
+    const body = document.body;
+    if (body && body.dataset && String(body.dataset.popups || '').toLowerCase() === 'off') return false;
+    return true;
+}
+
+function ensureLivePopupsContainer() {
+    let el = document.getElementById('liveToasts');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'liveToasts';
+    el.className = 'live-toasts';
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-atomic', 'true');
+    document.body.appendChild(el);
+    return el;
+}
+
+function showLivePopupToast(payload) {
+    const wrap = ensureLivePopupsContainer();
+    const it = payload && typeof payload === 'object' ? payload : {};
+    const title = String(it.title || 'Live Flight Update');
+    const message = String(it.message || it.msg || '');
+    const status = String(it.status || '');
+    const tone = String(it.tone || 'warn');
+    const flightNo = String(it.flightNo || '');
+    const now = new Date();
+    const ts = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+
+    const el = document.createElement('div');
+    el.className = 'live-toast';
+    el.innerHTML = `
+        <div class="live-toast__row">
+            <div class="live-toast__title">${title}</div>
+            <div class="live-toast__meta">${ts}</div>
+        </div>
+        <div style="margin-top:10px; display:flex; justify-content:space-between; gap:12px; align-items:center;">
+            <div class="live-pill ${tone}"><span class="live-dot"></span>${status || 'UPDATE'}</div>
+            <div class="live-toast__meta" style="font-weight:900;">${flightNo}</div>
+        </div>
+        <div class="live-toast__line">${message}</div>
+    `;
+    wrap.prepend(el);
+    requestAnimationFrame(() => { el.classList.add('show'); });
+    window.setTimeout(() => {
+        el.classList.remove('show');
+        window.setTimeout(() => { try { el.remove(); } catch {} }, 260);
+    }, 6500);
+    const items = Array.from(wrap.querySelectorAll('.live-toast'));
+    items.slice(3).forEach((n) => { try { n.remove(); } catch {} });
+}
+
+async function fetchLivePopupsPool() {
+    const out = await tripApi('/api/public/live-popups');
+    const enabled = out && out.enabled !== false;
+    const intervalSeconds = out && out.intervalSeconds ? Number(out.intervalSeconds) : 30;
+    const items = out && Array.isArray(out.items) ? out.items : [];
+    return {
+        enabled,
+        intervalSeconds: Number.isFinite(intervalSeconds) ? intervalSeconds : 30,
+        startAt: out && out.startAt ? String(out.startAt) : '',
+        validUntil: out && out.validUntil ? String(out.validUntil) : '',
+        items
+    };
+}
+
+function mulberry32(seed) {
+    let t = seed >>> 0;
+    return function () {
+        t += 0x6D2B79F5;
+        let r = Math.imul(t ^ (t >>> 15), 1 | t);
+        r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+        return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+function hashSeed(s) {
+    const str = String(s || '');
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+}
+
+function shuffledIndexes(n, seedStr) {
+    const idx = Array.from({ length: n }, (_, i) => i);
+    const rnd = mulberry32(hashSeed(seedStr));
+    for (let i = idx.length - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        const tmp = idx[i];
+        idx[i] = idx[j];
+        idx[j] = tmp;
+    }
+    return idx;
+}
+
+function weekKey() {
+    const now = new Date();
+    const day = Math.floor(now.getTime() / 86400000);
+    return Math.floor(day / 7);
+}
+
+async function startLivePopups() {
+    if (!shouldStartLivePopups()) return;
+    let pool = null;
+    try {
+        pool = await fetchLivePopupsPool();
+    } catch {
+        return;
+    }
+    if (!pool || pool.enabled !== true) return;
+    const items = Array.isArray(pool.items) ? pool.items : [];
+    if (items.length < 1000) return;
+
+    const key = `trip_live_popups:${String(pool.startAt || '')}:${String(pool.validUntil || '')}:${items.length}`;
+    let order = null;
+    try { order = JSON.parse(localStorage.getItem(`${key}:order`) || 'null'); } catch { order = null; }
+    if (!Array.isArray(order) || order.length !== items.length) {
+        order = shuffledIndexes(items.length, key);
+        try { localStorage.setItem(`${key}:order`, JSON.stringify(order)); } catch {}
+        try { localStorage.setItem(`${key}:pos`, '0'); } catch {}
+    }
+    let pos = 0;
+    try { pos = parseInt(localStorage.getItem(`${key}:pos`) || '0', 10) || 0; } catch { pos = 0; }
+    pos = Math.max(0, Math.min(items.length - 1, pos));
+
+    function nextItem() {
+        const idx = order[pos % order.length];
+        pos = (pos + 1) % order.length;
+        try { localStorage.setItem(`${key}:pos`, String(pos)); } catch {}
+        return items[idx];
+    }
+
+    window.setTimeout(() => {
+        showLivePopupToast(nextItem());
+    }, 1800);
+
+    const intervalMs = Math.max(10, Math.min(600, pool.intervalSeconds)) * 1000;
+    window.setInterval(() => {
+        showLivePopupToast(nextItem());
+    }, intervalMs);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    try { startLivePopups(); } catch {}
+});
+
 async function adminLogin(passcode) {
     return tripApi('/api/admin/login', { method: 'POST', body: { passcode } });
 }

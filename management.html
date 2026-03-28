@@ -550,7 +550,7 @@
                             </div>
                             <div>
                                 <div class="ticket-k" style="margin-bottom:8px;">Location (State & Country)</div>
-                                <input id="cmLocation" type="text" placeholder="Lagos, Nigeria">
+                                <input id="cmLocation" type="text" placeholder="Amsterdam, Netherlands">
                             </div>
                             <div>
                                 <div class="ticket-k" style="margin-bottom:8px;">Marker / Time</div>
@@ -859,13 +859,67 @@
                     </div>
                     <div style="margin-top:10px;">
                         <div class="ticket-k" style="margin-bottom:8px;">Message</div>
-                        <textarea id="ntMessage" rows="3" placeholder="Flight TRIP-118 to Abuja is now boarding"></textarea>
+                        <textarea id="ntMessage" rows="3" placeholder="Flight TRIP-118 to Amsterdam is now boarding"></textarea>
                     </div>
                     <div class="two-col" style="margin-top:10px;">
                         <button class="btn-primary" type="button" id="btnCreateNotif">Create</button>
                         <button class="btn-secondary" type="button" id="btnReloadNotif">Reload</button>
                     </div>
                     <div id="ntMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px;">Live Popups (7‑Day Rotation)</div>
+                        <div id="lpStats" style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">—</div>
+                    </div>
+                    <div class="three-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Enabled</div>
+                            <select id="lpEnabled">
+                                <option value="true">true</option>
+                                <option value="false">false</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Interval (seconds)</div>
+                            <input id="lpInterval" type="text" placeholder="30">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Duration (days)</div>
+                            <input id="lpDays" type="text" placeholder="7">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <div class="ticket-k" style="margin-bottom:8px;">Pool Size (≥1000)</div>
+                        <input id="lpCount" type="text" placeholder="1200">
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnLoadLP">Load</button>
+                        <button class="btn-primary" type="button" id="btnGenLP">Generate 7‑Day Pool</button>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnSaveLP">Save Settings</button>
+                        <button class="btn-secondary" type="button" id="btnDisableLP">Disable</button>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <div class="ticket-k" style="margin-bottom:8px;">Edit Item (by index)</div>
+                        <div class="three-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Index</div>
+                                <input id="lpEditIndex" type="text" placeholder="0">
+                            </div>
+                            <div style="grid-column: span 2;">
+                                <div class="ticket-k" style="margin-bottom:8px;">JSON Patch</div>
+                                <input id="lpEditJson" type="text" placeholder='{"message":"Name • LHR London → ICN Seoul","status":"EN ROUTE","tone":"ok"}'>
+                            </div>
+                        </div>
+                        <div class="two-col" style="margin-top:10px;">
+                            <button class="btn-secondary" type="button" id="btnPatchLP">Apply Patch</button>
+                            <button class="btn-secondary" type="button" id="btnDelLP">Delete Item</button>
+                        </div>
+                    </div>
+                    <div id="lpMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
                 </div>
 
                 <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
@@ -1064,6 +1118,7 @@
             }
             if (targetId === 'secNotifications') {
                 renderNotifications();
+                loadLivePopupsAdmin();
             }
             if (targetId === 'secBoardingPass') {
                 hydrateBoardingPass(document.getElementById('bpUser') && document.getElementById('bpUser').value);
@@ -1295,6 +1350,101 @@
             });
 
             if (msg) msg.textContent = '';
+        }
+
+        function safeJsonParse(s) {
+            try { return JSON.parse(String(s || '')); } catch { return null; }
+        }
+
+        function setLPStats(pool) {
+            const el = document.getElementById('lpStats');
+            if (!el) return;
+            const items = pool && Array.isArray(pool.items) ? pool.items.length : 0;
+            const interval = pool && pool.intervalSeconds ? pool.intervalSeconds : '—';
+            const enabled = pool && pool.enabled !== false;
+            el.textContent = `${enabled ? 'Enabled' : 'Disabled'} • ${items} items • ${interval}s`;
+        }
+
+        async function loadLivePopupsAdmin() {
+            const msg = document.getElementById('lpMsg');
+            if (msg) msg.textContent = 'Loading...';
+            try {
+                const out = await tripApi('/api/admin/live-popups', { method: 'GET' });
+                document.getElementById('lpEnabled').value = out && out.enabled === false ? 'false' : 'true';
+                document.getElementById('lpInterval').value = String((out && out.intervalSeconds) ? out.intervalSeconds : 30);
+                document.getElementById('lpCount').value = String((out && out.items && out.items.length) ? out.items.length : 1200);
+                const startAt = out && out.startAt ? new Date(out.startAt) : null;
+                const validUntil = out && out.validUntil ? new Date(out.validUntil) : null;
+                const days = (startAt && validUntil && !Number.isNaN(startAt.getTime()) && !Number.isNaN(validUntil.getTime()))
+                    ? Math.max(1, Math.round((validUntil.getTime() - startAt.getTime()) / 86400000))
+                    : 7;
+                document.getElementById('lpDays').value = String(days);
+                setLPStats(out);
+                if (msg) msg.textContent = '';
+            } catch {
+                if (msg) msg.textContent = 'Unable to load live popups.';
+            }
+        }
+
+        async function generateLivePopupsAdmin() {
+            const msg = document.getElementById('lpMsg');
+            if (msg) msg.textContent = 'Generating...';
+            const count = parseInt(document.getElementById('lpCount').value, 10) || 1200;
+            const intervalSeconds = parseInt(document.getElementById('lpInterval').value, 10) || 30;
+            const days = parseInt(document.getElementById('lpDays').value, 10) || 7;
+            try {
+                await tripApi('/api/admin/live-popups', { method: 'POST', body: { count, days, intervalSeconds } });
+                if (msg) msg.textContent = 'Generated.';
+                await loadLivePopupsAdmin();
+            } catch {
+                if (msg) msg.textContent = 'Generate failed.';
+            }
+        }
+
+        async function saveLivePopupsSettingsAdmin(enabledOverride) {
+            const msg = document.getElementById('lpMsg');
+            if (msg) msg.textContent = 'Saving...';
+            const enabled = enabledOverride !== undefined ? Boolean(enabledOverride) : (document.getElementById('lpEnabled').value === 'true');
+            const intervalSeconds = parseInt(document.getElementById('lpInterval').value, 10) || 30;
+            try {
+                await tripApi('/api/admin/live-popups', { method: 'PATCH', body: { enabled, intervalSeconds } });
+                if (msg) msg.textContent = 'Saved.';
+                await loadLivePopupsAdmin();
+            } catch {
+                if (msg) msg.textContent = 'Save failed.';
+            }
+        }
+
+        async function patchLivePopupItemAdmin(isDelete) {
+            const msg = document.getElementById('lpMsg');
+            if (msg) msg.textContent = isDelete ? 'Deleting...' : 'Updating...';
+            const index = parseInt(document.getElementById('lpEditIndex').value, 10);
+            if (!Number.isFinite(index)) {
+                if (msg) msg.textContent = 'Enter a valid index.';
+                return;
+            }
+            if (isDelete) {
+                try {
+                    await tripApi('/api/admin/live-popups', { method: 'PATCH', body: { deleteIndex: index } });
+                    if (msg) msg.textContent = 'Deleted.';
+                    await loadLivePopupsAdmin();
+                } catch {
+                    if (msg) msg.textContent = 'Delete failed.';
+                }
+                return;
+            }
+            const patch = safeJsonParse(document.getElementById('lpEditJson').value);
+            if (!patch || typeof patch !== 'object') {
+                if (msg) msg.textContent = 'Invalid JSON patch.';
+                return;
+            }
+            try {
+                await tripApi('/api/admin/live-popups', { method: 'PATCH', body: { index, item: patch } });
+                if (msg) msg.textContent = 'Updated.';
+                await loadLivePopupsAdmin();
+            } catch {
+                if (msg) msg.textContent = 'Update failed.';
+            }
         }
 
         async function hydrateManifest(username) {
@@ -2578,6 +2728,19 @@
                 }
             });
             if (btnReloadNotif) btnReloadNotif.addEventListener('click', renderNotifications);
+
+            const btnLoadLP = document.getElementById('btnLoadLP');
+            const btnGenLP = document.getElementById('btnGenLP');
+            const btnSaveLP = document.getElementById('btnSaveLP');
+            const btnDisableLP = document.getElementById('btnDisableLP');
+            const btnPatchLP = document.getElementById('btnPatchLP');
+            const btnDelLP = document.getElementById('btnDelLP');
+            if (btnLoadLP) btnLoadLP.addEventListener('click', loadLivePopupsAdmin);
+            if (btnGenLP) btnGenLP.addEventListener('click', generateLivePopupsAdmin);
+            if (btnSaveLP) btnSaveLP.addEventListener('click', () => saveLivePopupsSettingsAdmin());
+            if (btnDisableLP) btnDisableLP.addEventListener('click', () => saveLivePopupsSettingsAdmin(false));
+            if (btnPatchLP) btnPatchLP.addEventListener('click', () => patchLivePopupItemAdmin(false));
+            if (btnDelLP) btnDelLP.addEventListener('click', () => patchLivePopupItemAdmin(true));
 
             onUserChange();
         });

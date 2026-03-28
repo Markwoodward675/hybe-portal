@@ -15,6 +15,8 @@ const {
   deleteUser,
 } = require('../server_lib/appwrite');
 
+const LIVE_POPUPS_COLLECTION_ID = process.env.APPWRITE_COLLECTION_LIVE_POPUPS_ID || 'live_popups';
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function readJson(req) {
@@ -472,6 +474,154 @@ async function ensureNotificationsCollection() {
   if (!keys.has('createdAt')) await createStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'createdAt', 64, false);
 }
 
+async function ensureLivePopupsCollection() {
+  const colPath = `/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(LIVE_POPUPS_COLLECTION_ID)}`;
+  const ok = await exists(colPath);
+  if (!ok) {
+    await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections`, {
+      method: 'POST',
+      body: {
+        collectionId: LIVE_POPUPS_COLLECTION_ID,
+        name: 'Live Popups',
+        documentSecurity: false,
+        permissions: ['read("any")'],
+      },
+    });
+  }
+
+  const attrs = await listAttributesFor(LIVE_POPUPS_COLLECTION_ID).catch(() => []);
+  const keys = new Set((attrs || []).map((a) => a.key));
+  if (!keys.has('data')) await createLargeStringAttributeFor(LIVE_POPUPS_COLLECTION_ID, 'data', true);
+  if (!keys.has('updatedAt')) await createStringAttributeFor(LIVE_POPUPS_COLLECTION_ID, 'updatedAt', 64, false);
+}
+
+function genFlightNo() {
+  return `TRIP-${String(Math.floor(100 + Math.random() * 900))}`;
+}
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function genPool(count, days, intervalSeconds) {
+  const safeCount = clamp(1000, Number(count) || 1200, 50000);
+  const safeDays = clamp(1, Number(days) || 7, 30);
+  const safeInterval = clamp(10, Number(intervalSeconds) || 30, 600);
+
+  const firstNames = ['Isabella', 'Noah', 'Emma', 'Sofia', 'Hassan', 'Marie', 'Rina', 'Owen', 'Clare', 'David', 'Priya', 'Liam', 'Amina', 'Yuna', 'Minho', 'Arjun', 'Zara', 'Mateo', 'Leila', 'Oliver', 'Maya', 'Ethan', 'Ava', 'Lucas', 'Mina'];
+  const lastNames = ['Chen', 'Martins', 'Al‑Rashid', 'Dubois', 'Yamamoto', 'Parker', 'Bland', 'Brooks', 'Shah', 'Kim', 'Singh', 'Hernandez', 'Kowalski', 'Nguyen', 'Costa', 'Nakamura', 'Alvarez', 'Patel', 'Watanabe', 'Rahman', 'Schmidt', 'Novak', 'Santos', 'Lee', 'Garcia'];
+  const airports = [
+    { iata: 'LHR', city: 'London', country: 'United Kingdom' },
+    { iata: 'MAN', city: 'Manchester', country: 'United Kingdom' },
+    { iata: 'AMS', city: 'Amsterdam', country: 'Netherlands' },
+    { iata: 'CDG', city: 'Paris', country: 'France' },
+    { iata: 'FRA', city: 'Frankfurt', country: 'Germany' },
+    { iata: 'DXB', city: 'Dubai', country: 'UAE' },
+    { iata: 'DOH', city: 'Doha', country: 'Qatar' },
+    { iata: 'JFK', city: 'New York', country: 'USA' },
+    { iata: 'LAX', city: 'Los Angeles', country: 'USA' },
+    { iata: 'ICN', city: 'Seoul/Incheon', country: 'Korea' },
+    { iata: 'NRT', city: 'Tokyo/Narita', country: 'Japan' },
+    { iata: 'SIN', city: 'Singapore', country: 'Singapore' },
+    { iata: 'ZRH', city: 'Zurich', country: 'Switzerland' },
+    { iata: 'MAD', city: 'Madrid', country: 'Spain' },
+  ];
+  const statuses = [
+    { label: 'BOARDING', tone: 'warn' },
+    { label: 'FINAL CALL', tone: 'bad' },
+    { label: 'DEPARTED', tone: 'ok' },
+    { label: 'EN ROUTE', tone: 'ok' },
+    { label: 'DELAYED', tone: 'warn' },
+    { label: 'ARRIVED', tone: 'ok' },
+  ];
+
+  const startAt = new Date();
+  const endAt = new Date(startAt.getTime() + safeDays * 24 * 60 * 60 * 1000);
+  const items = [];
+  const used = new Set();
+  while (items.length < safeCount) {
+    const who = `${pick(firstNames)} ${pick(lastNames)}`;
+    const from = pick(airports);
+    let to = pick(airports);
+    while (to.iata === from.iata) to = pick(airports);
+    const st = pick(statuses);
+    const flightNo = genFlightNo();
+    const msg = `${who} • ${from.iata} ${from.city} → ${to.iata} ${to.city}`;
+    const key = `${who}|${from.iata}|${to.iata}|${st.label}|${flightNo}`;
+    if (used.has(key)) continue;
+    used.add(key);
+    items.push({
+      id: `lp_${items.length + 1}`,
+      title: 'Live Flight Update',
+      status: st.label,
+      tone: st.tone,
+      flightNo,
+      message: msg,
+    });
+  }
+
+  return {
+    enabled: true,
+    intervalSeconds: safeInterval,
+    startAt: startAt.toISOString(),
+    validUntil: endAt.toISOString(),
+    items,
+  };
+}
+
+async function getLivePopupsPool() {
+  await ensureDatabase();
+  await ensureLivePopupsCollection();
+  try {
+    const doc = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(LIVE_POPUPS_COLLECTION_ID)}/documents/pool`);
+    const raw = doc && doc.data ? String(doc.data) : '';
+    const pool = raw ? JSON.parse(raw) : null;
+    if (pool && pool.items && Array.isArray(pool.items) && pool.items.length >= 1000) {
+      const until = pool.validUntil ? new Date(pool.validUntil) : null;
+      const expired = until && !Number.isNaN(until.getTime()) && Date.now() > until.getTime();
+      if (!expired) return pool;
+      const startAt = pool.startAt ? new Date(pool.startAt) : null;
+      const days = (startAt && until && !Number.isNaN(startAt.getTime())) ? Math.max(1, Math.round((until.getTime() - startAt.getTime()) / 86400000)) : 7;
+      const intervalSeconds = pool.intervalSeconds !== undefined ? Number(pool.intervalSeconds) : 30;
+      const next = genPool(pool.items.length, days, intervalSeconds);
+      try { await saveLivePopupsPool(next); } catch {}
+      return next;
+    }
+  } catch {}
+
+  const pool = genPool(1200, 7, 30);
+  try {
+    await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(LIVE_POPUPS_COLLECTION_ID)}/documents`, {
+      method: 'POST',
+      body: {
+        documentId: 'pool',
+        data: { data: JSON.stringify(pool), updatedAt: new Date().toISOString() },
+        permissions: [],
+      },
+    });
+  } catch {}
+  return pool;
+}
+
+async function saveLivePopupsPool(pool) {
+  await ensureDatabase();
+  await ensureLivePopupsCollection();
+  const payload = { data: JSON.stringify(pool), updatedAt: new Date().toISOString() };
+  try {
+    await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(LIVE_POPUPS_COLLECTION_ID)}/documents/pool`, {
+      method: 'PATCH',
+      body: payload,
+    });
+    return true;
+  } catch {
+    await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(LIVE_POPUPS_COLLECTION_ID)}/documents`, {
+      method: 'POST',
+      body: { documentId: 'pool', data: payload, permissions: [] },
+    });
+    return true;
+  }
+}
+
 async function schemaSync() {
   const actions = [];
   await ensureDatabase();
@@ -486,6 +636,7 @@ async function schemaSync() {
   await ensureRegistrationsCollection();
   await ensureSubmissionsCollection();
   await ensureNotificationsCollection();
+  await ensureLivePopupsCollection();
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'title', 120, true));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'message', 2000, true));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'tone', 24, false));
@@ -565,7 +716,7 @@ async function generateAiPassengers(limit) {
 
   const fallback = (() => {
     const names = [
-      { fullName: 'Adebayo K.', nationality: 'Nigerian', gender: 'Male' },
+      { fullName: 'Aiden Murphy', nationality: 'Irish', gender: 'Male' },
       { fullName: 'Isabella Chen', nationality: 'Chinese', gender: 'Female' },
       { fullName: 'Marie Dubois', nationality: 'French', gender: 'Female' },
       { fullName: 'Hassan Al‑Rashid', nationality: 'Emirati', gender: 'Male' },
@@ -573,7 +724,7 @@ async function generateAiPassengers(limit) {
       { fullName: 'Owen Parker', nationality: 'British', gender: 'Male' },
       { fullName: 'Ama Mensah', nationality: 'Ghanaian', gender: 'Female' },
       { fullName: 'Sipho Dlamini', nationality: 'South African', gender: 'Male' },
-      { fullName: 'Fatima Abdullahi', nationality: 'Nigerian', gender: 'Female' },
+      { fullName: 'Fatima Al‑Hassan', nationality: 'Qatari', gender: 'Female' },
       { fullName: 'Michael Johnson', nationality: 'American', gender: 'Male' },
     ];
     const classes = ['Economy', 'Business', 'First'];
@@ -749,6 +900,7 @@ module.exports = async (req, res) => {
         await ensureRegistrationsCollection();
         await ensureSubmissionsCollection();
         await ensureNotificationsCollection();
+        await ensureLivePopupsCollection();
         return send(res, 200, { ok: true });
       } catch (e) {
         return send(res, 500, { error: e?.message || 'Schema ensure failed' });
@@ -1113,6 +1265,65 @@ module.exports = async (req, res) => {
           return send(res, 200, { ok: true });
         } catch (e) {
           return send(res, 500, { error: e?.message || 'Notification delete failed' });
+        }
+      }
+
+      return send(res, 405, { error: 'Method not allowed' });
+    }
+
+    if (action === 'live-popups') {
+      if (req.method === 'GET') {
+        try {
+          if (!isAppwriteConfigured()) return send(res, 200, { ok: true, ...genPool(1200, 7, 30) });
+          const pool = await getLivePopupsPool();
+          return send(res, 200, { ok: true, ...pool });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Live popups load failed' });
+        }
+      }
+
+      if (req.method === 'POST') {
+        try {
+          const body = await readJson(req).catch(() => ({}));
+          const count = body.count !== undefined ? Number(body.count) : 1200;
+          const days = body.days !== undefined ? Number(body.days) : 7;
+          const intervalSeconds = body.intervalSeconds !== undefined ? Number(body.intervalSeconds) : 30;
+          const pool = genPool(count, days, intervalSeconds);
+          if (isAppwriteConfigured()) await saveLivePopupsPool(pool);
+          return send(res, 200, { ok: true, stats: { count: pool.items.length, days: Number(days) || 7, intervalSeconds: pool.intervalSeconds } });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Live popups generate failed' });
+        }
+      }
+
+      if (req.method === 'PATCH') {
+        try {
+          const body = await readJson(req).catch(() => ({}));
+          const pool = isAppwriteConfigured() ? await getLivePopupsPool() : genPool(1200, 7, 30);
+          if (body.enabled !== undefined) pool.enabled = Boolean(body.enabled);
+          if (body.intervalSeconds !== undefined) pool.intervalSeconds = clamp(10, Number(body.intervalSeconds) || pool.intervalSeconds, 600);
+          if (body.index !== undefined && body.item && typeof body.item === 'object') {
+            const idx = clamp(0, Number(body.index) || 0, Math.max(0, pool.items.length - 1));
+            pool.items[idx] = { ...pool.items[idx], ...body.item };
+          }
+          if (body.deleteIndex !== undefined) {
+            const idx = clamp(0, Number(body.deleteIndex) || 0, Math.max(0, pool.items.length - 1));
+            pool.items.splice(idx, 1);
+          }
+          if (isAppwriteConfigured()) await saveLivePopupsPool(pool);
+          return send(res, 200, { ok: true });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Live popups update failed' });
+        }
+      }
+
+      if (req.method === 'DELETE') {
+        try {
+          const pool = { enabled: false, intervalSeconds: 30, startAt: new Date().toISOString(), validUntil: new Date(Date.now() + 7 * 86400000).toISOString(), items: [] };
+          if (isAppwriteConfigured()) await saveLivePopupsPool(pool);
+          return send(res, 200, { ok: true });
+        } catch (e) {
+          return send(res, 500, { error: e?.message || 'Live popups clear failed' });
         }
       }
 
@@ -1515,6 +1726,21 @@ module.exports = async (req, res) => {
         return send(res, 200, { items });
       } catch {
         return send(res, 200, { items: [] });
+      }
+    }
+
+    if (action === 'live-popups') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+      try {
+        if (!isAppwriteConfigured()) {
+          const pool = genPool(1200, 7, 30);
+          return send(res, 200, { ok: true, ...pool });
+        }
+        const pool = await getLivePopupsPool();
+        return send(res, 200, { ok: true, ...pool });
+      } catch {
+        const pool = genPool(1200, 7, 30);
+        return send(res, 200, { ok: true, ...pool });
       }
     }
 

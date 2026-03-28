@@ -4,7 +4,7 @@
 
   const DEFAULTS = {
     maxPassengers: 50,
-    cities: ['Lagos', 'Abuja', 'Accra', 'London', 'Dubai', 'New York', 'Johannesburg'],
+    cities: ['Accra', 'London', 'Dubai', 'New York', 'Johannesburg', 'Paris', 'Amsterdam', 'Frankfurt', 'Singapore', 'Seoul'],
     wsPath: '/ws/notifications',
     schemaInspect: false,
     notifications: true,
@@ -13,13 +13,16 @@
   };
 
   const TZ = {
-    Lagos: { iana: 'Africa/Lagos', utcOffsetHours: 1, lat: 6.5244, lon: 3.3792 },
-    Abuja: { iana: 'Africa/Lagos', utcOffsetHours: 1, lat: 9.0765, lon: 7.3986 },
     Accra: { iana: 'Africa/Accra', utcOffsetHours: 0, lat: 5.6037, lon: -0.1870 },
     London: { iana: 'Europe/London', utcOffsetHours: 0, lat: 51.5072, lon: -0.1276 },
     Dubai: { iana: 'Asia/Dubai', utcOffsetHours: 4, lat: 25.2048, lon: 55.2708 },
     'New York': { iana: 'America/New_York', utcOffsetHours: -5, lat: 40.7128, lon: -74.0060 },
     Johannesburg: { iana: 'Africa/Johannesburg', utcOffsetHours: 2, lat: -26.2041, lon: 28.0473 },
+    Paris: { iana: 'Europe/Paris', utcOffsetHours: 1, lat: 48.8566, lon: 2.3522 },
+    Amsterdam: { iana: 'Europe/Amsterdam', utcOffsetHours: 1, lat: 52.3676, lon: 4.9041 },
+    Frankfurt: { iana: 'Europe/Berlin', utcOffsetHours: 1, lat: 50.1109, lon: 8.6821 },
+    Singapore: { iana: 'Asia/Singapore', utcOffsetHours: 8, lat: 1.3521, lon: 103.8198 },
+    Seoul: { iana: 'Asia/Seoul', utcOffsetHours: 9, lat: 37.5665, lon: 126.9780 },
   };
 
   const cache = {

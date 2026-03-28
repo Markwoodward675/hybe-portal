@@ -1,7 +1,7 @@
 (() => {
   if (!window || !document) return;
 
-  const CITIES = ['Lagos', 'Abuja', 'London', 'Dubai', 'New York', 'Accra', 'Johannesburg'];
+  const CITIES = ['London', 'Dubai', 'New York', 'Accra', 'Johannesburg', 'Paris', 'Amsterdam', 'Frankfurt', 'Singapore', 'Seoul'];
   const STATUSES = ['Departed', 'Boarding', 'Cancelled', 'Delayed', 'Checked-in'];
   const LOG_EVENTS = ['Logistics shipment to {CITY} successfully processed', 'Warehouse scan completed for {CITY}', 'New KYC submission received'];
 
@@ -147,7 +147,7 @@
 
   function startNotificationLoop() {
     const body = document.body;
-    const allowed = body && (body.dataset && body.dataset.notifications === 'on');
+    const allowed = body && (body.dataset && body.dataset.notifications === 'legacy');
     if (!allowed) return;
 
     let serverItems = [];
