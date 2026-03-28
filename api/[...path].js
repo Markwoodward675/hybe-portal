@@ -1130,14 +1130,12 @@ module.exports = async (req, res) => {
       const pin = normalizePin(body.pin);
       if (!username || !pin) return send(res, 400, { error: 'Missing credentials' });
 
-      if (!process.env.VERCEL) {
-        const local = findLocalUser(username);
-        if (local) {
-          if (String(local.pin) !== String(pin)) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
-          const token = createToken({ typ: 'user', u: username, src: 'local', exp: Date.now() + 6 * 60 * 60 * 1000 });
-          res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
-          return send(res, 200, { ok: true, username });
-        }
+      const local = findLocalUser(username);
+      if (local) {
+        if (normalizePin(local.pin) !== pin) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
+        const token = createToken({ typ: 'user', u: String(local.username || username), src: 'local', exp: Date.now() + 6 * 60 * 60 * 1000 });
+        res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
+        return send(res, 200, { ok: true, username: String(local.username || username) });
       }
 
       if (!isAppwriteConfigured()) {
