@@ -70,10 +70,11 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'DELETE') {
-    const ok = await deleteUser(username);
+    const result = await deleteUser(username);
+    const ok = typeof result === 'object' ? Boolean(result.ok) : Boolean(result);
     res.statusCode = 200;
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ ok }));
+    res.end(JSON.stringify({ ok, result: typeof result === 'object' ? result : null }));
     return;
   }
 
@@ -81,4 +82,3 @@ module.exports = async (req, res) => {
   res.setHeader('content-type', 'application/json');
   res.end(JSON.stringify({ error: 'Method not allowed' }));
 };
-

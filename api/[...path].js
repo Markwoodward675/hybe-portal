@@ -8,6 +8,7 @@ const {
   DATABASE_ID,
   USERS_COLLECTION_ID,
   NOTIFICATIONS_COLLECTION_ID,
+  ensureAuthUser,
   findUserDocByUsername,
   listAllUserDocs,
   parseUserData,
@@ -16,8 +17,18 @@ const {
 } = require('../server_lib/appwrite');
 
 const LIVE_POPUPS_COLLECTION_ID = process.env.APPWRITE_COLLECTION_LIVE_POPUPS_ID || 'live_popups';
+const KYC_BUCKET_ID = process.env.APPWRITE_BUCKET_KYC_ID || 'kyc_uploads';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function normalizeEndpoint(endpoint) {
+  const e = String(endpoint || '').replace(/\/+$/, '');
+  return e.endsWith('/v1') ? e : `${e}/v1`;
+}
+
+function storageConfigured() {
+  return Boolean(process.env.APPWRITE_ENDPOINT && process.env.APPWRITE_PROJECT_ID && process.env.APPWRITE_API_KEY);
+}
 
 function readJson(req) {
   return new Promise((resolve, reject) => {
@@ -520,6 +531,59 @@ async function ensureLivePopupsCollection() {
   if (!keys.has('updatedAt')) await createStringAttributeFor(LIVE_POPUPS_COLLECTION_ID, 'updatedAt', 64, false);
 }
 
+async function ensureKycBucket() {
+  if (!storageConfigured()) return;
+  const ok = await exists(`/storage/buckets/${encodeURIComponent(KYC_BUCKET_ID)}`);
+  if (ok) return;
+  await appwriteRequest('/storage/buckets', {
+    method: 'POST',
+    body: {
+      bucketId: KYC_BUCKET_ID,
+      name: 'KYC Uploads',
+      fileSecurity: true,
+      enabled: true,
+      maximumFileSize: 20 * 1024 * 1024,
+      allowedFileExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      compression: 'none',
+      encryption: false,
+      antivirus: false,
+      permissions: [],
+    },
+  });
+}
+
+async function uploadKycFile({ filename, contentType, buffer }) {
+  if (!storageConfigured()) throw new Error('Storage not configured');
+  await ensureKycBucket();
+  const endpoint = normalizeEndpoint(process.env.APPWRITE_ENDPOINT);
+  const url = `${endpoint}/storage/buckets/${encodeURIComponent(KYC_BUCKET_ID)}/files`;
+  const fileId = crypto.randomUUID();
+
+  const form = new FormData();
+  form.append('fileId', fileId);
+  const blob = new Blob([buffer], { type: contentType || 'application/octet-stream' });
+  form.append('file', blob, filename || 'upload.bin');
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'x-appwrite-project': String(process.env.APPWRITE_PROJECT_ID),
+      'x-appwrite-key': String(process.env.APPWRITE_API_KEY),
+    },
+    body: form,
+  });
+  const text = await res.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+  if (!res.ok) {
+    const err = new Error(`Appwrite upload failed (${res.status})`);
+    err.status = res.status;
+    err.payload = json;
+    throw err;
+  }
+  return { fileId: json && (json.$id || json.fileId) ? String(json.$id || json.fileId) : fileId };
+}
+
 function genFlightNo() {
   return `TRIP-${String(Math.floor(100 + Math.random() * 900))}`;
 }
@@ -662,6 +726,7 @@ async function schemaSync() {
   await ensureSubmissionsCollection();
   await ensureNotificationsCollection();
   await ensureLivePopupsCollection();
+  await ensureKycBucket();
   actions.push(await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_lc_unique', 'unique', ['username_lc'], []));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'title', 120, true));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'message', 2000, true));
@@ -933,6 +998,7 @@ module.exports = async (req, res) => {
         await ensureSubmissionsCollection();
         await ensureNotificationsCollection();
         await ensureLivePopupsCollection();
+        await ensureKycBucket();
         await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_lc_unique', 'unique', ['username_lc'], []);
         return send(res, 200, { ok: true });
       } catch (e) {
@@ -1036,6 +1102,12 @@ module.exports = async (req, res) => {
             const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
             if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
             if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
+            try {
+              const auth = await ensureAuthUser({ username: u, pin: userData.pin, name: String(userData.passengerName || userData.name || '') });
+              if (auth && auth.ok) {
+                userData.auth = { userId: auth.userId, email: auth.email };
+              }
+            } catch {}
             await upsertUser(u, userData);
             const local = upsertLocalUser(u, userData);
             let kv = null;
@@ -1093,6 +1165,12 @@ module.exports = async (req, res) => {
           const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
           if (!userData) return send(res, 400, { error: 'Missing userData' });
           if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
+          try {
+            const auth = await ensureAuthUser({ username, pin: userData.pin, name: String(userData.passengerName || userData.name || '') });
+            if (auth && auth.ok) {
+              userData.auth = { userId: auth.userId, email: auth.email };
+            }
+          } catch {}
           await upsertUser(username, userData);
           const local = upsertLocalUser(username, userData);
           let kv = null;
@@ -1123,7 +1201,8 @@ module.exports = async (req, res) => {
           return send(res, 200, { ok: true, hint: 'Deleted from dev store (Appwrite not configured)', local });
         }
         try {
-          const ok = await deleteUser(username);
+          const result = await deleteUser(username);
+          const ok = typeof result === 'object' ? Boolean(result.ok) : Boolean(result);
           const local = deleteLocalUser(username);
           let kv = null;
           if (kvConfigured()) {
@@ -1134,7 +1213,7 @@ module.exports = async (req, res) => {
               kv = { ok: false, hint: e?.message || 'KV delete failed' };
             }
           }
-          return send(res, 200, { ok, local, kv });
+          return send(res, 200, { ok, result: typeof result === 'object' ? result : null, local, kv });
         } catch (e) {
           return send(res, 500, { error: e?.message || 'Delete failed' });
         }
@@ -1592,6 +1671,29 @@ module.exports = async (req, res) => {
 
       await upsertUser(doc.username, userData);
       return send(res, 200, { ok: true });
+    }
+
+    if (action === 'kyc-upload') {
+      if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
+      const payload = requireUser(req, res);
+      if (!payload || !payload.u) return;
+
+      const body = await readJson(req).catch(() => ({}));
+      const filename = String(body.filename || '').trim() || 'kyc_upload';
+      const contentType = String(body.contentType || '').trim() || 'application/octet-stream';
+      const dataBase64 = String(body.dataBase64 || '').trim();
+      if (!dataBase64) return send(res, 400, { error: 'Missing data' });
+
+      const sizeBytes = Math.floor((dataBase64.length * 3) / 4);
+      if (sizeBytes > 10 * 1024 * 1024) return send(res, 413, { error: 'File too large' });
+
+      try {
+        const buffer = Buffer.from(dataBase64, 'base64');
+        const out = await uploadKycFile({ filename, contentType, buffer });
+        return send(res, 200, { ok: true, fileId: out.fileId, bucketId: KYC_BUCKET_ID });
+      } catch (e) {
+        return send(res, 500, { error: e?.payload?.message || e?.message || 'Upload failed' });
+      }
     }
 
     if (action === 'submissions') {

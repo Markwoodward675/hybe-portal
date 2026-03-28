@@ -16,6 +16,28 @@ const API_KEY = requiredEnv('APPWRITE_API_KEY');
 const DATABASE_ID = requiredEnv('APPWRITE_DATABASE_ID');
 const USERS_COLLECTION_ID = requiredEnv('APPWRITE_COLLECTION_USERS_ID');
 
+function sha256hex(s) {
+  return crypto.createHash('sha256').update(String(s || ''), 'utf8').digest('hex');
+}
+
+function authUserIdForUsername(username) {
+  const ulc = String(username || '').trim().toLowerCase();
+  const h = sha256hex(ulc).slice(0, 24);
+  return `u_${h}`;
+}
+
+function authEmailForUsername(username) {
+  const ulc = String(username || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_');
+  return `${ulc}@trip.example`;
+}
+
+function authPasswordFromPin(pin) {
+  const p = String(pin === undefined || pin === null ? '' : pin).trim();
+  if (p.length >= 8) return p;
+  if (!p) return `TRIP${sha256hex(Date.now()).slice(0, 8)}`;
+  return (p.repeat(8)).slice(0, 8);
+}
+
 async function appwriteRequest(path, { method = 'GET', body } = {}) {
   if (!ENDPOINT || !PROJECT_ID || !API_KEY || !DATABASE_ID || !USERS_COLLECTION_ID) {
     throw new Error('Appwrite not configured');
@@ -46,6 +68,56 @@ async function appwriteRequest(path, { method = 'GET', body } = {}) {
     throw err;
   }
   return json;
+}
+
+async function ensureAuthUser({ username, pin, name }) {
+  const u = String(username || '').trim();
+  if (!u) return { ok: false, error: 'Missing username' };
+  const userId = authUserIdForUsername(u);
+  const email = authEmailForUsername(u);
+  const password = authPasswordFromPin(pin);
+  const displayName = String(name || '').trim().slice(0, 128);
+
+  let existsUser = false;
+  try {
+    await appwriteRequest(`/users/${encodeURIComponent(userId)}`);
+    existsUser = true;
+  } catch (e) {
+    if (!(e && e.status === 404)) throw e;
+  }
+
+  if (!existsUser) {
+    try {
+      await appwriteRequest('/users', {
+        method: 'POST',
+        body: { userId, email, password, name: displayName || u },
+      });
+    } catch (e) {
+      if (!(e && e.status === 409)) throw e;
+    }
+  }
+
+  try {
+    if (displayName) await appwriteRequest(`/users/${encodeURIComponent(userId)}/name`, { method: 'PATCH', body: { name: displayName } });
+  } catch {}
+  try {
+    await appwriteRequest(`/users/${encodeURIComponent(userId)}/password`, { method: 'PATCH', body: { password } });
+  } catch {}
+
+  return { ok: true, userId, email };
+}
+
+async function deleteAuthUser(username) {
+  const u = String(username || '').trim();
+  if (!u) return { ok: false };
+  const userId = authUserIdForUsername(u);
+  try {
+    await appwriteRequest(`/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+    return { ok: true, userId };
+  } catch (e) {
+    if (e && e.status === 404) return { ok: true, userId, missing: true };
+    return { ok: false, userId, error: e?.message || 'Delete failed' };
+  }
 }
 
 function queryEqual(field, value) {
@@ -111,6 +183,12 @@ async function upsertUser(username, userData) {
   if (safeUserData && safeUserData.pin !== undefined && safeUserData.pin !== null) {
     safeUserData.pin = String(safeUserData.pin).trim();
   }
+  try {
+    const auth = await ensureAuthUser({ username, pin: safeUserData && safeUserData.pin, name: String((safeUserData && (safeUserData.passengerName || safeUserData.name)) || '') });
+    if (auth && auth.ok && safeUserData && typeof safeUserData === 'object') {
+      safeUserData.auth = { userId: auth.userId, email: auth.email };
+    }
+  } catch {}
   const existing = await findUserDocByUsername(username);
   if (existing) {
     return appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(existing.$id)}`, {
@@ -134,12 +212,45 @@ async function upsertUser(username, userData) {
 }
 
 async function deleteUser(username) {
-  const existing = await findUserDocByUsername(username);
-  if (!existing) return false;
-  await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(existing.$id)}`, {
-    method: 'DELETE',
-  });
-  return true;
+  const u = String(username || '').trim();
+  if (!u) return false;
+  const ulc = u.toLowerCase();
+
+  let deletedCount = 0;
+  for (let round = 0; round < 5; round++) {
+    const ids = new Set();
+    try {
+      const q1 = encodeURIComponent(queryEqual('username_lc', ulc));
+      const out1 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q1}&limit=100`);
+      const docs1 = Array.isArray(out1?.documents) ? out1.documents : [];
+      docs1.forEach((d) => { if (d && d.$id) ids.add(String(d.$id)); });
+    } catch {}
+
+    try {
+      const q2 = encodeURIComponent(queryEqual('username', u));
+      const out2 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q2}&limit=100`);
+      const docs2 = Array.isArray(out2?.documents) ? out2.documents : [];
+      docs2.forEach((d) => { if (d && d.$id) ids.add(String(d.$id)); });
+    } catch {}
+
+    if (ids.size === 0) {
+      const existing = await findUserDocByUsername(u);
+      if (existing && existing.$id) ids.add(String(existing.$id));
+    }
+    if (ids.size === 0) {
+      const auth = await deleteAuthUser(u).catch(() => ({ ok: false }));
+      return { ok: deletedCount > 0, deletedCount, remainingCount: 0, auth };
+    }
+
+    for (const id of ids) {
+      await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      deletedCount += 1;
+    }
+  }
+  const auth = await deleteAuthUser(u).catch(() => ({ ok: false }));
+  return { ok: deletedCount > 0, deletedCount, remainingCount: 0, auth };
 }
 
 module.exports = {

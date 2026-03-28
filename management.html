@@ -185,14 +185,8 @@
                 <h2 style="margin:0 0 18px; letter-spacing:-1px;">User Provisioning</h2>
                 <div class="card">
                     <form id="pvForm" class="three-col">
-                        <div>
-                            <div class="ticket-k" style="margin-bottom:8px;">Username</div>
-                            <input id="pvUsername" type="text" placeholder="trip_user01">
-                        </div>
-                        <div>
-                            <div class="ticket-k" style="margin-bottom:8px;">PIN</div>
-                            <input id="pvPin" type="password" inputmode="numeric" placeholder="••••">
-                        </div>
+                        <input id="pvUsername" type="hidden">
+                        <input id="pvPin" type="hidden">
                         <div>
                             <div class="ticket-k" style="margin-bottom:8px;">Passenger Name</div>
                             <input id="pvPassenger" type="text" placeholder="Full Name">
@@ -203,6 +197,10 @@
                                 <option value="FLIGHT">FLIGHT</option>
                                 <option value="LOGISTICS">LOGISTICS</option>
                             </select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Generated Credentials</div>
+                            <input id="pvCredPreview" type="text" readonly placeholder="Auto-generated on create">
                         </div>
                     </form>
 
@@ -264,7 +262,7 @@
 
                     <div class="three-col" style="margin-top:10px;">
                         <button class="btn-primary" type="button" id="btnCreateUser">Create User</button>
-                        <button class="btn-secondary" type="button" id="btnAutoCred">Auto Generate Username & PIN</button>
+                        <button class="btn-secondary" type="button" id="btnAutoCred">Generate Credentials (trip_user####)</button>
                         <button class="btn-secondary" type="button" id="btnResetForm">Reset</button>
                     </div>
                     <div id="provisionMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
@@ -1246,12 +1244,22 @@
                     const u = e.target.getAttribute('data-user');
                     if (confirm(`Delete user ${u}? This will permanently remove the profile from Appwrite (and local fallback if present).`)) {
                         try {
-                            await tripApi(`/api/admin/users/${encodeURIComponent(u)}`, { method: 'DELETE' });
-                        } catch {
-                            const db = loadFromLocal();
-                            delete db.users[u];
-                            localStorage.setItem('trip_users_db', JSON.stringify(db));
+                            const out = await tripApi(`/api/admin/users/${encodeURIComponent(u)}`, { method: 'DELETE' });
+                            if (!out || out.ok !== true) {
+                                alert('Delete failed. Please re-run Schema Ensure and try again.');
+                                return;
+                            }
+                        } catch (err) {
+                            alert((err && err.payload && err.payload.error) ? err.payload.error : 'Delete failed.');
+                            return;
                         }
+
+                        try {
+                            const localDb = loadFromLocal();
+                            const key = Object.keys(localDb.users || {}).find((k) => String(k).toLowerCase() === String(u).toLowerCase());
+                            if (key) delete localDb.users[key];
+                            localStorage.setItem('trip_users_db', JSON.stringify(localDb));
+                        } catch {}
                         
                         await refreshUserSelects();
                         await renderRegistry();
@@ -2049,6 +2057,8 @@
                 document.getElementById('pvPin').value = '';
                 document.getElementById('pvPassenger').value = '';
                 document.getElementById('pvService').value = 'FLIGHT';
+                const pvCredPreview = document.getElementById('pvCredPreview');
+                if (pvCredPreview) pvCredPreview.value = '';
                 document.getElementById('pvSeat').value = '';
                 document.getElementById('pvGate').value = '';
                 document.getElementById('pvClass').value = 'Business';
@@ -2067,19 +2077,13 @@
                 if (msg) msg.textContent = '';
 
                 const passengerName = document.getElementById('pvPassenger').value.trim();
-                const serviceCategory = document.getElementById('pvService').value;
                 const db = await loadAllUsersFromDB();
                 const existing = new Set(Object.keys(db.users || {}).map((k) => String(k).toLowerCase()));
 
-                const parts = passengerName.split(/\s+/).filter(Boolean);
-                const first = parts[0] || '';
-                const last = parts.length > 1 ? parts[parts.length - 1] : '';
-                const base = passengerName ? `trip_${normalizeSlugToken(first)}_${normalizeSlugToken(last || first)}` : (serviceCategory === 'LOGISTICS' ? 'trip_log' : 'trip_user');
-
                 let username = '';
                 for (let i = 0; i < 200; i++) {
-                    const suffix = String(Math.floor(1000 + Math.random() * 9000));
-                    const cand = `${base}_${suffix}`.replace(/_+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32);
+                    const suffix = String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0');
+                    const cand = `trip_user${suffix}`;
                     if (!existing.has(cand.toLowerCase())) {
                         username = cand;
                         break;
@@ -2090,10 +2094,12 @@
                     return;
                 }
 
-                const pin = genPin(4);
+                const pin = genPin(8);
                 document.getElementById('pvUsername').value = username;
                 document.getElementById('pvPin').value = pin;
-                if (msg) msg.textContent = `Generated: ${username} / ${pin}`;
+                const pvCredPreview = document.getElementById('pvCredPreview');
+                if (pvCredPreview) pvCredPreview.value = `${username} / ${pin}`;
+                if (msg) msg.textContent = `Generated credentials: ${username} / ${pin}`;
             });
 
             function syncProvisionFields() {
@@ -2111,23 +2117,39 @@
                 const msg = document.getElementById('provisionMsg');
                 msg.textContent = '';
 
-                const username = document.getElementById('pvUsername').value.trim();
-                const pin = document.getElementById('pvPin').value.trim();
                 const passengerName = document.getElementById('pvPassenger').value.trim();
                 const serviceCategory = document.getElementById('pvService').value;
 
-                if (!username || !pin || !passengerName) {
-                    msg.textContent = 'Provide Username, PIN, and Passenger Name.';
+                if (!passengerName) {
+                    msg.textContent = 'Provide Passenger Name.';
                     return;
                 }
 
                 const db = await loadAllUsersFromDB();
-                
-                // Check if username exists case-insensitively
-                const existingKey = Object.keys(db.users).find(k => k.toLowerCase() === username.toLowerCase());
-                if (existingKey) {
-                    msg.textContent = 'Username already exists. Choose a unique Username.';
+
+                let username = document.getElementById('pvUsername').value.trim();
+                let pin = document.getElementById('pvPin').value.trim();
+                if (!username || !pin) {
+                    document.getElementById('btnAutoCred').click();
+                    username = document.getElementById('pvUsername').value.trim();
+                    pin = document.getElementById('pvPin').value.trim();
+                }
+                if (!username || !pin) {
+                    msg.textContent = 'Unable to generate credentials. Try again.';
                     return;
+                }
+
+                const existingKey = Object.keys(db.users || {}).find(k => String(k).toLowerCase() === String(username).toLowerCase());
+                if (existingKey) {
+                    document.getElementById('pvUsername').value = '';
+                    document.getElementById('pvPin').value = '';
+                    document.getElementById('btnAutoCred').click();
+                    username = document.getElementById('pvUsername').value.trim();
+                    pin = document.getElementById('pvPin').value.trim();
+                    if (!username || !pin) {
+                        msg.textContent = 'Unable to generate unique credentials. Try again.';
+                        return;
+                    }
                 }
 
                 const newUser = ensureUserShape({

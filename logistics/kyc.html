@@ -74,6 +74,11 @@
                     <div class="help">Will be masked in views.</div>
                     <div class="err">Required.</div>
                 </div>
+                <div class="field">
+                    <input id="docFile" type="file" accept="image/*,application/pdf">
+                    <label for="docFile">Upload Document (optional)</label>
+                    <div class="help">Optional scan/photo/PDF. Stored securely.</div>
+                </div>
 
                 <div style="margin-top:6px; font-weight:900; letter-spacing:-0.4px;">Declaration</div>
                 <div class="field">
@@ -221,6 +226,33 @@
                     const docNo = document.getElementById('docNo').value.trim();
                     const sigUrl = pad.exportDataUrl();
                     const sigName = document.getElementById('sigName').value.trim();
+                    let upload = null;
+                    const fileEl = document.getElementById('docFile');
+                    const f = fileEl && fileEl.files && fileEl.files[0] ? fileEl.files[0] : null;
+                    if (f) {
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const r = new FileReader();
+                            r.onerror = () => reject(new Error('read'));
+                            r.onload = () => resolve(String(r.result || ''));
+                            r.readAsDataURL(f);
+                        });
+                        const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+                        if (m) {
+                            const upRes = await fetch('/api/user/kyc-upload', {
+                                method: 'POST',
+                                headers: { 'content-type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({
+                                    filename: f.name || 'kyc_upload',
+                                    contentType: m[1],
+                                    dataBase64: m[2],
+                                }),
+                            });
+                            const upJson = await upRes.json().catch(() => ({}));
+                            if (!upRes.ok) throw new Error(upJson && upJson.error ? upJson.error : 'upload');
+                            upload = { bucketId: upJson.bucketId, fileId: upJson.fileId, filename: f.name || '', contentType: m[1] };
+                        }
+                    }
                     const res = await fetch('/api/user/submissions', {
                         method: 'POST',
                         headers: { 'content-type': 'application/json' },
@@ -235,6 +267,7 @@
                                 documentType: document.getElementById('docType').value.trim(),
                                 documentNumberMasked: maskDoc(docNo),
                                 declaration: document.getElementById('decl').value.trim(),
+                                ...(upload ? { upload } : {}),
                             },
                             signatureDataUrl: sigUrl,
                             signatureName: sigName
