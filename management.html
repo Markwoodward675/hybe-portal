@@ -262,8 +262,9 @@
                         <div></div>
                     </div>
 
-                    <div class="two-col" style="margin-top:10px;">
+                    <div class="three-col" style="margin-top:10px;">
                         <button class="btn-primary" type="button" id="btnCreateUser">Create User</button>
+                        <button class="btn-secondary" type="button" id="btnAutoCred">Auto Generate Username & PIN</button>
                         <button class="btn-secondary" type="button" id="btnResetForm">Reset</button>
                     </div>
                     <div id="provisionMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
@@ -1027,6 +1028,63 @@
             return `${p}_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
         }
 
+        function normalizeSlugToken(s) {
+            return String(s || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '')
+                .slice(0, 18);
+        }
+
+        function genPin(digits) {
+            const n = Math.max(4, Math.min(8, parseInt(String(digits || 4), 10) || 4));
+            const max = Math.pow(10, n);
+            const v = Math.floor(Math.random() * max);
+            return String(v).padStart(n, '0');
+        }
+
+        function genPNR() {
+            const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const bytes = new Uint8Array(6);
+            if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+            let out = '';
+            for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+            return out;
+        }
+
+        function genSeq() {
+            return String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0');
+        }
+
+        function fmtHHMM(d) {
+            try {
+                return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+            } catch {
+                const h = String(d.getHours()).padStart(2, '0');
+                const m = String(d.getMinutes()).padStart(2, '0');
+                return `${h}:${m}`;
+            }
+        }
+
+        function ensureFlightDocFields(user) {
+            ensureFlightShape(user);
+            user.flight.schedule = user.flight.schedule && typeof user.flight.schedule === 'object' ? user.flight.schedule : {};
+            user.flight.boarding = user.flight.boarding && typeof user.flight.boarding === 'object' ? user.flight.boarding : {};
+
+            if (!String(user.flight.schedule.pnr || '').trim()) user.flight.schedule.pnr = genPNR();
+            if (!String(user.flight.schedule.seq || '').trim()) user.flight.schedule.seq = genSeq();
+            if (!String(user.flight.boarding.group || '').trim()) user.flight.boarding.group = String.fromCharCode(65 + Math.floor(Math.random() * 5));
+
+            const dep = String(user.flight.schedule.departAt || '').trim();
+            if (!String(user.flight.schedule.boardAt || '').trim()) {
+                const dt = dep ? new Date(dep) : null;
+                if (dt && !Number.isNaN(dt.getTime())) {
+                    user.flight.schedule.boardAt = fmtHHMM(new Date(dt.getTime() - 45 * 60 * 1000));
+                }
+            }
+            return user;
+        }
+
         function ensureUserShape(user) {
             const u = user || {};
             const cat = String(u.serviceCategory || u.service_category || 'FLIGHT').toUpperCase();
@@ -1186,7 +1244,7 @@
             document.querySelectorAll('.btn-delete-user').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const u = e.target.getAttribute('data-user');
-                    if (confirm(`Are you sure you want to completely delete user: ${u}?`)) {
+                    if (confirm(`Delete user ${u}? This will permanently remove the profile from Appwrite (and local fallback if present).`)) {
                         try {
                             await tripApi(`/api/admin/users/${encodeURIComponent(u)}`, { method: 'DELETE' });
                         } catch {
@@ -2004,6 +2062,40 @@
                 document.getElementById('provisionMsg').textContent = '';
             });
 
+            document.getElementById('btnAutoCred').addEventListener('click', async () => {
+                const msg = document.getElementById('provisionMsg');
+                if (msg) msg.textContent = '';
+
+                const passengerName = document.getElementById('pvPassenger').value.trim();
+                const serviceCategory = document.getElementById('pvService').value;
+                const db = await loadAllUsersFromDB();
+                const existing = new Set(Object.keys(db.users || {}).map((k) => String(k).toLowerCase()));
+
+                const parts = passengerName.split(/\s+/).filter(Boolean);
+                const first = parts[0] || '';
+                const last = parts.length > 1 ? parts[parts.length - 1] : '';
+                const base = passengerName ? `trip_${normalizeSlugToken(first)}_${normalizeSlugToken(last || first)}` : (serviceCategory === 'LOGISTICS' ? 'trip_log' : 'trip_user');
+
+                let username = '';
+                for (let i = 0; i < 200; i++) {
+                    const suffix = String(Math.floor(1000 + Math.random() * 9000));
+                    const cand = `${base}_${suffix}`.replace(/_+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32);
+                    if (!existing.has(cand.toLowerCase())) {
+                        username = cand;
+                        break;
+                    }
+                }
+                if (!username) {
+                    if (msg) msg.textContent = 'Unable to generate a unique username. Try again.';
+                    return;
+                }
+
+                const pin = genPin(4);
+                document.getElementById('pvUsername').value = username;
+                document.getElementById('pvPin').value = pin;
+                if (msg) msg.textContent = `Generated: ${username} / ${pin}`;
+            });
+
             function syncProvisionFields() {
                 const v = document.getElementById('pvService').value;
                 const isLog = v === 'LOGISTICS';
@@ -2586,6 +2678,7 @@
                 user.flight.schedule.pnr = draft.pnr || user.flight.schedule.pnr || '';
                 user.flight.schedule.boardAt = draft.boardAt || user.flight.schedule.boardAt || '';
                 user.flight.schedule.seq = draft.seq || user.flight.schedule.seq || '';
+                ensureFlightDocFields(user);
                 ensureFlightShape(user);
 
                 if (msg) msg.textContent = 'Deploying...';
@@ -2615,6 +2708,7 @@
                 if (!db.users[username]) return;
                 const user = ensureUserShape(db.users[username]);
                 ensureFlightShape(user);
+                ensureFlightDocFields(user);
                 user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
                 user.flight.share.boardingPassKey = makeBoardingPassKey();
                 await saveUserToDB(username, user);
@@ -2657,6 +2751,7 @@
                 if (!db.users[username]) return;
                 const user = ensureUserShape(db.users[username]);
                 ensureFlightShape(user);
+                ensureFlightDocFields(user);
                 user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
                 user.flight.share.eticketKey = makeDocKey('ET');
                 await saveUserToDB(username, user);
@@ -2690,6 +2785,7 @@
                 if (!db.users[username]) return;
                 const user = ensureUserShape(db.users[username]);
                 ensureFlightShape(user);
+                ensureFlightDocFields(user);
                 user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
                 user.flight.share.earrivalKey = makeDocKey('EA');
                 await saveUserToDB(username, user);
