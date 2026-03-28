@@ -637,13 +637,20 @@ async function publicBookings() {
 
 async function saveUserToDB(username, userData) {
     try {
-        await tripApi(`/api/admin/users/${encodeURIComponent(username)}`, { method: 'PUT', body: { userData } });
-        return { savedTo: 'server' };
+        const out = await tripApi(`/api/admin/users/${encodeURIComponent(username)}`, { method: 'PUT', body: { userData } });
+        return out || { ok: true, storedIn: 'appwrite' };
     } catch (e) {
         if (e && (e.status === 401 || e.status === 403)) {
             saveToLocal(username, userData);
-            return { savedTo: 'local', reason: 'admin_unauthorized' };
+            return { ok: true, storedIn: 'local', reason: 'admin_unauthorized' };
         }
+        if (e && e.payload) {
+            const err = new Error(e.payload.error || 'Save failed');
+            err.status = e.status;
+            err.payload = e.payload;
+            throw err;
+        }
+        throw e;
     }
 
     if (databases && DB_ID !== 'YOUR_DB_ID') {
@@ -665,15 +672,15 @@ async function saveUserToDB(username, userData) {
                     data: JSON.stringify(userData)
                 });
             }
-            return { savedTo: 'appwrite_web' };
+            return { ok: true, storedIn: 'appwrite_web' };
         } catch (e) {
             console.error("Appwrite save failed, falling back to local:", e);
             saveToLocal(username, userData);
-            return { savedTo: 'local', reason: 'appwrite_failed' };
+            return { ok: true, storedIn: 'local', reason: 'appwrite_failed' };
         }
     } else {
         saveToLocal(username, userData);
-        return { savedTo: 'local', reason: 'no_appwrite' };
+        return { ok: true, storedIn: 'local', reason: 'no_appwrite' };
     }
 }
 
