@@ -27,8 +27,8 @@
         }
         .admin-mobile-bar {
             display: none;
-            position: sticky;
-            top: 56px;
+            position: fixed;
+            top: 74px;
             z-index: 40;
             background: var(--card);
             border-bottom: 1px solid var(--border);
@@ -42,6 +42,30 @@
             letter-spacing: -0.4px;
         }
         .admin-mobile-actions { display: flex; gap: 8px; }
+        .admin-mobile-shortcuts {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            flex: 1;
+            padding-bottom: 2px;
+        }
+        .admin-mobile-shortcuts::-webkit-scrollbar { height: 0; }
+        .admin-mobile-shortcuts button{
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text);
+            font-weight: 900;
+            border-radius: 999px;
+            padding: 10px 12px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .admin-mobile-shortcuts button.active{
+            border-color: rgba(30,64,175,0.35);
+            background: rgba(30,64,175,0.10);
+            color: rgba(30,64,175,1);
+        }
         .admin-mobile-menu {
             position: fixed;
             top: 102px;
@@ -70,6 +94,22 @@
             color: var(--text);
             font-weight: 800;
             cursor: pointer;
+        }
+        .admin-actionbar{
+            position: sticky;
+            bottom: 12px;
+            z-index: 25;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.92);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.10);
+        }
+        @media (max-width: 900px) {
+            .admin-actionbar{ grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -105,14 +145,12 @@
         <div class="trip-nav-right">
             <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Admin Command Center</div>
             <span id="adminSessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">ADMIN</span>
+            <button class="nav-toggle" id="adminMobileToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
             <button class="nav-signout" id="adminSignOutBtn" type="button">Exit Admin</button>
         </div>
     </nav>
     <div class="admin-mobile-bar">
-        <div class="admin-mobile-title">Admin Sections</div>
-        <div class="admin-mobile-actions">
-            <button class="nav-toggle" id="adminMobileToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
-        </div>
+        <div class="admin-mobile-shortcuts" id="adminMobileShortcuts"></div>
     </div>
     <div class="admin-mobile-menu" id="adminMobileMenu">
         <div class="admin-mobile-grid" id="adminMobileGrid"></div>
@@ -425,7 +463,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="card table-wrap" style="padding:0; overflow:auto;">
+                <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
                     <table class="m-table">
                         <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
                         <tbody id="txTable"></tbody>
@@ -442,13 +480,16 @@
                             <select class="user-select" id="logUser"></select>
                         </div>
                         <div>
-                            <div class="ticket-k" style="margin-bottom:8px;">Current Step (1–5)</div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Current Step (1–8)</div>
                             <select id="logCurrent">
                                 <option value="1">1</option>
                                 <option value="2">2</option>
                                 <option value="3">3</option>
                                 <option value="4">4</option>
                                 <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
                             </select>
                         </div>
                     </div>
@@ -497,8 +538,50 @@
                             <img id="lgxQr" alt="Waybill QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
                         </div>
                     </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">Admin Custom Movement</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Manual tracker update</div>
+                        </div>
+                        <div class="three-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Update Title</div>
+                                <input id="cmTitle" type="text" placeholder="Arrived at Warehouse">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Location (State & Country)</div>
+                                <input id="cmLocation" type="text" placeholder="Lagos, Nigeria">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Marker / Time</div>
+                                <input id="cmMarker" type="text" placeholder="Mar 27, 2026 14:05">
+                            </div>
+                        </div>
+                        <div class="two-col" style="margin-top:10px;">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Apply To Step</div>
+                                <select id="cmStep">
+                                    <option value="current">Current Step</option>
+                                    <option value="1">Step 1</option>
+                                    <option value="2">Step 2</option>
+                                    <option value="3">Step 3</option>
+                                    <option value="4">Step 4</option>
+                                    <option value="5">Step 5</option>
+                                    <option value="6">Step 6</option>
+                                    <option value="7">Step 7</option>
+                                    <option value="8">Step 8</option>
+                                </select>
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <button class="btn-primary" type="button" id="btnCustomMove">Apply Movement</button>
+                            </div>
+                        </div>
+                        <div style="margin-top:10px; color:var(--text-dim); font-weight:800; font-size:0.85rem;">
+                            Tip: Use Update Title like “Arrived at {state & country}” and Marker like a timestamp.
+                        </div>
+                    </div>
                     <div id="stepsEditor" style="margin-top:10px; display:grid; gap:12px;"></div>
-                    <div class="two-col" style="margin-top:10px;">
+                    <div class="admin-actionbar" style="margin-top:10px;">
                         <button class="btn-primary" type="button" id="btnSaveLogistics">Save Tracker</button>
                         <button class="btn-secondary" type="button" id="btnLoadLogistics">Reload</button>
                     </div>
@@ -624,9 +707,31 @@
                         </div>
                     </div>
 
-                    <div class="two-col" style="margin-top:10px;">
+                    <div class="admin-actionbar" style="margin-top:10px;">
                         <button class="btn-secondary" type="button" id="btnLoadBP">Load</button>
                         <button class="btn-primary" type="button" id="btnDeployBP">Deploy to User</button>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">QR Boarding Pass Link</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Admin generated</div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Share Key</div>
+                                <input id="bpShareKey" type="text" readonly placeholder="Generate key">
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <div class="two-col" style="gap:8px;">
+                                    <button class="btn-secondary" type="button" id="btnGenBPKey">Generate</button>
+                                    <button class="btn-secondary" type="button" id="btnClearBPKey">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="bpShareUrl" style="margin-top:10px; color:var(--text-dim); font-weight:800; word-break:break-all;"></div>
+                        <div style="margin-top:12px;">
+                            <img id="bpQr" alt="Boarding Pass QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
+                        </div>
                     </div>
                     <div id="bpMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
                 </div>
@@ -642,7 +747,7 @@
 
             <section id="secSubmissions" class="admin-sec" style="display:none;">
                 <h2 style="margin:0 0 18px; letter-spacing:-1px;">Submissions</h2>
-                <div class="card table-wrap" style="padding:0; overflow:auto;">
+                <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
                     <table class="m-table">
                         <thead>
                             <tr>
@@ -696,7 +801,7 @@
                     <div id="ntMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
                 </div>
 
-                <div class="card table-wrap" style="padding:0; overflow:auto;">
+                <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
                     <table class="m-table">
                         <thead>
                             <tr>
@@ -715,7 +820,7 @@
 
             <section id="secRegistry" class="admin-sec" style="display:none;">
                 <h2 style="margin:0 0 18px; letter-spacing:-1px;">User Registry Table</h2>
-                <div class="card table-wrap" style="padding:0; overflow:auto;">
+                <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
                     <table class="m-table">
                         <thead>
                             <tr>
@@ -766,16 +871,7 @@
     <script src="appwrite.js"></script>
     <script>
         function makeDefaultLogistics() {
-            return {
-                currentStep: 2,
-                steps: [
-                    { title: "Booking Confirmed", location: "London HQ", date: "System Log" },
-                    { title: "Security Clearance", location: "TRIP Gateway", date: "Pending" },
-                    { title: "Departure Protocol", location: "Terminal Gateway", date: "Scheduled" },
-                    { title: "International Transit", location: "Airborne", date: "Scheduled" },
-                    { title: "Arrival (ICN)", location: "Incheon, KR", date: "Scheduled" }
-                ]
-            };
+            return ensureLogisticsShape({});
         }
 
         function makeOneTimeTrackingCode() {
@@ -804,6 +900,12 @@
             return out;
         }
 
+        function makeEventId(prefix) {
+            const p = String(prefix || 'evt');
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') return `${p}_${window.crypto.randomUUID()}`;
+            return `${p}_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+        }
+
         function ensureUserShape(user) {
             const u = user || {};
             const cat = String(u.serviceCategory || u.service_category || 'FLIGHT').toUpperCase();
@@ -817,8 +919,7 @@
             if (!u.logistics) {
                 u.logistics = makeDefaultLogistics();
             } else {
-                if (typeof u.logistics.currentStep !== 'number') u.logistics.currentStep = 2;
-                if (!Array.isArray(u.logistics.steps) || u.logistics.steps.length !== 5) u.logistics = makeDefaultLogistics();
+                u.logistics = ensureLogisticsShape(u.logistics);
             }
             if (!u.profile) {
                 u.profile = { category: "", purpose: "", notes: "", nationality: "", passport: "", gateway: {}, additionalPassengers: [] };
@@ -885,6 +986,12 @@
             document.querySelectorAll('.admin-menu button').forEach((btn) => {
                 btn.classList.toggle('active', btn.dataset.target === targetId);
             });
+            const shortcuts = document.getElementById('adminMobileShortcuts');
+            if (shortcuts) {
+                shortcuts.querySelectorAll('button').forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.target === targetId);
+                });
+            }
             if (targetId === 'secSubmissions') {
                 renderSubmissions();
             }
@@ -1127,12 +1234,16 @@
             const db = await loadAllUsersFromDB();
             if (!username || !db.users[username]) return;
             const user = ensureUserShape(db.users[username]);
-            document.getElementById('manStatus').value = user.manifest.status || 'PENDING';
-            document.getElementById('manFrom').value = user.manifest.from || 'LHR';
-            document.getElementById('manTo').value = user.manifest.to || 'ICN';
-            document.getElementById('manGate').value = user.manifest.gate || '--';
-            document.getElementById('manSeat').value = user.manifest.seat || '--';
-            document.getElementById('manClass').value = user.manifest.flightClass || 'Business';
+            ensureFlightShape(user);
+            const f = user.flight || {};
+            const r = f.route || {};
+            const b = f.boarding || {};
+            document.getElementById('manStatus').value = f.status || 'PENDING';
+            document.getElementById('manFrom').value = r.from || 'LHR';
+            document.getElementById('manTo').value = r.to || 'ICN';
+            document.getElementById('manGate').value = b.gate || '--';
+            document.getElementById('manSeat').value = b.seat || '--';
+            document.getElementById('manClass').value = b.cabin ? String(b.cabin).toUpperCase() : 'Business';
             document.getElementById('detCategory').value = user.profile.category || '';
             document.getElementById('detPurpose').value = user.profile.purpose || '';
             document.getElementById('detNationality').value = user.profile.nationality || '';
@@ -1255,18 +1366,39 @@
             const db = await loadAllUsersFromDB();
             if (!db.users[username]) return;
             const user = ensureUserShape(db.users[username]);
-            const m = user.manifest || {};
-            const p = user.profile || {};
-            document.getElementById('bpStatus').value = m.status || 'PENDING';
+            ensureFlightShape(user);
+            const f = user.flight || {};
+            const route = f.route || {};
+            const sch = f.schedule || {};
+            const bd = f.boarding || {};
+            document.getElementById('bpStatus').value = f.status || 'PENDING';
             document.getElementById('bpName').value = user.passengerName || '';
-            document.getElementById('bpFlightNo').value = (user.form && user.form.flightNo) ? user.form.flightNo : (m.flightNo || '');
-            document.getElementById('bpClass').value = m.flightClass || 'Business';
-            document.getElementById('bpFrom').value = m.from || 'LHR';
-            document.getElementById('bpTo').value = m.to || 'ICN';
-            document.getElementById('bpDepartAt').value = (user.form && user.form.departAt) ? user.form.departAt : '';
-            document.getElementById('bpGate').value = m.gate || '';
-            document.getElementById('bpSeat').value = m.seat || '';
-            document.getElementById('bpTerminal').value = (p.gateway && p.gateway.terminal) ? p.gateway.terminal : '';
+            document.getElementById('bpFlightNo').value = sch.flightNo || '';
+            document.getElementById('bpClass').value = bd.cabin ? String(bd.cabin).toUpperCase() : 'Business';
+            document.getElementById('bpFrom').value = route.from || 'LHR';
+            document.getElementById('bpTo').value = route.to || 'ICN';
+            document.getElementById('bpDepartAt').value = sch.departAt || '';
+            document.getElementById('bpGate').value = bd.gate || '';
+            document.getElementById('bpSeat').value = bd.seat || '';
+            document.getElementById('bpTerminal').value = bd.terminal || '';
+
+            const shareKey = f.share && f.share.boardingPassKey ? String(f.share.boardingPassKey) : '';
+            const keyInput = document.getElementById('bpShareKey');
+            const shareUrl = document.getElementById('bpShareUrl');
+            const qrImg = document.getElementById('bpQr');
+            if (keyInput) keyInput.value = shareKey;
+            if (shareKey) {
+                const base = window.location.origin;
+                const url = `${base}/flight/boarding-pass.html?u=${encodeURIComponent(username)}&k=${encodeURIComponent(shareKey)}`;
+                if (shareUrl) shareUrl.textContent = url;
+                if (qrImg) {
+                    qrImg.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                    qrImg.style.display = 'block';
+                }
+            } else {
+                if (shareUrl) shareUrl.textContent = '';
+                if (qrImg) qrImg.style.display = 'none';
+            }
 
             renderBoardingPassPreview({
                 username,
@@ -1306,7 +1438,10 @@
             const db = await loadAllUsersFromDB();
             if (!username || !db.users[username]) return;
             const user = ensureUserShape(db.users[username]);
-            document.getElementById('logCurrent').value = String(user.logistics.currentStep || 2);
+            user.logistics = ensureLogisticsShape(user.logistics);
+            const logSel = document.getElementById('logCurrent');
+            logSel.value = String(user.logistics.currentStep || (user.logistics.currentStepIndex + 1));
+            if (logSel.dataset) logSel.dataset.prevIndex = String(user.logistics.currentStepIndex);
             const otc = user.share.oneTimeTracking || { code: "", createdAt: null, usedAt: null };
             document.getElementById('otcCode').value = otc.code || '';
             document.getElementById('otcUsedAt').value = otc.usedAt ? new Date(otc.usedAt).toLocaleString() : '';
@@ -1536,8 +1671,10 @@
                 const toggleBtn = document.getElementById('adminMobileToggle');
                 const menu = document.getElementById('adminMobileMenu');
                 const grid = document.getElementById('adminMobileGrid');
+                const shortcuts = document.getElementById('adminMobileShortcuts');
                 const srcButtons = Array.from(document.querySelectorAll('.admin-menu button'));
                 grid.innerHTML = '';
+                if (shortcuts) shortcuts.innerHTML = '';
                 srcButtons.forEach((b) => {
                     const mb = document.createElement('button');
                     mb.textContent = b.textContent;
@@ -1548,6 +1685,15 @@
                         if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
                     });
                     grid.appendChild(mb);
+
+                    if (shortcuts) {
+                        const sb = document.createElement('button');
+                        sb.type = 'button';
+                        sb.textContent = b.textContent;
+                        sb.dataset.target = b.dataset.target;
+                        sb.addEventListener('click', () => setSection(sb.dataset.target));
+                        shortcuts.appendChild(sb);
+                    }
                 });
                 function toggleMenu() {
                     const open = !menu.classList.contains('open');
@@ -1700,12 +1846,16 @@
                 const db = await loadAllUsersFromDB();
                 if (!db.users[username]) return;
                 const user = ensureUserShape(db.users[username]);
-                user.manifest.status = document.getElementById('manStatus').value;
-                user.manifest.from = document.getElementById('manFrom').value.trim() || 'LHR';
-                user.manifest.to = document.getElementById('manTo').value.trim() || 'ICN';
-                user.manifest.gate = document.getElementById('manGate').value.trim() || '--';
-                user.manifest.seat = document.getElementById('manSeat').value.trim() || '--';
-                user.manifest.flightClass = document.getElementById('manClass').value;
+                ensureFlightShape(user);
+                user.flight.status = String(document.getElementById('manStatus').value || user.flight.status || 'PENDING').toUpperCase();
+                user.flight.route = user.flight.route && typeof user.flight.route === 'object' ? user.flight.route : {};
+                user.flight.route.from = (document.getElementById('manFrom').value.trim() || 'LHR').toUpperCase();
+                user.flight.route.to = (document.getElementById('manTo').value.trim() || 'ICN').toUpperCase();
+                user.flight.boarding = user.flight.boarding && typeof user.flight.boarding === 'object' ? user.flight.boarding : {};
+                user.flight.boarding.gate = document.getElementById('manGate').value.trim() || '--';
+                user.flight.boarding.seat = document.getElementById('manSeat').value.trim() || '--';
+                user.flight.boarding.cabin = String(document.getElementById('manClass').value || user.flight.boarding.cabin || 'Business').toUpperCase();
+                ensureFlightShape(user);
                 user.profile.category = document.getElementById('detCategory').value;
                 user.profile.purpose = document.getElementById('detPurpose').value.trim();
                 user.profile.nationality = document.getElementById('detNationality').value.trim();
@@ -1954,6 +2104,59 @@
             if (btnSchemaInspect) btnSchemaInspect.addEventListener('click', runSchemaInspect);
 
             document.getElementById('btnLoadLogistics').addEventListener('click', () => renderStepsEditor(document.getElementById('logUser').value));
+            const btnCustomMove = document.getElementById('btnCustomMove');
+            if (btnCustomMove) btnCustomMove.addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                const msg = document.getElementById('logMsg');
+                if (msg) msg.textContent = '';
+                if (!username) return;
+
+                const title = (document.getElementById('cmTitle').value || '').trim();
+                const location = (document.getElementById('cmLocation').value || '').trim();
+                const marker = (document.getElementById('cmMarker').value || '').trim();
+                if (!title && !location && !marker) {
+                    if (msg) msg.textContent = 'Enter at least one field to apply.';
+                    return;
+                }
+
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+
+                let stepSel = (document.getElementById('cmStep') && document.getElementById('cmStep').value) || 'current';
+                let idx = -1;
+                if (stepSel === 'current') {
+                    const cur = parseInt(document.getElementById('logCurrent').value, 10);
+                    idx = Number.isFinite(cur) ? (cur - 1) : 0;
+                } else {
+                    const v = parseInt(stepSel, 10);
+                    idx = Number.isFinite(v) ? (v - 1) : 0;
+                }
+                idx = Math.max(0, Math.min(7, idx));
+
+                user.logistics = ensureLogisticsShape(user.logistics);
+                user.logistics.events = Array.isArray(user.logistics.events) ? user.logistics.events : [];
+                user.logistics.events.push({
+                    id: makeEventId('evt'),
+                    type: 'CUSTOM_MOVEMENT',
+                    stepIndex: idx,
+                    title: title || '',
+                    locationText: location || '',
+                    markerText: marker || '',
+                    createdAt: new Date().toISOString(),
+                    createdBy: { role: 'ADMIN' }
+                });
+                user.logistics.lastUpdatedAt = new Date().toISOString();
+
+                if (msg) msg.textContent = 'Applying movement...';
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'Custom movement applied.';
+                await renderStepsEditor(username);
+                await renderRegistry();
+                document.getElementById('cmTitle').value = '';
+                document.getElementById('cmLocation').value = '';
+                document.getElementById('cmMarker').value = '';
+            });
             document.getElementById('btnSaveLogistics').addEventListener('click', async () => {
                 const username = document.getElementById('logUser').value;
                 const msg = document.getElementById('logMsg');
@@ -1963,21 +2166,43 @@
                 const db = await loadAllUsersFromDB();
                 if (!db.users[username]) return;
                 const user = ensureUserShape(db.users[username]);
+                user.logistics = ensureLogisticsShape(user.logistics);
                 const currentStep = parseInt(document.getElementById('logCurrent').value, 10);
-                user.logistics.currentStep = Number.isFinite(currentStep) ? currentStep : 2;
+                const nextStep = Number.isFinite(currentStep) ? currentStep : (user.logistics.currentStep || 2);
+                const nextIndex = Math.max(0, Math.min(7, nextStep - 1));
+                const sel = document.getElementById('logCurrent');
+                const prevIndex = sel && sel.dataset && sel.dataset.prevIndex !== undefined
+                    ? Math.max(0, Math.min(7, parseInt(String(sel.dataset.prevIndex), 10)))
+                    : user.logistics.currentStepIndex;
+                if (prevIndex !== nextIndex) {
+                    user.logistics.events = Array.isArray(user.logistics.events) ? user.logistics.events : [];
+                    user.logistics.events.push({
+                        id: makeEventId('evt'),
+                        type: 'SYSTEM_AUTO',
+                        fromStepIndex: prevIndex,
+                        toStepIndex: nextIndex,
+                        createdAt: new Date().toISOString(),
+                        createdBy: { role: 'ADMIN' }
+                    });
+                }
+                user.logistics.currentStepIndex = nextIndex;
+                user.logistics.currentStep = nextIndex + 1;
 
                 const steps = user.logistics.steps.slice();
                 document.querySelectorAll('#stepsEditor input[data-step]').forEach((inp) => {
                     const idx = parseInt(inp.dataset.step, 10);
                     const field = inp.dataset.field;
-                    if (!Number.isFinite(idx) || idx < 0 || idx > 4) return;
+                    if (!Number.isFinite(idx) || idx < 0 || idx > 7) return;
                     steps[idx] = steps[idx] || { title: '', location: '', date: '' };
                     steps[idx][field] = inp.value.trim();
                 });
                 user.logistics.steps = steps;
+                user.logistics.lastUpdatedAt = new Date().toISOString();
+                user.logistics = ensureLogisticsShape(user.logistics);
                 
                 await saveUserToDB(username, user);
                 msg.textContent = 'Tracker saved.';
+                if (sel && sel.dataset) sel.dataset.prevIndex = String(nextIndex);
             });
 
             document.getElementById('btnLoadFlightForm').addEventListener('click', () => hydrateFlightForm(document.getElementById('ffUser').value));
@@ -2054,27 +2279,68 @@
                 }
                 const user = ensureUserShape(db.users[draft.username]);
                 user.passengerName = draft.passengerName || user.passengerName;
-                user.manifest = user.manifest || {};
-                user.manifest.status = draft.status;
-                user.manifest.from = draft.from || user.manifest.from || 'LHR';
-                user.manifest.to = draft.to || user.manifest.to || 'ICN';
-                user.manifest.gate = draft.gate || user.manifest.gate || '--';
-                user.manifest.seat = draft.seat || user.manifest.seat || '--';
-                user.manifest.flightClass = draft.flightClass || user.manifest.flightClass || 'Business';
-                user.manifest.flightNo = draft.flightNo || user.manifest.flightNo || '';
-                user.profile = user.profile || {};
-                user.profile.gateway = user.profile.gateway || {};
-                user.profile.gateway.terminal = draft.terminal || user.profile.gateway.terminal || '';
-                user.form = user.form && typeof user.form === 'object' ? user.form : { flightNo: '', departAt: '', notes: '', lockedByAdmin: true, signature: null, updatedAt: null };
-                if (draft.flightNo) user.form.flightNo = draft.flightNo;
-                if (draft.departAt) user.form.departAt = draft.departAt;
-                user.form.updatedAt = new Date().toISOString();
+                ensureFlightShape(user);
+                user.flight.status = String(draft.status || user.flight.status || 'PENDING').toUpperCase();
+                user.flight.route = user.flight.route && typeof user.flight.route === 'object' ? user.flight.route : {};
+                user.flight.route.from = draft.from || user.flight.route.from || 'LHR';
+                user.flight.route.to = draft.to || user.flight.route.to || 'ICN';
+                user.flight.boarding = user.flight.boarding && typeof user.flight.boarding === 'object' ? user.flight.boarding : {};
+                user.flight.boarding.gate = draft.gate || user.flight.boarding.gate || '--';
+                user.flight.boarding.seat = draft.seat || user.flight.boarding.seat || '--';
+                user.flight.boarding.terminal = draft.terminal || user.flight.boarding.terminal || '';
+                user.flight.boarding.cabin = String(draft.flightClass || user.flight.boarding.cabin || 'Business').toUpperCase();
+                user.flight.schedule = user.flight.schedule && typeof user.flight.schedule === 'object' ? user.flight.schedule : {};
+                user.flight.schedule.flightNo = draft.flightNo || user.flight.schedule.flightNo || '';
+                user.flight.schedule.departAt = draft.departAt || user.flight.schedule.departAt || '';
+                ensureFlightShape(user);
 
                 if (msg) msg.textContent = 'Deploying...';
                 await saveUserToDB(draft.username, user);
                 if (msg) msg.textContent = 'Boarding pass deployed.';
                 renderBoardingPassPreview(getBoardingPassDraft());
                 await renderRegistry();
+            });
+
+            function makeBoardingPassKey() {
+                const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                const bytes = new Uint8Array(16);
+                if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+                let out = 'BP-';
+                for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+                return out;
+            }
+
+            const btnGenBPKey = document.getElementById('btnGenBPKey');
+            const btnClearBPKey = document.getElementById('btnClearBPKey');
+            if (btnGenBPKey) btnGenBPKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.boardingPassKey = makeBoardingPassKey();
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'QR key generated.';
+                hydrateBoardingPass(username);
+            });
+            if (btnClearBPKey) btnClearBPKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.boardingPassKey = '';
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'QR key cleared.';
+                hydrateBoardingPass(username);
             });
 
             const btnCreateNotif = document.getElementById('btnCreateNotif');

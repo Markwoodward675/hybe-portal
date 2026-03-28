@@ -127,15 +127,18 @@
             setPill('SERVER ACTIVE', 'ok');
 
             const logistics = user.logistics || { currentStep: 2, steps: [] };
-            const current = parseInt(String(logistics.currentStep || 2), 10) || 2;
-            const steps = Array.isArray(logistics.steps) && logistics.steps.length === 5
+            const current = Math.max(1, Math.min(8, parseInt(String(logistics.currentStep || 2), 10) || 2));
+            const steps = Array.isArray(logistics.steps) && logistics.steps.length === 8
                 ? logistics.steps
                 : [
-                    { title: "Booking Confirmed", location: "London HQ", date: "System Log" },
-                    { title: "Security Clearance", location: "TRIP Gateway", date: "Pending" },
-                    { title: "Departure Protocol", location: "Terminal Gateway", date: "Scheduled" },
-                    { title: "International Transit", location: "Airborne", date: "Scheduled" },
-                    { title: "Arrival (ICN)", location: "Incheon, KR", date: "Scheduled" }
+                    { title: "Booking Confirmed", location: "Origin Desk", date: "Scheduled" },
+                    { title: "Picked Up", location: "Courier Network", date: "Scheduled" },
+                    { title: "Arrived at Warehouse", location: "Origin Hub", date: "Scheduled" },
+                    { title: "Export Clearance", location: "TRIP Gateway", date: "Pending" },
+                    { title: "In Transit", location: "Airborne", date: "In Progress" },
+                    { title: "Arrived at Destination Hub", location: "Arrival Hub", date: "Scheduled" },
+                    { title: "Out for Delivery", location: "Last Mile", date: "Scheduled" },
+                    { title: "Delivered", location: "Destination", date: "Scheduled" }
                 ];
 
             const activeBox = document.getElementById('activeBox');

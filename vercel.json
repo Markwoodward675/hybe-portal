@@ -8,8 +8,9 @@
   "routes": [
     { "src": "^/api/(.*)$", "dest": "api/[...path].js" },
     { "handle": "filesystem" },
-    { "src": "^/flight$", "dest": "/flights/dashboard/index.html" },
-    { "src": "^/flights$", "dest": "/flights/dashboard/index.html" },
-    { "src": "^/logistics$", "dest": "/logistics/dashboard/index.html" }
+    { "src": "^/flight$", "dest": "/flight/dashboard.html" },
+    { "src": "^/logistics$", "dest": "/logistics/dashboard.html" },
+    { "src": "^/management$", "dest": "/management.html" },
+    { "src": "^/scan$", "dest": "/scan.html" }
   ]
 }

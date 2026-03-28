@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP | Scan QR</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        #scanWrap{ display:grid; gap:12px; }
+        #video{ width:100%; border-radius:16px; border:1px solid var(--border); background: var(--input-bg); }
+        #scanMsg{ color:var(--text-dim); font-weight:800; }
+        @media print { .trip-nav, .actions { display:none !important; } }
+    </style>
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <nav class="trip-nav">
+        <a href="/index.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP">
+            <span>TRIP</span>
+        </a>
+        <div class="trip-nav-right">
+            <a class="nav-signout" href="javascript:history.back()">Back</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 760px;">
+        <div class="card">
+            <div style="font-weight:900; letter-spacing:-0.4px;">Scan QR Code</div>
+            <div style="margin-top:8px; color:var(--text-dim); font-weight:800; line-height:1.35;">
+                Scan a TRIP Boarding Pass / Logistics link QR code to open the live status page.
+            </div>
+            <div class="actions two-col" style="margin-top:12px;">
+                <button class="btn-primary" type="button" id="btnStart">Start Camera</button>
+                <button class="btn-secondary" type="button" id="btnStop">Stop</button>
+            </div>
+            <div id="scanWrap" style="margin-top:12px;">
+                <video id="video" playsinline></video>
+                <div id="scanMsg">Camera idle.</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const msg = document.getElementById('scanMsg');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        let stream = null;
+        let raf = null;
+
+        function stop() {
+            if (raf) cancelAnimationFrame(raf);
+            raf = null;
+            if (stream) {
+                stream.getTracks().forEach((t) => t.stop());
+                stream = null;
+            }
+            video.srcObject = null;
+            msg.textContent = 'Camera stopped.';
+        }
+
+        async function start() {
+            stop();
+            msg.textContent = 'Starting camera...';
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+                video.srcObject = stream;
+                await video.play();
+                msg.textContent = 'Scanning...';
+                tick();
+            } catch {
+                msg.textContent = 'Camera permission denied or unavailable.';
+            }
+        }
+
+        function tick() {
+            if (!video.videoWidth || !video.videoHeight) {
+                raf = requestAnimationFrame(tick);
+                return;
+            }
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = window.jsQR ? window.jsQR(imageData.data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' }) : null;
+            if (code && code.data) {
+                const val = String(code.data).trim();
+                msg.textContent = 'QR detected. Opening...';
+                stop();
+                if (/^https?:\/\//i.test(val) || val.startsWith('/')) {
+                    window.location.href = val;
+                    return;
+                }
+                msg.textContent = `QR detected but not a link: ${val}`;
+                return;
+            }
+            raf = requestAnimationFrame(tick);
+        }
+
+        document.getElementById('btnStart').addEventListener('click', start);
+        document.getElementById('btnStop').addEventListener('click', stop);
+        document.addEventListener('DOMContentLoaded', () => { requestAnimationFrame(() => { document.body.style.opacity = '1'; }); });
+    </script>
+</body>
+</html>
+

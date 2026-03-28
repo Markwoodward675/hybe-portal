@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Airways | Outbound Flights</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <nav class="trip-nav">
+        <a href="/flight/dashboard.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Airways">
+            <span>TRIP Airways</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="/flight/dashboard.html">Status</a>
+                <a href="/flight/outbound.html" class="active">Outbound</a>
+                <a href="/flight/ledger.html">Ledger</a>
+                <a href="/scan.html">Scan QR</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="outbound-header">
+            <div class="outbound-steps">
+                <div class="step-dot done">✓</div>
+                <div class="step-dot active">2</div>
+                <div class="step-dot">3</div>
+            </div>
+            <div>
+                <div class="outbound-title">Outbound flight</div>
+                <div class="outbound-route"><span id="rtFrom">MAN</span> <span style="opacity:0.7;">→</span> <span id="rtTo">ICN</span> <span class="outbound-sub" id="rtNames">Manchester → Seoul/Incheon</span></div>
+            </div>
+        </div>
+
+        <div class="outbound-strip">
+            <button class="strip-nav" type="button" id="btnPrevDay" aria-label="Previous day">‹</button>
+            <div class="strip-days" id="dayStrip"></div>
+            <button class="strip-nav" type="button" id="btnNextDay" aria-label="Next day">›</button>
+        </div>
+
+        <div class="outbound-tabs" id="classTabs">
+            <button type="button" class="tab-pill active" data-class="Economy">Economy Class</button>
+            <button type="button" class="tab-pill" data-class="Prestige">Prestige Class</button>
+            <button type="button" class="tab-pill" data-class="First">First Class</button>
+        </div>
+
+        <div class="flight-card" id="flightCard">
+            <div class="flight-card-top">
+                <div class="flight-time">
+                    <div class="tm" id="depTime">17:30</div>
+                    <div class="iata" id="depIata">MAN</div>
+                </div>
+                <div class="flight-mid">
+                    <div class="dur" id="durTxt">14h 55m</div>
+                    <div class="line">
+                        <div class="dot"></div>
+                        <div class="bar"></div>
+                        <div class="arrow">▶</div>
+                    </div>
+                    <div class="via" id="viaTxt">AMS</div>
+                </div>
+                <div class="flight-time" style="text-align:right;">
+                    <div class="tm" id="arrTime">16:25</div>
+                    <div class="iata" id="arrIata">ICN</div>
+                    <div class="plus" id="plusTxt">(+1 day)</div>
+                </div>
+            </div>
+            <div class="flight-meta" id="operatedTxt">KE6426 Operated by KLM Royal Dutch • KE5926 Operated by KLM Royal Dutch</div>
+        </div>
+
+        <div class="fare-grid" id="fareGrid"></div>
+
+        <div class="total-bar">
+            <div>
+                <div class="total-label">Total amount</div>
+                <div class="total-value"><span id="curCode">GBP</span> <span id="totalAmt">0.00</span></div>
+            </div>
+            <button class="currency-pill" type="button" id="btnCurrency">Currency <span id="curLabel">GBP</span></button>
+            <button class="btn-primary total-next" type="button" id="btnNext">Next itinerary</button>
+        </div>
+
+        <div class="currency-sheet" id="currencySheet">
+            <button type="button" class="cur-item active" data-cur="GBP">GBP</button>
+            <button type="button" class="cur-item" data-cur="USD">USD</button>
+            <button type="button" class="cur-item" data-cur="EUR">EUR</button>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script>
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = '/index.html';
+        }
+
+        function statusPill(ok) {
+            const el = document.getElementById('sessionPill');
+            if (!el) return;
+            el.textContent = ok ? 'SERVER ACTIVE' : 'SESSION EXPIRED';
+            const color = ok ? 'var(--success)' : 'var(--danger)';
+            const bg = ok ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)';
+            el.style.color = color;
+            el.style.borderColor = color;
+            el.style.background = bg;
+        }
+
+        function setupNav() {
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+        }
+
+        function zFor(iata) {
+            const map = { MAN: 'Europe/London', AMS: 'Europe/Amsterdam', ICN: 'Asia/Seoul', LHR: 'Europe/London' };
+            return map[String(iata || '').toUpperCase()] || 'UTC';
+        }
+
+        function fmtTime(d, tz) {
+            return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(d);
+        }
+
+        function fmtDay(d, tz) {
+            const dd = new Intl.DateTimeFormat('en-GB', { day: '2-digit', timeZone: tz }).format(d);
+            const wd = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: tz }).format(d);
+            return `${dd}(${wd})`;
+        }
+
+        function addDaysLocal(base, days) {
+            const d = new Date(base);
+            d.setDate(d.getDate() + days);
+            return d;
+        }
+
+        function money(n) {
+            return (Math.round(n * 100) / 100).toFixed(2);
+        }
+
+        const rates = { GBP: 1, USD: 1.27, EUR: 1.17 };
+        let cur = 'GBP';
+        let dayOffset = 1;
+        let selectedDay = 0;
+        let cabin = 'Economy';
+        let chosenFare = null;
+        let route = { from: 'MAN', to: 'ICN', via: 'AMS' };
+
+        function baseFareFor(dayIdx, cabinName) {
+            const base = [627.13, 571.33, 643.18][dayIdx % 3] || 610.0;
+            const mul = cabinName === 'First' ? 2.35 : (cabinName === 'Prestige' ? 1.65 : 1);
+            return base * mul;
+        }
+
+        function renderDays() {
+            const strip = document.getElementById('dayStrip');
+            strip.innerHTML = '';
+            const depTz = zFor(route.from);
+            for (let i = 0; i < 3; i++) {
+                const d = addDaysLocal(new Date(), dayOffset + i);
+                const price = baseFareFor(i, cabin);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `day-pill${i === selectedDay ? ' active' : ''}`;
+                btn.innerHTML = `<div class="d">${fmtDay(d, depTz)}</div><div class="p">${money(price * rates[cur])}</div>`;
+                btn.addEventListener('click', () => {
+                    selectedDay = i;
+                    chosenFare = null;
+                    renderAll();
+                });
+                strip.appendChild(btn);
+            }
+        }
+
+        function renderFlight() {
+            const depTz = zFor(route.from);
+            const arrTz = zFor(route.to);
+            const depBase = addDaysLocal(new Date(), dayOffset + selectedDay);
+            depBase.setHours(17, 30, 0, 0);
+            const durationMins = cabin === 'First' ? 880 : 895;
+            const arr = new Date(depBase.getTime() + durationMins * 60 * 1000);
+            const depTxt = fmtTime(depBase, depTz);
+            const arrTxt = fmtTime(arr, arrTz);
+
+            document.getElementById('depTime').textContent = depTxt;
+            document.getElementById('arrTime').textContent = arrTxt;
+            document.getElementById('depIata').textContent = route.from;
+            document.getElementById('arrIata').textContent = route.to;
+            document.getElementById('viaTxt').textContent = route.via;
+            document.getElementById('durTxt').textContent = cabin === 'First' ? '14h 40m' : '14h 55m';
+
+            const depDay = new Intl.DateTimeFormat('en-GB', { day: '2-digit', timeZone: depTz }).format(depBase);
+            const arrDay = new Intl.DateTimeFormat('en-GB', { day: '2-digit', timeZone: arrTz }).format(arr);
+            document.getElementById('plusTxt').textContent = depDay !== arrDay ? '(+1 day)' : '';
+        }
+
+        function renderFares() {
+            const grid = document.getElementById('fareGrid');
+            grid.innerHTML = '';
+            const base = baseFareFor(selectedDay, cabin);
+            const options = cabin === 'Economy'
+                ? [{ name: 'Economy Standard', add: 0, seats: 5 }, { name: 'Economy Flex', add: 377, seats: 3 }]
+                : cabin === 'Prestige'
+                    ? [{ name: 'Prestige Standard', add: 0, seats: 3 }, { name: 'Prestige Flex', add: 520, seats: 2 }]
+                    : [{ name: 'First Standard', add: 0, seats: 2 }, { name: 'First Flex', add: 840, seats: 1 }];
+
+            options.forEach((o, idx) => {
+                const price = (base + o.add) * rates[cur];
+                const card = document.createElement('button');
+                card.type = 'button';
+                card.className = `fare-card${chosenFare === idx ? ' active' : ''}`;
+                card.innerHTML = `
+                    <div class="fare-name">${o.name}</div>
+                    <div class="fare-price"><span class="cc">${cur}</span> ${money(price)}</div>
+                    <div class="fare-seats">${o.seats} Seat(s)</div>
+                `;
+                card.addEventListener('click', () => {
+                    chosenFare = idx;
+                    document.getElementById('totalAmt').textContent = money(price);
+                    renderFares();
+                });
+                grid.appendChild(card);
+            });
+            if (chosenFare === null) document.getElementById('totalAmt').textContent = '0.00';
+        }
+
+        function renderAll() {
+            document.getElementById('curCode').textContent = cur;
+            document.getElementById('curLabel').textContent = cur;
+            document.querySelectorAll('#currencySheet .cur-item').forEach((b) => b.classList.toggle('active', b.dataset.cur === cur));
+            document.querySelectorAll('#classTabs .tab-pill').forEach((b) => b.classList.toggle('active', b.dataset.class === cabin));
+            renderDays();
+            renderFlight();
+            renderFares();
+        }
+
+        function setupCurrency() {
+            const sheet = document.getElementById('currencySheet');
+            document.getElementById('btnCurrency').addEventListener('click', () => sheet.classList.toggle('open'));
+            sheet.querySelectorAll('.cur-item').forEach((b) => {
+                b.addEventListener('click', () => {
+                    cur = b.dataset.cur;
+                    sheet.classList.remove('open');
+                    chosenFare = null;
+                    renderAll();
+                });
+            });
+            document.addEventListener('click', (e) => {
+                if (!sheet.classList.contains('open')) return;
+                const within = sheet.contains(e.target) || document.getElementById('btnCurrency').contains(e.target);
+                if (!within) sheet.classList.remove('open');
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle();
+            setupNav();
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            let me = null;
+            try {
+                me = await requireServiceCategory('FLIGHT');
+                if (!me) return;
+            } catch {
+                statusPill(false);
+                await signOut();
+                return;
+            }
+            statusPill(true);
+
+            const user = me.userData || {};
+            const m = user.manifest || {};
+            route.from = String(m.from || 'MAN').toUpperCase();
+            route.to = String(m.to || 'ICN').toUpperCase();
+            route.via = 'AMS';
+            document.getElementById('rtFrom').textContent = route.from;
+            document.getElementById('rtTo').textContent = route.to;
+
+            const curCode = user.ledger && user.ledger.currencyCode ? String(user.ledger.currencyCode).toUpperCase() : '';
+            if (curCode && rates[curCode]) cur = curCode;
+
+            document.getElementById('btnPrevDay').addEventListener('click', () => { dayOffset = Math.max(0, dayOffset - 1); renderAll(); });
+            document.getElementById('btnNextDay').addEventListener('click', () => { dayOffset = dayOffset + 1; renderAll(); });
+            document.querySelectorAll('#classTabs .tab-pill').forEach((b) => {
+                b.addEventListener('click', () => { cabin = b.dataset.class; chosenFare = null; renderAll(); });
+            });
+            document.getElementById('btnNext').addEventListener('click', () => {
+                if (chosenFare === null) return;
+                window.location.href = '/flight/dashboard.html';
+            });
+            setupCurrency();
+            renderAll();
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>
+

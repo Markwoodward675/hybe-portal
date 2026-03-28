@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { parseCookies, cookieString, isHttps } = require('../server_lib/cookies');
 const { createToken, verifyToken } = require('../server_lib/token');
 const {
@@ -33,6 +35,180 @@ function send(res, status, payload) {
   res.statusCode = status;
   res.setHeader('content-type', 'application/json');
   res.end(JSON.stringify(payload));
+}
+
+function localUsersPath() {
+  return path.resolve(process.cwd(), 'data', 'users.json');
+}
+
+function kvConfigured() {
+  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
+
+async function kvFetch(pathname) {
+  const base = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+  const res = await fetch(`${String(base).replace(/\/$/, '')}${pathname}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  const text = await res.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+  if (!res.ok) {
+    const err = new Error(`KV HTTP ${res.status}`);
+    err.status = res.status;
+    err.payload = json;
+    throw err;
+  }
+  return json;
+}
+
+async function kvGetJson(key) {
+  const out = await kvFetch(`/get/${encodeURIComponent(key)}`);
+  const v = out && out.result !== undefined ? out.result : null;
+  if (!v) return null;
+  if (typeof v === 'object') return v;
+  try { return JSON.parse(String(v)); } catch { return null; }
+}
+
+async function kvSetJson(key, value, ttlSeconds) {
+  const v = encodeURIComponent(JSON.stringify(value));
+  const ttl = Number(ttlSeconds) > 0 ? `?ex=${encodeURIComponent(String(Math.floor(Number(ttlSeconds))))}` : '';
+  await kvFetch(`/set/${encodeURIComponent(key)}/${v}${ttl}`);
+}
+
+async function kvDel(key) {
+  await kvFetch(`/del/${encodeURIComponent(key)}`);
+}
+
+function kvUserKey(username) {
+  return `trip:user:${String(username || '').trim().toLowerCase()}`;
+}
+
+function pinHash(pin) {
+  const secret = process.env.TRIP_KV_SALT || process.env.TRIP_JWT_SECRET || 'trip';
+  return crypto.createHash('sha256').update(`${secret}:${String(pin || '')}`, 'utf8').digest('hex');
+}
+
+function gen6() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function sendEmailViaResend({ to, subject, html }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM;
+  if (!apiKey || !from) return { ok: false, hint: 'Email not configured' };
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to,
+      subject,
+      html,
+    }),
+  });
+  const text = await res.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+  if (!res.ok) return { ok: false, hint: 'Email send failed', payload: json };
+  return { ok: true, payload: json };
+}
+
+function readLocalUsersSync() {
+  const p = localUsersPath();
+  const raw = fs.readFileSync(p, 'utf8');
+  const json = raw ? JSON.parse(raw) : [];
+  return Array.isArray(json) ? json : [];
+}
+
+function writeLocalUsersSync(items) {
+  const p = localUsersPath();
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  const tmp = `${p}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(items, null, 2) + '\n', 'utf8');
+  fs.renameSync(tmp, p);
+}
+
+function listLocalUsersCached() {
+  const cache = globalThis.__tripLocalUsersCache;
+  const now = Date.now();
+  if (cache && cache.expiresAt && now < cache.expiresAt && Array.isArray(cache.items)) return cache.items;
+  try {
+    const items = readLocalUsersSync();
+    globalThis.__tripLocalUsersCache = { items, expiresAt: now + 30 * 1000 };
+    return items;
+  } catch {
+    globalThis.__tripLocalUsersCache = { items: [], expiresAt: now + 10 * 1000 };
+    return [];
+  }
+}
+
+function findLocalUser(username) {
+  const u = String(username || '').trim();
+  if (!u) return null;
+  const items = listLocalUsersCached();
+  const lu = u.toLowerCase();
+  return items.find((x) => x && String(x.username || '').trim().toLowerCase() === lu) || null;
+}
+
+function upsertLocalUser(username, userData) {
+  if (process.env.VERCEL) return { ok: false, hint: 'Local users.json is read-only on Vercel' };
+  const u = String(username || '').trim();
+  if (!u) return { ok: false, hint: 'Missing username' };
+  const pin = userData && userData.pin !== undefined ? String(userData.pin) : '';
+  const name = userData && (userData.passengerName || userData.name) ? String(userData.passengerName || userData.name) : '';
+  const role = userData && userData.role ? String(userData.role) : 'passenger';
+  if (!pin) return { ok: false, hint: 'Missing pin' };
+  try {
+    let items = [];
+    try {
+      items = readLocalUsersSync();
+    } catch {
+      items = [];
+    }
+    const lu = u.toLowerCase();
+    const idx = items.findIndex((x) => x && String(x.username || '').trim().toLowerCase() === lu);
+    const existing = idx >= 0 ? items[idx] : null;
+    const next = {
+      id: existing && existing.id ? String(existing.id) : `u-${crypto.randomUUID().slice(0, 8)}`,
+      username: u,
+      pin,
+      role,
+      name,
+    };
+    if (idx >= 0) items[idx] = next;
+    else items.push(next);
+    writeLocalUsersSync(items);
+    globalThis.__tripLocalUsersCache = { items, expiresAt: Date.now() + 30 * 1000 };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, hint: e?.message || 'Local users.json write failed' };
+  }
+}
+
+function deleteLocalUser(username) {
+  if (process.env.VERCEL) return { ok: false, hint: 'Local users.json is read-only on Vercel' };
+  const u = String(username || '').trim();
+  if (!u) return { ok: false, hint: 'Missing username' };
+  try {
+    let items = [];
+    try {
+      items = readLocalUsersSync();
+    } catch {
+      items = [];
+    }
+    const lu = u.toLowerCase();
+    const next = items.filter((x) => String(x && x.username ? x.username : '').trim().toLowerCase() !== lu);
+    writeLocalUsersSync(next);
+    globalThis.__tripLocalUsersCache = { items: next, expiresAt: Date.now() + 30 * 1000 };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, hint: e?.message || 'Local users.json delete failed' };
+  }
 }
 
 function requireAdmin(req, res) {
@@ -504,6 +680,7 @@ module.exports = async (req, res) => {
         usingDefault: !configured,
         altConfigured,
         appwriteConfigured: isAppwriteConfigured(),
+        kvConfigured: kvConfigured(),
         missingEnv: missing,
       });
     }
@@ -656,7 +833,8 @@ module.exports = async (req, res) => {
             const userData = body.userData;
             if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
             devUsersStore()[u] = userData;
-            return send(res, 200, { ok: true, hint: 'Saved to dev store (Appwrite not configured)' });
+            const local = upsertLocalUser(u, userData);
+            return send(res, 200, { ok: true, hint: 'Saved to dev store (Appwrite not configured)', local });
           }
           try {
             const body = await readJson(req).catch(() => ({}));
@@ -664,7 +842,24 @@ module.exports = async (req, res) => {
             const userData = body.userData;
             if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
             await upsertUser(u, userData);
-            return send(res, 200, { ok: true });
+            const local = upsertLocalUser(u, userData);
+            let kv = null;
+            if (kvConfigured()) {
+              try {
+                await kvSetJson(kvUserKey(u), {
+                  username: u,
+                  name: String(userData.passengerName || userData.name || ''),
+                  role: String(userData.role || 'passenger'),
+                  serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
+                  pinHash: pinHash(userData.pin),
+                  updatedAt: new Date().toISOString(),
+                }, 30 * 24 * 60 * 60);
+                kv = { ok: true };
+              } catch (e) {
+                kv = { ok: false, hint: e?.message || 'KV write failed' };
+              }
+            }
+            return send(res, 200, { ok: true, local, kv });
           } catch (e) {
             return send(res, 500, { error: e?.message || 'Upsert failed' });
           }
@@ -692,14 +887,32 @@ module.exports = async (req, res) => {
           const userData = body.userData;
           if (!userData) return send(res, 400, { error: 'Missing userData' });
           devUsersStore()[username] = userData;
-          return send(res, 200, { ok: true, hint: 'Saved to dev store (Appwrite not configured)' });
+          const local = upsertLocalUser(username, userData);
+          return send(res, 200, { ok: true, hint: 'Saved to dev store (Appwrite not configured)', local });
         }
         try {
           const body = await readJson(req).catch(() => ({}));
           const userData = body.userData;
           if (!userData) return send(res, 400, { error: 'Missing userData' });
           await upsertUser(username, userData);
-          return send(res, 200, { ok: true });
+          const local = upsertLocalUser(username, userData);
+          let kv = null;
+          if (kvConfigured()) {
+            try {
+              await kvSetJson(kvUserKey(username), {
+                username,
+                name: String(userData.passengerName || userData.name || ''),
+                role: String(userData.role || 'passenger'),
+                serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
+                pinHash: pinHash(userData.pin),
+                updatedAt: new Date().toISOString(),
+              }, 30 * 24 * 60 * 60);
+              kv = { ok: true };
+            } catch (e) {
+              kv = { ok: false, hint: e?.message || 'KV write failed' };
+            }
+          }
+          return send(res, 200, { ok: true, local, kv });
         } catch (e) {
           return send(res, 500, { error: e?.message || 'Upsert failed' });
         }
@@ -707,11 +920,22 @@ module.exports = async (req, res) => {
       if (req.method === 'DELETE') {
         if (!isAppwriteConfigured()) {
           delete devUsersStore()[username];
-          return send(res, 200, { ok: true, hint: 'Deleted from dev store (Appwrite not configured)' });
+          const local = deleteLocalUser(username);
+          return send(res, 200, { ok: true, hint: 'Deleted from dev store (Appwrite not configured)', local });
         }
         try {
           const ok = await deleteUser(username);
-          return send(res, 200, { ok });
+          const local = deleteLocalUser(username);
+          let kv = null;
+          if (kvConfigured()) {
+            try {
+              await kvDel(kvUserKey(username));
+              kv = { ok: true };
+            } catch (e) {
+              kv = { ok: false, hint: e?.message || 'KV delete failed' };
+            }
+          }
+          return send(res, 200, { ok, local, kv });
         } catch (e) {
           return send(res, 500, { error: e?.message || 'Delete failed' });
         }
@@ -898,10 +1122,20 @@ module.exports = async (req, res) => {
       const pin = String(body.pin || '').trim();
       if (!username || !pin) return send(res, 400, { error: 'Missing credentials' });
 
+      if (!process.env.VERCEL) {
+        const local = findLocalUser(username);
+        if (local) {
+          if (String(local.pin) !== String(pin)) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
+          const token = createToken({ typ: 'user', u: username, src: 'local', exp: Date.now() + 6 * 60 * 60 * 1000 });
+          res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
+          return send(res, 200, { ok: true, username });
+        }
+      }
+
       if (!isAppwriteConfigured()) {
         const u = devUsersStore()[username];
         if (!u || String(u.pin) !== String(pin)) {
-          return send(res, 401, { ok: false, error: 'Access denied. Credentials do not match a provisioned TRIP profile.' });
+          return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
         }
         const token = createToken({ typ: 'user', u: username, exp: Date.now() + 6 * 60 * 60 * 1000 });
         res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
@@ -912,16 +1146,32 @@ module.exports = async (req, res) => {
       try {
         doc = await findUserDocByUsername(username);
       } catch {
-        return send(res, 503, { ok: false, error: 'Login service unavailable. Please try again.' });
+        doc = null;
       }
-      const userData = doc ? parseUserData(doc) : null;
-      if (!userData || String(userData.pin) !== String(pin)) {
-        return send(res, 401, { ok: false, error: 'Access denied. Credentials do not match a provisioned TRIP profile.' });
+      if (doc) {
+        const userData = parseUserData(doc);
+        if (!userData || String(userData.pin) !== String(pin)) {
+          return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
+        }
+        const token = createToken({ typ: 'user', u: doc.username, exp: Date.now() + 6 * 60 * 60 * 1000 });
+        res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
+        return send(res, 200, { ok: true, username: doc.username });
       }
 
-      const token = createToken({ typ: 'user', u: doc.username, exp: Date.now() + 6 * 60 * 60 * 1000 });
-      res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
-      return send(res, 200, { ok: true, username: doc.username });
+      if (kvConfigured()) {
+        try {
+          const cached = await kvGetJson(kvUserKey(username));
+          const ok = cached && cached.pinHash && cached.pinHash === pinHash(pin);
+          if (!ok) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
+          const token = createToken({ typ: 'user', u: username, src: 'kv', exp: Date.now() + 6 * 60 * 60 * 1000 });
+          res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
+          return send(res, 200, { ok: true, username });
+        } catch {
+          return send(res, 503, { ok: false, error: 'Login service unavailable' });
+        }
+      }
+
+      return send(res, 503, { ok: false, error: 'Login service unavailable' });
     }
 
     if (action === 'logout') {
@@ -934,6 +1184,36 @@ module.exports = async (req, res) => {
       if (!payload || !payload.u) return;
 
       const username = String(payload.u);
+      if (payload.src === 'local') {
+        const local = findLocalUser(username);
+        if (!local) return send(res, 401, { error: 'Unauthorized' });
+        return send(res, 200, {
+          username,
+          userData: {
+            username,
+            passengerName: String(local.name || ''),
+            role: String(local.role || 'user'),
+            serviceCategory: String(local.serviceCategory || 'FLIGHT').toUpperCase(),
+          },
+        });
+      }
+      if (payload.src === 'kv' && kvConfigured()) {
+        try {
+          const cached = await kvGetJson(kvUserKey(username));
+          if (!cached) return send(res, 401, { error: 'Unauthorized' });
+          return send(res, 200, {
+            username,
+            userData: {
+              username,
+              passengerName: String(cached.name || ''),
+              role: String(cached.role || 'user'),
+              serviceCategory: String(cached.serviceCategory || 'FLIGHT').toUpperCase(),
+            },
+          });
+        } catch {
+          return send(res, 401, { error: 'Unauthorized' });
+        }
+      }
       if (!isAppwriteConfigured()) {
         const u = devUsersStore()[username];
         if (!u) return send(res, 401, { error: 'Unauthorized' });
@@ -948,6 +1228,80 @@ module.exports = async (req, res) => {
       const safe = { ...userData };
       delete safe.pin;
       return send(res, 200, { username: doc.username, userData: safe });
+    }
+
+    if (action === 'verify-email') {
+      const payload = requireUser(req, res);
+      if (!payload || !payload.u) return;
+      const username = String(payload.u);
+
+      if (!kvConfigured()) return send(res, 500, { error: 'Verification service unavailable' });
+
+      if (req.method === 'POST') {
+        const body = await readJson(req).catch(() => ({}));
+        const email = String(body.email || '').trim();
+        if (!email || !email.includes('@')) return send(res, 400, { error: 'Invalid email' });
+        const code = gen6();
+        const codeHash = pinHash(code);
+        const key = `trip:emailverify:${username.toLowerCase()}`;
+        await kvSetJson(key, { username, email, codeHash, createdAt: new Date().toISOString() }, 10 * 60);
+        const mail = await sendEmailViaResend({
+          to: email,
+          subject: 'TRIP Verification Code',
+          html: `<div style="font-family:system-ui;line-height:1.4"><div style="font-weight:800;font-size:18px">TRIP Verification</div><div style="margin-top:12px">Your code is:</div><div style="margin-top:10px;font-size:28px;font-weight:900;letter-spacing:4px">${code}</div><div style="margin-top:14px;color:#555">This code expires in 10 minutes.</div></div>`,
+        });
+        if (!mail.ok) {
+          if (!process.env.VERCEL) return send(res, 200, { ok: true, debugCode: code, hint: mail.hint });
+          return send(res, 500, { error: mail.hint || 'Email send failed' });
+        }
+        return send(res, 200, { ok: true });
+      }
+
+      if (req.method === 'PUT') {
+        const body = await readJson(req).catch(() => ({}));
+        const code = String(body.code || '').trim();
+        if (!code) return send(res, 400, { error: 'Missing code' });
+        const key = `trip:emailverify:${username.toLowerCase()}`;
+        const rec = await kvGetJson(key);
+        if (!rec) return send(res, 400, { error: 'Code expired' });
+        if (String(rec.codeHash) !== pinHash(code)) return send(res, 401, { error: 'Invalid code' });
+
+        if (isAppwriteConfigured()) {
+          const doc = await findUserDocByUsername(username);
+          const userData = doc ? parseUserData(doc) : null;
+          if (userData) {
+            userData.profile = userData.profile && typeof userData.profile === 'object' ? userData.profile : {};
+            userData.profile.email = String(rec.email || '');
+            userData.profile.emailVerified = true;
+            userData.profile.emailVerifiedAt = new Date().toISOString();
+            await upsertUser(username, userData);
+          }
+        }
+
+        await kvDel(key);
+        return send(res, 200, { ok: true });
+      }
+
+      if (req.method === 'PATCH') {
+        const key = `trip:emailverify:${username.toLowerCase()}`;
+        const rec = await kvGetJson(key);
+        if (!rec || !rec.email) return send(res, 400, { error: 'No pending verification' });
+        const code = gen6();
+        const codeHash = pinHash(code);
+        await kvSetJson(key, { ...rec, codeHash, resentAt: new Date().toISOString() }, 10 * 60);
+        const mail = await sendEmailViaResend({
+          to: String(rec.email),
+          subject: 'TRIP Verification Code (Resent)',
+          html: `<div style="font-family:system-ui;line-height:1.4"><div style="font-weight:800;font-size:18px">TRIP Verification</div><div style="margin-top:12px">Your new code is:</div><div style="margin-top:10px;font-size:28px;font-weight:900;letter-spacing:4px">${code}</div><div style="margin-top:14px;color:#555">This code expires in 10 minutes.</div></div>`,
+        });
+        if (!mail.ok) {
+          if (!process.env.VERCEL) return send(res, 200, { ok: true, debugCode: code, hint: mail.hint });
+          return send(res, 500, { error: mail.hint || 'Email send failed' });
+        }
+        return send(res, 200, { ok: true });
+      }
+
+      return send(res, 405, { error: 'Method not allowed' });
     }
 
     if (action === 'form') {
@@ -1171,6 +1525,27 @@ module.exports = async (req, res) => {
       userData.share.oneTimeTracking = userData.share.oneTimeTracking || {};
       userData.share.oneTimeTracking.usedAt = new Date().toISOString();
       await upsertUser(doc.username, userData);
+
+      const safe = { ...userData };
+      delete safe.pin;
+      return send(res, 200, { username: doc.username, userData: safe });
+    }
+
+    if (action === 'boardingpass') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+      const username = String(req.query.u || '').trim();
+      const key = String(req.query.k || '').trim();
+      if (!username || !key) return send(res, 400, { error: 'Missing params' });
+
+      const doc = await findUserDocByUsername(username);
+      const userData = doc ? parseUserData(doc) : null;
+      if (!userData) return send(res, 404, { error: 'Not found' });
+
+      const legacyShare = userData.share || {};
+      const flightShare = userData.flight && userData.flight.share ? userData.flight.share : {};
+      const stored = flightShare.boardingPassKey || legacyShare.boardingPassKey || '';
+      const ok = stored && String(stored) === key;
+      if (!ok) return send(res, 401, { error: 'Invalid key' });
 
       const safe = { ...userData };
       delete safe.pin;

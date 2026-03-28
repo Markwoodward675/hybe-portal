@@ -78,6 +78,14 @@
                     window.location.href = cat === 'LOGISTICS' ? '/logistics/dashboard/index.html' : '/flights/dashboard/index.html';
                 } catch (e) {
                     setBusy(false);
+                    if (e && (e.status === 401 || e.status === 403)) {
+                        msg.textContent = 'Invalid Username or PIN';
+                        return;
+                    }
+                    if (e && (e.status === 500 || e.status === 503)) {
+                        msg.textContent = 'Login service unavailable';
+                        return;
+                    }
                     if (e && e.payload && e.payload.error) {
                         msg.textContent = e.payload.error;
                         return;

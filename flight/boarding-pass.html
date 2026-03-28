@@ -82,6 +82,10 @@
                         <div class="ticket-k">View</div>
                         <div class="stub-id">READ-ONLY</div>
                     </div>
+                    <div>
+                        <div class="ticket-k">PDF</div>
+                        <button class="btn-secondary" type="button" id="btnPdf" style="margin-top:10px; width:100%;">Download</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -123,29 +127,33 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const u = q('u');
             const tc = q('tc');
+            const key = q('k');
             const bp = document.getElementById('bpCard');
             const errCard = document.getElementById('errCard');
             const errMsg = document.getElementById('errMsg');
 
             try {
-                const out = await publicDetails(u, tc);
+                const out = key ? await publicBoardingPass(u, key) : await publicDetails(u, tc);
                 const user = out && out.userData ? out.userData : null;
                 const username = out && out.username ? out.username : u;
                 if (!user) throw new Error('No user data');
+                const f = user.flight || {};
+                const r = f.route || {};
+                const b = f.boarding || {};
                 const m = user.manifest || {};
 
-                const from = m.from || 'LHR';
-                const to = m.to || 'ICN';
+                const from = r.from || m.from || 'LHR';
+                const to = r.to || m.to || 'ICN';
                 document.getElementById('codeDep').textContent = from;
                 document.getElementById('codeArr').textContent = to;
                 document.getElementById('routeTxt').textContent = `${from}-${to}`;
-                document.getElementById('dispGate').textContent = m.gate || '--';
-                document.getElementById('dispSeat').textContent = m.seat || '--';
-                document.getElementById('dispCls').textContent = String(m.flightClass || 'Business').toUpperCase();
+                document.getElementById('dispGate').textContent = b.gate || m.gate || '--';
+                document.getElementById('dispSeat').textContent = b.seat || m.seat || '--';
+                document.getElementById('dispCls').textContent = String(b.cabin || m.flightClass || 'Business').toUpperCase();
                 document.getElementById('dispName').textContent = user.passengerName || username;
                 document.getElementById('dispUser').textContent = username;
-                setStatusBadge(m.status || 'PENDING');
-                document.getElementById('trackingCode').textContent = tc || '—';
+                setStatusBadge(f.status || m.status || 'PENDING');
+                document.getElementById('trackingCode').textContent = key || tc || '—';
 
                 bp.style.display = 'grid';
             } catch (e) {
@@ -153,9 +161,11 @@
                 errMsg.textContent = 'Invalid or used code.';
             }
 
+            const btnPdf = document.getElementById('btnPdf');
+            if (btnPdf) btnPdf.addEventListener('click', () => window.print());
+
             requestAnimationFrame(() => { document.body.style.opacity = '1'; });
         });
     </script>
 </body>
 </html>
-

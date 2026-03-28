@@ -68,6 +68,129 @@ function serviceCategoryOf(userData) {
     return (v === 'LOGISTICS') ? 'LOGISTICS' : 'FLIGHT';
 }
 
+function ensureLogisticsShape(logistics) {
+    const codes = ['BOOKED', 'PICKED_UP', 'WAREHOUSE_RECEIVED', 'EXPORT_CLEARANCE', 'IN_TRANSIT', 'ARRIVED_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+    const titles = [
+        'Booking Confirmed',
+        'Picked Up',
+        'Arrived at Warehouse',
+        'Export Clearance',
+        'In Transit',
+        'Arrived at Destination Hub',
+        'Out for Delivery',
+        'Delivered'
+    ];
+
+    const lgx = logistics && typeof logistics === 'object' ? logistics : {};
+    const legacyCurrent = lgx.currentStep !== undefined ? parseInt(String(lgx.currentStep), 10) : NaN;
+    const idxRaw = lgx.currentStepIndex !== undefined ? parseInt(String(lgx.currentStepIndex), 10) : NaN;
+    let currentStepIndex = Number.isFinite(idxRaw) ? idxRaw : (Number.isFinite(legacyCurrent) ? (legacyCurrent - 1) : 1);
+    currentStepIndex = Math.max(0, Math.min(7, currentStepIndex));
+
+    const baseSteps = codes.map((code, i) => ({
+        id: `S${i + 1}`,
+        code,
+        title: titles[i],
+        location: '',
+        date: '',
+        timestamp: null,
+        state: 'PENDING'
+    }));
+
+    const incoming = Array.isArray(lgx.steps) ? lgx.steps : [];
+    incoming.slice(0, 8).forEach((s, i) => {
+        if (!s || typeof s !== 'object') return;
+        const merged = { ...baseSteps[i], ...s };
+        merged.id = merged.id ? String(merged.id) : `S${i + 1}`;
+        merged.code = codes[i];
+        merged.title = merged.title ? String(merged.title) : titles[i];
+        if (merged.locationText && !merged.location) merged.location = String(merged.locationText);
+        if (merged.markerText && !merged.date) merged.date = String(merged.markerText);
+        baseSteps[i] = merged;
+    });
+
+    baseSteps.forEach((s, i) => {
+        s.state = i < currentStepIndex ? 'DONE' : (i === currentStepIndex ? 'CURRENT' : 'PENDING');
+    });
+
+    const events = Array.isArray(lgx.events) ? lgx.events.slice() : [];
+
+    return {
+        version: 1,
+        status: String(lgx.status || 'IN_PROGRESS'),
+        lastUpdatedAt: lgx.lastUpdatedAt || null,
+        currentStepIndex,
+        currentStep: currentStepIndex + 1,
+        steps: baseSteps,
+        events
+    };
+}
+
+function ensureFlightShape(userData) {
+    const u = userData && typeof userData === 'object' ? userData : {};
+    const flight = u.flight && typeof u.flight === 'object' ? u.flight : {};
+    const manifest = u.manifest && typeof u.manifest === 'object' ? u.manifest : {};
+    const form = u.form && typeof u.form === 'object' ? u.form : {};
+    const ledger = u.ledger && typeof u.ledger === 'object' ? u.ledger : {};
+
+    const status = String(flight.status || manifest.status || 'PENDING').toUpperCase();
+    const from = String((flight.route && flight.route.from) || manifest.from || 'LHR').toUpperCase();
+    const to = String((flight.route && flight.route.to) || manifest.to || 'ICN').toUpperCase();
+    const via = String((flight.route && flight.route.via) || 'AMS').toUpperCase();
+    const gate = String((flight.boarding && flight.boarding.gate) || manifest.gate || '--');
+    const seat = String((flight.boarding && flight.boarding.seat) || manifest.seat || '--');
+    const cabin = String((flight.boarding && flight.boarding.cabin) || manifest.flightClass || 'Business').toUpperCase();
+    const terminal = String((flight.boarding && flight.boarding.terminal) || (u.profile && u.profile.gateway && u.profile.gateway.terminal) || '');
+    const flightNo = String((flight.schedule && flight.schedule.flightNo) || form.flightNo || manifest.flightNo || '');
+    const departAt = String((flight.schedule && flight.schedule.departAt) || form.departAt || '');
+
+    const currency = String((flight.fare && flight.fare.currency) || ledger.currencyCode || ledger.currency || 'GBP').toUpperCase();
+    const amountRaw = (flight.fare && flight.fare.amount !== undefined) ? flight.fare.amount : null;
+    const amount = amountRaw === null ? null : Number(amountRaw);
+
+    const next = {
+        version: 1,
+        status,
+        route: { from, via, to },
+        schedule: {
+            flightNo,
+            departAt
+        },
+        boarding: {
+            terminal,
+            gate,
+            seat,
+            cabin
+        },
+        fare: {
+            currency,
+            amount: Number.isFinite(amount) ? amount : null
+        },
+        events: Array.isArray(flight.events) ? flight.events : [],
+        share: flight.share && typeof flight.share === 'object' ? flight.share : (u.share && typeof u.share === 'object' ? { ...u.share } : {})
+    };
+
+    u.flight = next;
+    u.manifest = {
+        from,
+        to,
+        gate,
+        seat,
+        flightClass: cabin,
+        status,
+        flightNo
+    };
+    return u;
+}
+
+function normalizeUserData(userData) {
+    const u = userData && typeof userData === 'object' ? userData : {};
+    u.serviceCategory = serviceCategoryOf(u);
+    u.logistics = ensureLogisticsShape(u.logistics);
+    ensureFlightShape(u);
+    return u;
+}
+
 async function requireServiceCategory(expected) {
     const exp = String(expected || '').toUpperCase();
     const me = await userMe();
@@ -273,6 +396,12 @@ async function publicDetails(username, tc) {
     return tripApi(`/api/public/details?u=${u}&tc=${c}`);
 }
 
+async function publicBoardingPass(username, key) {
+    const u = encodeURIComponent(username);
+    const k = encodeURIComponent(key);
+    return tripApi(`/api/public/boardingpass?u=${u}&k=${k}`);
+}
+
 async function publicBookings() {
     return tripApi('/api/public/bookings');
 }
@@ -324,7 +453,11 @@ async function loadAllUsersFromDB() {
         const adminOk = await adminMe().catch(() => ({ ok: false }));
         if (adminOk && adminOk.ok) {
             const out = await tripApi('/api/admin/users');
-            return out && out.users ? { users: out.users } : { users: {} };
+            const users = out && out.users ? out.users : {};
+            Object.keys(users).forEach((k) => {
+                users[k] = normalizeUserData(users[k]);
+            });
+            return { users };
         }
     } catch {}
 
@@ -333,7 +466,7 @@ async function loadAllUsersFromDB() {
             const result = await databases.listDocuments(DB_ID, COL_USERS);
             const users = {};
             result.documents.forEach(doc => {
-                users[doc.username] = JSON.parse(doc.data);
+                users[doc.username] = normalizeUserData(JSON.parse(doc.data));
             });
             return { users };
         } catch (e) {
@@ -349,7 +482,7 @@ async function loadActiveUserFromDB() {
     try {
         const out = await userMe();
         if (out && out.username && out.userData) {
-            return { username: out.username, userData: out.userData };
+            return { username: out.username, userData: normalizeUserData(out.userData) };
         }
     } catch {}
 
@@ -359,7 +492,7 @@ async function loadActiveUserFromDB() {
     if (!user) return null;
     const safe = { ...user };
     delete safe.pin;
-    return { username: sessionUser, userData: safe };
+    return { username: sessionUser, userData: normalizeUserData(safe) };
 }
 
 // LocalStorage Fallbacks (what we're currently using)
@@ -373,7 +506,12 @@ function loadFromLocal() {
     const raw = localStorage.getItem('trip_users_db');
     if (!raw) return { users: {} };
     try {
-        return JSON.parse(raw);
+        const db = JSON.parse(raw);
+        const users = db && db.users && typeof db.users === 'object' ? db.users : {};
+        Object.keys(users).forEach((k) => {
+            users[k] = normalizeUserData(users[k]);
+        });
+        return { users };
     } catch {
         return { users: {} };
     }
