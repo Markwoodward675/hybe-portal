@@ -531,10 +531,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function categorizeUserPage(pathname) {
     const p = String(pathname || '');
+    if (p.endsWith('/management.html') || p === '/management.html') return 'ADMIN';
     if (p.startsWith('/flight/') || p.startsWith('/flights/')) return 'FLIGHT';
     if (p.startsWith('/logistics/') || p.startsWith('/logistics/dashboard/')) return 'LOGISTICS';
     const base = p.split('/').pop() || '';
-    const flightLegacy = new Set(['flight.html', 'passengers.html', 'bookings.html', 'ledger.html']);
+    const flightLegacy = new Set(['flight.html', 'passengers.html', 'bookings.html', 'form.html']);
     const logisticsLegacy = new Set(['tracking.html', 'logistics-view.html']);
     if (flightLegacy.has(base)) return 'FLIGHT';
     if (logisticsLegacy.has(base)) return 'LOGISTICS';
@@ -551,13 +552,112 @@ function filterNavMenuByServiceCategory(serviceCategory) {
         const href = String(a.getAttribute('href') || '');
         const h = href.toLowerCase();
         let keep = true;
+        if (h.includes('management.html') || h.includes('/admin') || h.includes('/management')) keep = false;
         if (cat === 'FLIGHT') {
-            if (h.includes('/logistics/') || h.includes('tracking.html') || h.includes('logistics-view.html')) keep = false;
+            if (h.includes('/logistics/') || h.includes('tracking.html') || h.includes('logistics-view.html') || h.includes('logistics')) keep = false;
         } else if (cat === 'LOGISTICS') {
-            if (h.includes('/flight/') || h.includes('/flights/') || h.includes('flight.html') || h.includes('passengers.html') || h.includes('bookings.html')) keep = false;
+            if (h.includes('/flight/') || h.includes('/flights/') || h.includes('flight.html') || h.includes('passengers.html') || h.includes('bookings.html') || h.includes('form.html') || h.includes('flight')) keep = false;
         }
         if (!keep) a.style.display = 'none';
     });
+}
+
+function shouldEnableMobileTabbar() {
+    const path = String(window.location && window.location.pathname ? window.location.pathname : '');
+    if (path.startsWith('/auth/')) return false;
+    if (path.endsWith('/management.html') || path === '/management.html') return false;
+    const body = document.body;
+    if (body && body.dataset && String(body.dataset.tabbar || '').toLowerCase() === 'off') return false;
+    return true;
+}
+
+function findNavMenu() {
+    return document.getElementById('navMenu') || document.querySelector('.trip-links');
+}
+
+function primaryTabsForCategory(cat) {
+    if (cat === 'LOGISTICS') {
+        return [
+            { key: 'track', match: '/logistics/dashboard', label: 'Tracking', icon: 'truck' },
+            { key: 'req', match: '/logistics/requests', label: 'Requests', icon: 'inbox' },
+            { key: 'subs', match: '/logistics/submissions', label: 'Submissions', icon: 'doc' },
+            { key: 'scan', match: '/scan', label: 'Scan', icon: 'scan' },
+        ];
+    }
+    return [
+        { key: 'status', match: '/flight/dashboard', label: 'Status', icon: 'grid' },
+        { key: 'out', match: '/flight/outbound', label: 'Outbound', icon: 'plane' },
+        { key: 'ledger', match: '/flight/ledger', label: 'Ledger', icon: 'wallet' },
+        { key: 'scan', match: '/scan', label: 'Scan', icon: 'scan' },
+    ];
+}
+
+function matchLink(links, match) {
+    const m = String(match || '').toLowerCase();
+    return links.find((a) => String(a.getAttribute('href') || '').toLowerCase().includes(m)) || null;
+}
+
+function buildMobileTabbar(cat) {
+    if (!shouldEnableMobileTabbar()) return;
+    const menu = findNavMenu();
+    if (!menu) return;
+
+    const links = Array.from(menu.querySelectorAll('a[href]')).filter((a) => a && a.style && a.style.display !== 'none');
+    if (links.length === 0) return;
+
+    if (document.getElementById('mobileTabbar')) return;
+
+    const bar = document.createElement('div');
+    bar.id = 'mobileTabbar';
+    bar.className = 'mobile-tabbar';
+
+    const tabs = primaryTabsForCategory(String(cat || 'FLIGHT').toUpperCase());
+    const chosen = [];
+    tabs.forEach((t) => {
+        const a = matchLink(links, t.match);
+        if (!a) return;
+        chosen.push({ href: a.getAttribute('href'), label: t.label, icon: t.icon, active: a.classList.contains('active') });
+    });
+
+    if (chosen.length === 0) {
+        links.slice(0, 4).forEach((a) => {
+            const href = String(a.getAttribute('href') || '');
+            const label = String(a.textContent || '').trim() || 'Link';
+            chosen.push({ href, label, icon: 'grid', active: a.classList.contains('active') });
+        });
+    }
+
+    const shownHrefs = new Set(chosen.map((x) => String(x.href || '')));
+    const remaining = links.filter((a) => !shownHrefs.has(String(a.getAttribute('href') || '')) && !a.classList.contains('active'));
+
+    function makeBtn({ href, label, icon, active }) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `mobile-tabbtn${active ? ' active' : ''}`;
+        b.setAttribute('data-icon', icon);
+        b.innerHTML = `<span class="mobile-tabicon"></span><span class="mobile-tabtxt">${label}</span>`;
+        b.addEventListener('click', () => { window.location.href = href; });
+        return b;
+    }
+
+    chosen.slice(0, 4).forEach((t) => bar.appendChild(makeBtn(t)));
+
+    const moreBtn = document.createElement('button');
+    moreBtn.type = 'button';
+    moreBtn.className = 'mobile-tabbtn';
+    moreBtn.setAttribute('data-icon', 'more');
+    moreBtn.innerHTML = `<span class="mobile-tabicon"></span><span class="mobile-tabtxt">More</span>`;
+    moreBtn.addEventListener('click', () => {
+        const sheet = findNavMenu();
+        if (!sheet) return;
+        const next = !sheet.classList.contains('open');
+        sheet.classList.toggle('open', next);
+        const togg = document.getElementById('navToggle');
+        if (togg) togg.setAttribute('aria-expanded', String(next));
+    });
+    bar.appendChild(moreBtn);
+
+    document.body.appendChild(bar);
 }
 
 async function enforceServiceCategoryAccess() {
@@ -571,10 +671,15 @@ async function enforceServiceCategoryAccess() {
         const cat = serviceCategoryOf(me.userData);
         document.body.dataset.serviceCategory = cat;
         filterNavMenuByServiceCategory(cat);
+        buildMobileTabbar(cat);
 
         const pageCat = categorizeUserPage(window.location && window.location.pathname ? window.location.pathname : '');
+        if (pageCat === 'ADMIN') {
+            window.location.replace(cat === 'LOGISTICS' ? '/logistics/dashboard/index.html' : '/flights/dashboard/index.html');
+            return;
+        }
         if (pageCat && pageCat !== cat) {
-            window.location.replace(cat === 'LOGISTICS' ? '/logistics/dashboard.html' : '/flight/dashboard.html');
+            window.location.replace(cat === 'LOGISTICS' ? '/logistics/dashboard/index.html' : '/flights/dashboard/index.html');
         }
     } catch {}
 }

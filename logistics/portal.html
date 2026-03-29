@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Delivery Network</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+    <style>
+        .lgx-grid{
+            display:grid;
+            grid-template-columns: 1fr 1fr;
+            gap:14px;
+            margin-top:14px;
+        }
+        @media (max-width: 900px){
+            .lgx-grid{ grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <div class="container" style="max-width: 1040px; padding-top: 36px;">
+        <div class="card" style="padding: 22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <img class="trip-logo" src="/logo.png" alt="TRIP Logistics" style="width:42px; height:42px;">
+                    <div>
+                        <div style="font-weight:1000; font-size:1.25rem; letter-spacing:-0.7px;">TRIP Logistics</div>
+                        <div style="color:var(--text-dim); font-weight:800; margin-top:3px;">Local and international delivery operations</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <a class="btn-secondary" href="/auth/courier.html">Courier Login</a>
+                    <a class="btn-prime" href="/auth/flight.html">Flights Portal</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+            <div style="font-weight:1000; font-size:1.35rem; letter-spacing:-0.8px;">Ship smarter. Deliver faster.</div>
+            <div style="margin-top:10px; color:var(--text-dim); font-weight:800; line-height:1.45;">
+                From intra-city dispatch to cross-border freight, TRIP Logistics provides end-to-end visibility, milestone tracking, and compliant documentation for every shipment.
+            </div>
+            <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+                <a class="btn-prime" href="/auth/courier.html">Access Courier Dashboard</a>
+                <a class="btn-secondary" href="/logistics/waybill.html">Open Digital Waybill</a>
+            </div>
+        </div>
+
+        <div class="lgx-grid">
+            <div class="card">
+                <div style="font-weight:1000; letter-spacing:-0.4px;">Local Delivery</div>
+                <div style="margin-top:10px; color:var(--text-dim); font-weight:800; line-height:1.45;">
+                    Same-day and next-day distribution with optimized routing, milestone scanning, and delivery proof capture.
+                </div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <span class="badge-pill" style="border-color:rgba(16,185,129,0.25); color:var(--success); background:rgba(16,185,129,0.10);">Dispatch</span>
+                    <span class="badge-pill" style="border-color:rgba(56,189,248,0.25); color:rgba(56,189,248,1); background:rgba(56,189,248,0.10);">Hubs</span>
+                    <span class="badge-pill" style="border-color:rgba(225,29,72,0.25); color:var(--accent); background:rgba(225,29,72,0.10);">Proof of Delivery</span>
+                </div>
+            </div>
+            <div class="card">
+                <div style="font-weight:1000; letter-spacing:-0.4px;">International Freight</div>
+                <div style="margin-top:10px; color:var(--text-dim); font-weight:800; line-height:1.45;">
+                    Border-ready workflows for air, sea, and land freight with shipment compliance checks and secure document handling.
+                </div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <span class="badge-pill" style="border-color:rgba(245,158,11,0.25); color:var(--warning); background:rgba(245,158,11,0.10);">Customs</span>
+                    <span class="badge-pill" style="border-color:rgba(99,102,241,0.25); color:rgba(99,102,241,1); background:rgba(99,102,241,0.12);">Track & Trace</span>
+                    <span class="badge-pill" style="border-color:rgba(226,232,240,0.20); color:var(--text-dim); background:rgba(2,6,23,0.12);">Secure Documents</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+            <div style="font-weight:1000; letter-spacing:-0.4px;">Courier tools</div>
+            <div style="margin-top:10px; color:var(--text-dim); font-weight:800; line-height:1.45;">
+                Manage shipments, view milestones, submit KYC and indemnity where required, and share a waybill with one-time QR access.
+            </div>
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+                <a class="btn-secondary" href="/logistics/requests.html">Create Request</a>
+                <a class="btn-secondary" href="/logistics/kyc.html">KYC</a>
+                <a class="btn-secondary" href="/logistics/indemnity.html">Indemnity</a>
+                <a class="btn-secondary" href="/logistics/submissions.html">Submissions</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/assets/js/appwrite.js"></script>
+    <script src="/assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const active = sessionStorage.getItem('active_session');
+                if (active && typeof userMe === 'function') {
+                    const me = await userMe().catch(() => null);
+                    const cat = me && me.userData ? serviceCategoryOf(me.userData) : null;
+                    if (cat === 'FLIGHT') {
+                        sessionStorage.setItem('system', 'flights');
+                        window.location.replace('/flights/dashboard/index.html');
+                        return;
+                    }
+                    if (cat === 'LOGISTICS') {
+                        sessionStorage.setItem('system', 'logistics');
+                    }
+                }
+            } catch {}
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>

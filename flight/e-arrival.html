@@ -50,7 +50,6 @@
                     <div>
                         <div class="ticket-k">Passenger</div>
                         <div class="ticket-passenger" id="dispName">—</div>
-                        <div class="ticket-small">Passenger ID: <span id="dispUser">—</span></div>
                     </div>
                     <div class="ticket-grid-mini">
                         <div><div class="ticket-k">PNR</div><div class="ticket-v" id="pnr">—</div></div>
@@ -143,7 +142,6 @@
                 document.getElementById('routeTxt').textContent = `${from}-${to}`;
                 document.getElementById('termTxt').textContent = b.terminal || '—';
                 document.getElementById('dispName').textContent = user.passengerName || username;
-                document.getElementById('dispUser').textContent = username;
                 document.getElementById('flightNo').textContent = s.flightNo || `${from}-${to}`;
                 document.getElementById('pnr').textContent = s.pnr || '—';
                 document.getElementById('dest').textContent = to;
@@ -165,4 +163,3 @@
     </script>
 </body>
 </html>
-

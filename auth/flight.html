@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRIP | Login</title>
+    <title>TRIP Flights | Login</title>
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
 <body>
     <div class="login-shell">
         <div class="login-card">
             <div class="login-brand">
-                <img class="trip-logo" src="/logo.png" alt="TRIP">
+                <img class="trip-logo" src="/logo.png" alt="TRIP Flights">
                 <div>
-                    <h1>TRIP</h1>
-                    <div style="color:var(--text-dim); font-weight:700; font-size:0.8rem; margin-top:2px;">Secure Gateway</div>
+                    <h1>TRIP Flights</h1>
+                    <div style="color:var(--text-dim); font-weight:700; font-size:0.8rem; margin-top:2px;">Passenger Access</div>
                 </div>
             </div>
 
@@ -59,6 +59,11 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const form = document.getElementById('loginForm');
             const msg = document.getElementById('loginMsg');
+            try {
+                const p = new URLSearchParams(window.location.search);
+                const u = String(p.get('u') || '').trim();
+                if (u) document.getElementById('username').value = u;
+            } catch {}
 
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -73,10 +78,18 @@
                 try {
                     const out = await userLogin(username, pin);
                     sessionStorage.setItem('active_session', out && out.username ? out.username : username);
+                    sessionStorage.setItem('system', 'flights');
                     const me = await userMe();
                     const cat = serviceCategoryOf(me && me.userData);
-                    sessionStorage.setItem('system', cat === 'LOGISTICS' ? 'logistics' : 'flights');
-                    window.location.href = cat === 'LOGISTICS' ? '/logistics/dashboard/index.html' : '/flights/dashboard/index.html';
+                    if (cat !== 'FLIGHT') {
+                        try { await userLogout(); } catch {}
+                        sessionStorage.removeItem('active_session');
+                        sessionStorage.removeItem('system');
+                        setBusy(false);
+                        msg.textContent = 'This account is not authorized for Flights access.';
+                        return;
+                    }
+                    window.location.href = '/flights/dashboard/index.html';
                 } catch (e) {
                     setBusy(false);
                     if (e && (e.status === 401 || e.status === 403)) {

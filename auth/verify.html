@@ -73,7 +73,7 @@
                     }
                     sessionStorage.removeItem('trip_verify_request_id');
                     sessionStorage.removeItem('trip_verify_debug_code');
-                    msg.textContent = 'Verified. Await Admin provisioning.';
+                    msg.textContent = 'Verified. Await account activation.';
                     setTimeout(() => window.location.href = '/auth/login.html', 900);
                 } catch {
                     msg.textContent = 'Verification failed.';

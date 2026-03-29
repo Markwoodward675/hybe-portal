@@ -1,8 +1,6 @@
 (() => {
   if (!window || !document) return;
 
-  const ADMIN_PASSCODE = 'Jagaban@1';
-
   function redirect(to) {
     window.location.href = to;
   }
@@ -85,16 +83,12 @@
     return true;
   }
 
-  function requireAdmin() {
-    const ok = sessionStorage.getItem('trip_admin_ok') === '1';
-    if (ok) return true;
-
-    const pass = window.prompt('Enter Admin Passcode');
-    if (pass === ADMIN_PASSCODE) {
-      sessionStorage.setItem('trip_admin_ok', '1');
-      return true;
-    }
-    redirect('/auth/login.html');
+  async function requireAdmin() {
+    try {
+      const res = await fetch('/api/admin/me', { credentials: 'include' });
+      if (res.ok) return true;
+    } catch {}
+    redirect('/management.html');
     return false;
   }
 

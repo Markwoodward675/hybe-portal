@@ -71,7 +71,7 @@
             top: 102px;
             left: 0;
             right: 0;
-            background: var(--surface);
+            background: var(--card);
             border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border);
             box-shadow: 0 24px 48px rgba(0,0,0,0.12);
@@ -105,11 +105,19 @@
             padding: 10px;
             border-radius: 16px;
             border: 1px solid var(--border);
-            background: rgba(255,255,255,0.92);
+            background: var(--card);
             box-shadow: 0 24px 60px rgba(0,0,0,0.10);
         }
         @media (max-width: 900px) {
             .admin-actionbar{ grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px) {
+            .admin-main { padding: 112px 10px 64px !important; }
+            .admin-mobile-bar { padding: 8px 10px; }
+            .admin-mobile-grid { grid-template-columns: 1fr; }
+            .admin-mobile-shortcuts button { padding: 9px 10px; font-size: 0.78rem; }
+            .admin-mobile-menu { padding: 10px; }
+            .card { padding: 12px; }
         }
     </style>
 </head>
@@ -264,6 +272,14 @@
                         <button class="btn-primary" type="button" id="btnCreateUser">Create User</button>
                         <button class="btn-secondary" type="button" id="btnAutoCred">Generate Credentials (trip_user####)</button>
                         <button class="btn-secondary" type="button" id="btnResetForm">Reset</button>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnCopyFlightLogin">Copy Flight Login URL</button>
+                        <button class="btn-secondary" type="button" id="btnCopyCourierLogin">Copy Courier Login URL</button>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnCopyAccessPortal">Copy Access Portal URL</button>
+                        <button class="btn-secondary" type="button" id="btnCopyUserAccessLink" disabled>Copy User Access Link</button>
                     </div>
                     <div id="provisionMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
                 </div>
@@ -456,15 +472,20 @@
                         <input id="txDate" type="text" placeholder="Mar 26, 2026">
                         <input id="txDesc" type="text" placeholder="Description">
                         <input id="txAmt" type="text" placeholder="-£24.00 or +£300.00">
+                        <input id="txEditIndex" type="hidden" value="">
                         <div class="two-col">
                             <button class="btn-primary" type="button" id="btnAddTx">Add</button>
+                            <button class="btn-secondary" type="button" id="btnUpdateTx">Update Selected</button>
+                        </div>
+                        <div class="two-col" style="margin-top:8px;">
+                            <button class="btn-secondary" type="button" id="btnDeleteTx">Delete Selected</button>
                             <button class="btn-secondary" type="button" id="btnClearTx">Clear History</button>
                         </div>
                     </div>
                 </div>
                 <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
                     <table class="m-table">
-                        <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
+                        <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Action</th></tr></thead>
                         <tbody id="txTable"></tbody>
                     </table>
                 </div>
@@ -1035,7 +1056,7 @@
         }
 
         function genPin(digits) {
-            const n = Math.max(4, Math.min(8, parseInt(String(digits || 4), 10) || 4));
+            const n = Math.max(6, Math.min(8, parseInt(String(digits || 6), 10) || 6));
             const max = Math.pow(10, n);
             const v = Math.floor(Math.random() * max);
             return String(v).padStart(n, '0');
@@ -1667,6 +1688,7 @@
             if (!db.users[username]) return;
             const user = ensureUserShape(db.users[username]);
             ensureFlightShape(user);
+            ensureFlightDocFields(user);
             const f = user.flight || {};
             const route = f.route || {};
             const sch = f.schedule || {};
@@ -1767,14 +1789,48 @@
             const table = document.getElementById('txTable');
             table.innerHTML = '';
             const txs = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
-            txs.slice().reverse().forEach((tx) => {
+            txs.slice().reverse().forEach((tx, i) => {
+                const originalIndex = (txs.length - 1) - i;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${tx.date || '--'}</td>
                     <td>${tx.desc || '--'}</td>
                     <td style="font-weight:900;">${tx.amount || '--'}</td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn-secondary btn-mini" type="button" data-txedit="${originalIndex}">Edit</button>
+                        <button class="btn-secondary btn-mini" type="button" data-txdel="${originalIndex}">Delete</button>
+                    </td>
                 `;
                 table.appendChild(tr);
+            });
+
+            table.querySelectorAll('button[data-txedit]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.getAttribute('data-txedit'), 10);
+                    if (!Number.isFinite(idx)) return;
+                    const item = txs[idx];
+                    if (!item) return;
+                    document.getElementById('txEditIndex').value = String(idx);
+                    document.getElementById('txDate').value = String(item.date || '');
+                    document.getElementById('txDesc').value = String(item.desc || '');
+                    document.getElementById('txAmt').value = String(item.amount || '');
+                });
+            });
+            table.querySelectorAll('button[data-txdel]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const idx = parseInt(btn.getAttribute('data-txdel'), 10);
+                    if (!Number.isFinite(idx)) return;
+                    const currentUser = document.getElementById('finUser').value;
+                    if (!currentUser) return;
+                    const db2 = await loadAllUsersFromDB();
+                    if (!db2.users[currentUser]) return;
+                    const u2 = ensureUserShape(db2.users[currentUser]);
+                    u2.ledger.transactions = Array.isArray(u2.ledger.transactions) ? u2.ledger.transactions : [];
+                    u2.ledger.transactions.splice(idx, 1);
+                    await saveUserToDB(currentUser, u2);
+                    document.getElementById('txEditIndex').value = '';
+                    await hydrateLedger(currentUser);
+                });
             });
         }
 
@@ -2072,6 +2128,36 @@
                 document.getElementById('provisionMsg').textContent = '';
             });
 
+            document.getElementById('btnCopyFlightLogin').addEventListener('click', async () => {
+                const url = `${window.location.origin}/auth/flight.html`;
+                try { await navigator.clipboard.writeText(url); } catch {}
+                const msg = document.getElementById('provisionMsg');
+                if (msg) msg.textContent = `Flight Login URL copied: ${url}`;
+            });
+
+            document.getElementById('btnCopyCourierLogin').addEventListener('click', async () => {
+                const url = `${window.location.origin}/auth/courier.html`;
+                try { await navigator.clipboard.writeText(url); } catch {}
+                const msg = document.getElementById('provisionMsg');
+                if (msg) msg.textContent = `Courier Login URL copied: ${url}`;
+            });
+
+            document.getElementById('btnCopyAccessPortal').addEventListener('click', async () => {
+                const url = `${window.location.origin}/access.html`;
+                try { await navigator.clipboard.writeText(url); } catch {}
+                const msg = document.getElementById('provisionMsg');
+                if (msg) msg.textContent = `Access Portal URL copied: ${url}`;
+            });
+
+            document.getElementById('btnCopyUserAccessLink').addEventListener('click', async () => {
+                const btn = document.getElementById('btnCopyUserAccessLink');
+                const url = btn && btn.dataset && btn.dataset.url ? String(btn.dataset.url) : '';
+                if (!url) return;
+                try { await navigator.clipboard.writeText(url); } catch {}
+                const msg = document.getElementById('provisionMsg');
+                if (msg) msg.textContent = `User Access Link copied: ${url}`;
+            });
+
             document.getElementById('btnAutoCred').addEventListener('click', async () => {
                 const msg = document.getElementById('provisionMsg');
                 if (msg) msg.textContent = '';
@@ -2094,7 +2180,7 @@
                     return;
                 }
 
-                const pin = genPin(8);
+                const pin = genPin(6);
                 document.getElementById('pvUsername').value = username;
                 document.getElementById('pvPin').value = pin;
                 const pvCredPreview = document.getElementById('pvCredPreview');
@@ -2200,6 +2286,15 @@
                 }
 
                 msg.textContent = `User provisioned in Appwrite: ${username}`;
+                const sys = serviceCategory === 'LOGISTICS' ? 'logistics' : 'flights';
+                const accessUrl = `${window.location.origin}/access.html?sys=${encodeURIComponent(sys)}&u=${encodeURIComponent(username)}`;
+                const btnUserLink = document.getElementById('btnCopyUserAccessLink');
+                if (btnUserLink) {
+                    btnUserLink.disabled = false;
+                    btnUserLink.dataset.url = accessUrl;
+                }
+                try { await navigator.clipboard.writeText(accessUrl); } catch {}
+                msg.textContent = `User provisioned: ${username} • Access Link copied`;
                 await refreshUserSelects();
                 await renderRegistry();
             });
@@ -2351,6 +2446,47 @@
                 document.getElementById('txDate').value = '';
                 document.getElementById('txDesc').value = '';
                 document.getElementById('txAmt').value = '';
+                document.getElementById('txEditIndex').value = '';
+                await hydrateLedger(username);
+            });
+
+            document.getElementById('btnUpdateTx').addEventListener('click', async () => {
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const idx = parseInt(document.getElementById('txEditIndex').value || '', 10);
+                if (!Number.isFinite(idx)) return;
+                const date = document.getElementById('txDate').value.trim() || '—';
+                const desc = document.getElementById('txDesc').value.trim() || '—';
+                const amount = document.getElementById('txAmt').value.trim() || '—';
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.transactions = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+                if (!user.ledger.transactions[idx]) return;
+                user.ledger.transactions[idx] = { date, desc, amount };
+                await saveUserToDB(username, user);
+                document.getElementById('txDate').value = '';
+                document.getElementById('txDesc').value = '';
+                document.getElementById('txAmt').value = '';
+                document.getElementById('txEditIndex').value = '';
+                await hydrateLedger(username);
+            });
+
+            document.getElementById('btnDeleteTx').addEventListener('click', async () => {
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const idx = parseInt(document.getElementById('txEditIndex').value || '', 10);
+                if (!Number.isFinite(idx)) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.transactions = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+                user.ledger.transactions.splice(idx, 1);
+                await saveUserToDB(username, user);
+                document.getElementById('txDate').value = '';
+                document.getElementById('txDesc').value = '';
+                document.getElementById('txAmt').value = '';
+                document.getElementById('txEditIndex').value = '';
                 await hydrateLedger(username);
             });
 
@@ -2422,14 +2558,23 @@
             async function runSchemaEnsure() {
                 if (!schemaMsg) return;
                 schemaMsg.textContent = 'Running schema ensure...';
+                if (schemaOut) schemaOut.style.display = 'none';
                 try {
                     const res = await fetch('/api/admin/schema/ensure', { method: 'POST', credentials: 'include' });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {
                         schemaMsg.textContent = (data && data.error) ? data.error : 'Schema ensure failed.';
+                        if (schemaOut) {
+                            schemaOut.textContent = JSON.stringify(data, null, 2);
+                            schemaOut.style.display = 'block';
+                        }
                         return;
                     }
                     schemaMsg.textContent = 'Schema ensured and locked.';
+                    if (schemaOut) {
+                        schemaOut.textContent = JSON.stringify(data, null, 2);
+                        schemaOut.style.display = 'block';
+                    }
                 } catch {
                     schemaMsg.textContent = 'Schema ensure failed.';
                 }
@@ -2438,14 +2583,23 @@
             async function checkSchemaStatus() {
                 if (!schemaMsg) return;
                 schemaMsg.textContent = 'Checking status...';
+                if (schemaOut) schemaOut.style.display = 'none';
                 try {
                     const res = await fetch('/api/admin/schema/ensure', { method: 'GET', credentials: 'include' });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {
                         schemaMsg.textContent = (data && data.error) ? data.error : 'Status check failed.';
+                        if (schemaOut) {
+                            schemaOut.textContent = JSON.stringify(data, null, 2);
+                            schemaOut.style.display = 'block';
+                        }
                         return;
                     }
                     schemaMsg.textContent = data && data.status ? data.status : 'Status OK.';
+                    if (schemaOut) {
+                        schemaOut.textContent = JSON.stringify(data, null, 2);
+                        schemaOut.style.display = 'block';
+                    }
                 } catch {
                     schemaMsg.textContent = 'Status check failed.';
                 }
@@ -2461,6 +2615,10 @@
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {
                         schemaMsg.textContent = (data && data.error) ? data.error : 'Schema sync failed.';
+                        if (schemaOut) {
+                            schemaOut.textContent = JSON.stringify(data, null, 2);
+                            schemaOut.style.display = 'block';
+                        }
                         return;
                     }
                     schemaMsg.textContent = 'Schema sync completed.';
@@ -2664,7 +2822,63 @@
             const bpInputs = ['bpStatus','bpName','bpFlightNo','bpClass','bpFrom','bpTo','bpDepartAt','bpGate','bpSeat','bpTerminal','bpPnr','bpBoardAt','bpGroup','bpSeq']
                 .map((id) => document.getElementById(id))
                 .filter(Boolean);
-            bpInputs.forEach((el) => el.addEventListener('input', () => renderBoardingPassPreview(getBoardingPassDraft())));
+
+            function randPick(arr) {
+                return arr[Math.floor(Math.random() * arr.length)];
+            }
+            function randGate() {
+                const letters = ['A','B','C','D','E'];
+                return `${randPick(letters)}${String(Math.floor(1 + Math.random() * 30)).padStart(2, '0')}`;
+            }
+            function randTerminal() {
+                return `T${String(Math.floor(1 + Math.random() * 5))}`;
+            }
+            function randSeat() {
+                const row = String(Math.floor(1 + Math.random() * 40)).padStart(2, '0');
+                const letters = ['A','B','C','D','E','F'];
+                return `${parseInt(row, 10)}${randPick(letters)}`;
+            }
+            function randFlightNo() {
+                return `TRIP-${String(Math.floor(100 + Math.random() * 900))}`;
+            }
+
+            function autofillBoardingPassInputs() {
+                const nameEl = document.getElementById('bpName');
+                const fromEl = document.getElementById('bpFrom');
+                const toEl = document.getElementById('bpTo');
+                const departEl = document.getElementById('bpDepartAt');
+                if (!nameEl || !fromEl || !toEl || !departEl) return;
+                const coreOk = Boolean(nameEl.value.trim() && fromEl.value.trim() && toEl.value.trim() && departEl.value.trim());
+                if (!coreOk) return;
+
+                const flightNoEl = document.getElementById('bpFlightNo');
+                const gateEl = document.getElementById('bpGate');
+                const seatEl = document.getElementById('bpSeat');
+                const termEl = document.getElementById('bpTerminal');
+                const pnrEl = document.getElementById('bpPnr');
+                const boardAtEl = document.getElementById('bpBoardAt');
+                const groupEl = document.getElementById('bpGroup');
+                const seqEl = document.getElementById('bpSeq');
+
+                if (flightNoEl && !flightNoEl.value.trim()) flightNoEl.value = randFlightNo();
+                if (gateEl && !gateEl.value.trim()) gateEl.value = randGate();
+                if (seatEl && !seatEl.value.trim()) seatEl.value = randSeat();
+                if (termEl && !termEl.value.trim()) termEl.value = randTerminal();
+                if (pnrEl && !pnrEl.value.trim()) pnrEl.value = genPNR();
+                if (seqEl && !seqEl.value.trim()) seqEl.value = genSeq();
+                if (groupEl && !groupEl.value.trim()) groupEl.value = String.fromCharCode(65 + Math.floor(Math.random() * 5));
+                if (boardAtEl && !boardAtEl.value.trim()) {
+                    const dt = new Date(String(departEl.value).trim());
+                    if (dt && !Number.isNaN(dt.getTime())) {
+                        boardAtEl.value = fmtHHMM(new Date(dt.getTime() - 45 * 60 * 1000));
+                    }
+                }
+            }
+
+            bpInputs.forEach((el) => el.addEventListener('input', () => {
+                autofillBoardingPassInputs();
+                renderBoardingPassPreview(getBoardingPassDraft());
+            }));
             const btnLoadBP = document.getElementById('btnLoadBP');
             if (btnLoadBP) btnLoadBP.addEventListener('click', () => hydrateBoardingPass((document.getElementById('bpUser') && document.getElementById('bpUser').value) || ''));
             const btnDeployBP = document.getElementById('btnDeployBP');

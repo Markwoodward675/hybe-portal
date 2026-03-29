@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRIP Logistics | Flight Form</title>
+    <title>TRIP Portal | Form</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="page-elegant" style="opacity:0;" data-user-editable="true">
     <nav class="trip-nav">
         <a href="flight.html" class="trip-brand">
-            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
-            <span>TRIP Logistics</span>
+            <img class="trip-logo" src="logo.png" alt="TRIP Portal">
+            <span>TRIP Portal</span>
         </a>
         <div class="trip-nav-right">
             <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
@@ -20,7 +20,6 @@
             <div class="trip-links" id="navMenu">
                 <a href="flight.html">Status</a>
                 <a href="passengers.html">Personnel</a>
-                <a href="tracking.html">Logistics</a>
                 <a href="ledger.html">Ledger</a>
                 <a href="bookings.html">Bookings</a>
                 <a href="form.html" class="active">Form</a>
@@ -32,7 +31,7 @@
     <div class="container" style="max-width: 980px;">
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px;">
-                <div style="font-weight:900; letter-spacing:-0.6px; font-size:1.1rem;">Flight & Logistics Service Form</div>
+                <div style="font-weight:900; letter-spacing:-0.6px; font-size:1.1rem;">Flight Service Form</div>
                 <div id="lockBadge" class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">PENDING</div>
             </div>
             <div id="formHint" style="margin-top:10px; color:var(--text-dim); font-weight:700; line-height:1.35;"></div>
@@ -44,7 +43,7 @@
                     <div class="ticket-k" style="margin-bottom:8px;">Passenger</div>
                     <div id="fPassenger" class="ticket-v" style="font-weight:900;">—</div>
                 </div>
-                <div>
+                <div style="display:none;">
                     <div class="ticket-k" style="margin-bottom:8px;">Username</div>
                     <div id="fUsername" class="ticket-v" style="font-weight:900;">—</div>
                 </div>
@@ -104,6 +103,21 @@
                 <button class="btn-primary" type="button" id="btnSubmitSig">Submit Signature</button>
             </div>
             <div id="sigMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+        </div>
+
+        <div class="card">
+            <div style="font-weight:900; letter-spacing:-0.4px;">Indemnity</div>
+            <div style="margin-top:8px; color:var(--text-dim); font-weight:700; line-height:1.35;">
+                Submit indemnity with your signature. This will be recorded as a submission for review.
+            </div>
+            <div style="margin-top:14px;" class="two-col">
+                <button class="btn-primary" type="button" id="btnSubmitIndemnity">Submit Indemnity</button>
+                <button class="btn-secondary" type="button" id="btnEraseIndemnity">Erase</button>
+            </div>
+            <div style="margin-top:10px;">
+                <button class="btn-secondary" type="button" id="btnViewIndemnity" style="display:none;">View Latest</button>
+            </div>
+            <div id="indMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
         </div>
     </div>
 
@@ -243,8 +257,8 @@
 
             const hint = document.getElementById('formHint');
             hint.textContent = locked
-                ? 'This form is locked by Admin. You may sign and submit only.'
-                : 'This form is pending Admin lock. Some details may still change.';
+                ? 'This form is locked. You may sign and submit only.'
+                : 'This form is pending lock. Some details may still change.';
 
             const sigAt = document.getElementById('sigAt');
             const sigName = document.getElementById('sigName');
@@ -262,7 +276,7 @@
                 document.getElementById('btnSubmitSig').disabled = true;
                 document.getElementById('btnClearSig').disabled = true;
                 sigName.disabled = true;
-                document.getElementById('sigMsg').textContent = 'Awaiting Admin lock. Signature disabled.';
+                document.getElementById('sigMsg').textContent = 'Awaiting lock. Signature disabled.';
             }
 
             if (f.signature && f.signature.dataUrl) {
@@ -303,9 +317,71 @@
                         body: JSON.stringify({ signatureDataUrl: pad.exportDataUrl(), name: nm })
                     });
                     msg.textContent = 'Signature submitted.';
-                    setTimeout(() => window.location.reload(), 650);
+                    document.getElementById('btnSubmitSig').disabled = true;
+                    document.getElementById('btnClearSig').disabled = true;
                 } catch {
                     msg.textContent = 'Signature submit failed.';
+                }
+            });
+
+            const indMsg = document.getElementById('indMsg');
+            const btnSubmitIndemnity = document.getElementById('btnSubmitIndemnity');
+            const btnViewIndemnity = document.getElementById('btnViewIndemnity');
+            const btnEraseIndemnity = document.getElementById('btnEraseIndemnity');
+            const subs = user.submissions && typeof user.submissions === 'object' ? user.submissions : {};
+            const indemnityArr = Array.isArray(subs.indemnity) ? subs.indemnity : [];
+            if (indemnityArr.length > 0 && btnViewIndemnity) {
+                btnViewIndemnity.style.display = 'inline-flex';
+                btnViewIndemnity.addEventListener('click', () => {
+                    const last = indemnityArr[0];
+                    if (!last || !last.signature || !last.signature.dataUrl) return;
+                    const w = window.open('', '_blank', 'width=820,height=900');
+                    if (!w) return;
+                    w.document.write(`<img src="${last.signature.dataUrl}" style="max-width:100%; height:auto;">`);
+                    w.document.close();
+                });
+            }
+
+            if (btnEraseIndemnity) btnEraseIndemnity.addEventListener('click', () => {
+                if (f.signature && f.signature.dataUrl) {
+                    if (indMsg) indMsg.textContent = 'Signature already saved.';
+                    return;
+                }
+                try { pad.clear(); } catch {}
+                if (indMsg) indMsg.textContent = 'Erased.';
+            });
+
+            if (btnSubmitIndemnity) btnSubmitIndemnity.addEventListener('click', async () => {
+                if (indMsg) indMsg.textContent = '';
+                const nm = sigName.value.trim();
+                if (!nm) {
+                    if (indMsg) indMsg.textContent = 'Enter your name in the signature section.';
+                    return;
+                }
+                const sigUrl = (f.signature && f.signature.dataUrl) ? f.signature.dataUrl : pad.exportDataUrl();
+                if (!sigUrl || (pad.isBlank() && !(f.signature && f.signature.dataUrl))) {
+                    if (indMsg) indMsg.textContent = 'Signature is required.';
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/user/submissions', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            type: 'indemnity',
+                            title: 'Indemnity',
+                            data: { agreedAt: new Date().toISOString() },
+                            signatureDataUrl: sigUrl,
+                            signatureName: nm,
+                        }),
+                    });
+                    const out = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(out && out.error ? out.error : 'submit');
+                    if (indMsg) indMsg.textContent = 'Indemnity submitted.';
+                    if (btnViewIndemnity) btnViewIndemnity.style.display = 'inline-flex';
+                } catch {
+                    if (indMsg) indMsg.textContent = 'Indemnity submit failed.';
                 }
             });
 

@@ -204,7 +204,7 @@
                         })
                     });
                     if (!res.ok) throw new Error('bad');
-                    msg.textContent = 'Indemnity submitted. Awaiting Admin review.';
+                    msg.textContent = 'Indemnity submitted. Awaiting review.';
                     document.getElementById('sigPreview').innerHTML = `<div style="font-weight:900; margin-bottom:8px;">Saved Signature</div><img src="${sigUrl}" alt="Signature" style="width:100%; max-width:520px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg);">`;
                 } catch {
                     msg.textContent = 'Submission failed.';

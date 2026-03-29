@@ -71,9 +71,9 @@
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px;">
                 <div style="font-weight:900; letter-spacing:-0.4px;">Shareable Waybill</div>
-                <div id="shareBadge" class="badge-pill" style="color:var(--text-dim); border-color:var(--border)">Admin Only</div>
+                <div id="shareBadge" class="badge-pill" style="color:var(--text-dim); border-color:var(--border)">Restricted</div>
             </div>
-            <div id="shareNote" style="margin-top:10px; color:var(--text-dim); font-weight:800;">Ask Admin to generate a one-time logistics share link.</div>
+            <div id="shareNote" style="margin-top:10px; color:var(--text-dim); font-weight:800;">Request a one-time logistics share link.</div>
             <div style="margin-top:12px;">
                 <img id="wbQr" alt="Waybill QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
             </div>
@@ -162,8 +162,8 @@
                 shareNote.textContent = 'Scan to open digital waybill.';
             } else {
                 qrImg.style.display = 'none';
-                shareBadge.textContent = 'Admin Only';
-                shareNote.textContent = oneTime.usedAt ? 'Code already used. Ask Admin for a new link.' : 'Ask Admin to generate a one-time logistics share link.';
+                shareBadge.textContent = 'Restricted';
+                shareNote.textContent = oneTime.usedAt ? 'Code already used. Request a new link.' : 'Request a one-time logistics share link.';
             }
 
             requestAnimationFrame(() => { document.body.style.opacity = '1'; });

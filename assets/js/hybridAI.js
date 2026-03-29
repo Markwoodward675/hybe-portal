@@ -5,7 +5,7 @@
   const DEFAULTS = {
     maxPassengers: 50,
     cities: ['Accra', 'London', 'Dubai', 'New York', 'Johannesburg', 'Paris', 'Amsterdam', 'Frankfurt', 'Singapore', 'Seoul'],
-    wsPath: '/ws/notifications',
+    wsPath: null,
     schemaInspect: false,
     notifications: true,
     aiPassengers: true,
@@ -81,8 +81,12 @@
   function tryWebSocket(onMessage, wsPath) {
     const handler = typeof onMessage === 'function' ? onMessage : () => {};
     try {
+      const host = String(window.location && window.location.host ? window.location.host : '');
+      if (host.endsWith('vercel.app')) return null;
+      const targetPath = wsPath || DEFAULTS.wsPath;
+      if (!targetPath) return null;
       const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const url = `${proto}://${window.location.host}${wsPath || DEFAULTS.wsPath}`;
+      const url = `${proto}://${window.location.host}${targetPath}`;
       const ws = new WebSocket(url);
       ws.addEventListener('message', (e) => {
         const data = typeof e.data === 'string' ? safeJsonParse(e.data) : null;

@@ -50,7 +50,6 @@
                     <div>
                         <div class="ticket-k">Passenger</div>
                         <div class="ticket-passenger" id="dispName">—</div>
-                        <div class="ticket-small">Session ID: <span id="dispUser">—</span></div>
                     </div>
                     <div class="ticket-grid-mini">
                         <div>
@@ -159,7 +158,6 @@
                 document.getElementById('dispCls').textContent = String(b.cabin || m.flightClass || 'Business').toUpperCase();
                 document.getElementById('dispTerminal').textContent = b.terminal || '--';
                 document.getElementById('dispName').textContent = user.passengerName || username;
-                document.getElementById('dispUser').textContent = username;
                 document.getElementById('dispFlightNo').textContent = (f.schedule && f.schedule.flightNo) ? f.schedule.flightNo : (m.flightNo || `${from}-${to}`);
                 document.getElementById('dispPnr').textContent = (f.schedule && f.schedule.pnr) ? f.schedule.pnr : '—';
                 document.getElementById('dispBoardAt').textContent = (f.schedule && f.schedule.boardAt) ? f.schedule.boardAt : '—';

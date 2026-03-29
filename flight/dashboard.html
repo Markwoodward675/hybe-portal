@@ -69,7 +69,7 @@
                     <div>
                         <div class="ticket-k">Passenger</div>
                         <div class="ticket-passenger" id="dispName">—</div>
-                        <div class="ticket-small">Session ID: <span id="dispUser">—</span></div>
+                        <div class="ticket-small" style="display:none;">Session ID: <span id="dispUser">—</span></div>
                     </div>
                     <div class="ticket-grid-mini">
                         <div>
@@ -105,7 +105,7 @@
                         <div class="ticket-k">Boarding Pass QR</div>
                         <div style="margin-top:8px;">
                             <img id="bpQr" alt="Boarding Pass QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--ticket-border); background:#fff; display:none;">
-                            <div id="bpQrNote" style="margin-top:8px; color:var(--ticket-dim); font-weight:800; font-size:0.8rem;">Admin must generate a code.</div>
+                            <div id="bpQrNote" style="margin-top:8px; color:var(--ticket-dim); font-weight:800; font-size:0.8rem;">Code not available yet.</div>
                         </div>
                     </div>
                 </div>
@@ -202,7 +202,8 @@
             document.getElementById('dispSeat').textContent = b.seat || m.seat || '--';
             document.getElementById('dispCls').textContent = String(b.cabin || m.flightClass || 'Business').toUpperCase();
             document.getElementById('dispName').textContent = user.passengerName || username;
-            document.getElementById('dispUser').textContent = username;
+            const dispUser = document.getElementById('dispUser');
+            if (dispUser) dispUser.textContent = '';
             setStatusBadge(f.status || m.status || 'PENDING');
 
             const share = f.share && typeof f.share === 'object' ? f.share : (user.share || {});
@@ -225,7 +226,7 @@
                 qrNote.textContent = 'Scan to open shared boarding pass.';
             } else {
                 qrImg.style.display = 'none';
-                qrNote.textContent = oneTime.usedAt ? 'Code already used.' : 'Admin must generate a code.';
+                qrNote.textContent = oneTime.usedAt ? 'Code already used.' : 'Code not available yet.';
             }
 
             requestAnimationFrame(() => { document.body.style.opacity = '1'; });

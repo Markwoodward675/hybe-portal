@@ -314,10 +314,15 @@ async function createIndexFor(collectionId, key, type, attributes, orders) {
 
 async function ensureIndexFor(collectionId, key, type, attributes, orders) {
   const idx = await listIndexesFor(collectionId).catch(() => []);
-  const existsKey = (idx || []).some((i) => i && i.key === key && i.status === 'available');
-  if (existsKey) return { key, status: 'exists' };
-  await createIndexFor(collectionId, key, type, attributes, orders);
-  return { key, status: 'created' };
+  const existing = (idx || []).find((i) => i && i.key === key);
+  if (existing) return { key, status: String(existing.status || 'exists') };
+  try {
+    await createIndexFor(collectionId, key, type, attributes, orders);
+    return { key, status: 'created' };
+  } catch (e) {
+    if (e && e.status === 409) return { key, status: 'exists' };
+    throw e;
+  }
 }
 
 async function getAttribute(key) {
@@ -532,24 +537,37 @@ async function ensureLivePopupsCollection() {
 }
 
 async function ensureKycBucket() {
-  if (!storageConfigured()) return;
-  const ok = await exists(`/storage/buckets/${encodeURIComponent(KYC_BUCKET_ID)}`);
-  if (ok) return;
-  await appwriteRequest('/storage/buckets', {
-    method: 'POST',
-    body: {
-      bucketId: KYC_BUCKET_ID,
-      name: 'KYC Uploads',
-      fileSecurity: true,
-      enabled: true,
-      maximumFileSize: 20 * 1024 * 1024,
-      allowedFileExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
-      compression: 'none',
-      encryption: false,
-      antivirus: false,
-      permissions: [],
-    },
-  });
+  if (!storageConfigured()) return { key: 'kyc_bucket', status: 'skipped', reason: 'not_configured' };
+  let ok = false;
+  try {
+    ok = await exists(`/storage/buckets/${encodeURIComponent(KYC_BUCKET_ID)}`);
+  } catch (e) {
+    if (e && (e.status === 401 || e.status === 403)) return { key: 'kyc_bucket', status: 'forbidden' };
+    throw e;
+  }
+  if (ok) return { key: 'kyc_bucket', status: 'exists' };
+  try {
+    await appwriteRequest('/storage/buckets', {
+      method: 'POST',
+      body: {
+        bucketId: KYC_BUCKET_ID,
+        name: 'KYC Uploads',
+        fileSecurity: true,
+        enabled: true,
+        maximumFileSize: 20 * 1024 * 1024,
+        allowedFileExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+        compression: 'none',
+        encryption: false,
+        antivirus: false,
+        permissions: [],
+      },
+    });
+    return { key: 'kyc_bucket', status: 'created' };
+  } catch (e) {
+    if (e && (e.status === 401 || e.status === 403)) return { key: 'kyc_bucket', status: 'forbidden' };
+    if (e && e.status === 409) return { key: 'kyc_bucket', status: 'exists' };
+    throw e;
+  }
 }
 
 async function uploadKycFile({ filename, contentType, buffer }) {
@@ -726,9 +744,16 @@ async function schemaSync() {
   await ensureSubmissionsCollection();
   await ensureNotificationsCollection();
   await ensureLivePopupsCollection();
-  await ensureKycBucket();
-  actions.push(await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_key', 'key', ['username'], []));
+  try { actions.push(await ensureKycBucket()); } catch {}
+  try {
+    const idx = await listIndexesFor(USERS_COLLECTION_ID).catch(() => []);
+    const hasAnyUsernameKey = (idx || []).some((i) => i && i.type === 'key' && Array.isArray(i.attributes) && i.attributes.length === 1 && String(i.attributes[0]) === 'username');
+    if (hasAnyUsernameKey) actions.push({ key: 'idx_username_key', status: 'exists' });
+    else actions.push(await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_key', 'key', ['username'], ['asc']));
+  } catch {}
   actions.push(await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_lc_unique', 'unique', ['username_lc'], []));
+  try { actions.push(await ensureIndexFor('submissions', 'idx_sub_username_key', 'key', ['username'], ['asc'])); } catch {}
+  try { actions.push(await ensureIndexFor('submissions', 'idx_sub_type_key', 'key', ['type'], ['asc'])); } catch {}
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'title', 120, true));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'message', 2000, true));
   actions.push(await ensureStringAttributeFor(NOTIFICATIONS_COLLECTION_ID, 'tone', 24, false));
@@ -766,16 +791,39 @@ function devUsersStore() {
 }
 
 function makeBookingForUser(username, userData, block) {
-  const m = userData.manifest || {};
-  const p = userData.profile || {};
-  const from = m.from || 'LHR';
-  const to = m.to || 'ICN';
-  const route = `${from}-${to}`;
-  const cls = m.flightClass || 'Business';
-  const role = p.category || 'Passenger';
-  const status = m.status || 'SCHEDULED';
+  const airports = [
+    { iata: 'LHR', city: 'London', country: 'United Kingdom' },
+    { iata: 'MAN', city: 'Manchester', country: 'United Kingdom' },
+    { iata: 'AMS', city: 'Amsterdam', country: 'Netherlands' },
+    { iata: 'CDG', city: 'Paris', country: 'France' },
+    { iata: 'FRA', city: 'Frankfurt', country: 'Germany' },
+    { iata: 'DXB', city: 'Dubai', country: 'UAE' },
+    { iata: 'DOH', city: 'Doha', country: 'Qatar' },
+    { iata: 'JFK', city: 'New York', country: 'USA' },
+    { iata: 'LAX', city: 'Los Angeles', country: 'USA' },
+    { iata: 'ICN', city: 'Seoul/Incheon', country: 'Korea' },
+    { iata: 'NRT', city: 'Tokyo/Narita', country: 'Japan' },
+    { iata: 'SIN', city: 'Singapore', country: 'Singapore' },
+    { iata: 'ZRH', city: 'Zurich', country: 'Switzerland' },
+    { iata: 'MAD', city: 'Madrid', country: 'Spain' },
+  ];
+  const firstNames = ['Isabella', 'Noah', 'Emma', 'Sofia', 'Hassan', 'Marie', 'Rina', 'Owen', 'Clare', 'David', 'Priya', 'Liam', 'Amina', 'Yuna', 'Minho', 'Arjun', 'Zara', 'Mateo', 'Leila', 'Oliver', 'Maya', 'Ethan', 'Ava', 'Lucas', 'Mina'];
+  const lastNames = ['Chen', 'Martins', 'Dubois', 'Yamamoto', 'Parker', 'Brooks', 'Shah', 'Kim', 'Singh', 'Hernandez', 'Kowalski', 'Nguyen', 'Costa', 'Nakamura', 'Alvarez', 'Patel', 'Watanabe', 'Rahman', 'Schmidt', 'Novak', 'Santos', 'Lee', 'Garcia', 'Murphy', 'Lopez'];
+  const classes = ['Economy', 'Premium', 'Business', 'First'];
+  const statuses = ['PENDING', 'CONFIRMED', 'HOLD', 'SCHEDULED'];
 
   const base = hashInt(`${username}:${block}`);
+  const pick = (arr, salt) => arr[hashInt(`${username}:${salt}:${block}`) % arr.length];
+  const fn = pick(firstNames, 'fn');
+  const ln = pick(lastNames, 'ln');
+  const name = `${fn} ${ln}`;
+  const from = pick(airports, 'from');
+  let to = pick(airports, 'to');
+  if (to.iata === from.iata) to = airports[(airports.findIndex((x) => x.iata === to.iata) + 3) % airports.length];
+  const route = `${from.iata} ${from.city} → ${to.iata} ${to.city}`;
+  const cls = pick(classes, 'cls');
+  const status = pick(statuses, 'st');
+
   const hoursAhead = 6 + (base % 67);
   const minutesOffset = hashInt(`${username}:m:${block}`) % 360;
   const ts = Date.now() + hoursAhead * 60 * 60 * 1000 + minutesOffset * 60 * 1000;
@@ -787,15 +835,11 @@ function makeBookingForUser(username, userData, block) {
   const price = clamp(220, priceBase + (hashInt(`${username}:j:${block}`) % 280) - 120, 25000) + 0.99;
 
   return {
-    id: `ADM-${username}`,
-    name: userData.passengerName || username,
-    role,
+    id: `BK-${String((hashInt(`${username}:id:${block}`) % 9000) + 1000)}`,
+    name,
     cls,
     route,
     time: `${hrs}:${mins}`,
-    date: d.toLocaleDateString(),
-    price,
-    status,
   };
 }
 
@@ -942,6 +986,9 @@ module.exports = async (req, res) => {
       const alt = String(process.env.TRIP_ADMIN_PASSCODE_ALT || 'TRIP2026').trim();
       const configured = Boolean(process.env.TRIP_ADMIN_PASSCODE);
       const usingDefault = !configured;
+      if (process.env.VERCEL && usingDefault) {
+        return send(res, 503, { ok: false, error: 'Admin passcode not configured', configured, usingDefault });
+      }
       if (passcode !== primary && passcode !== alt) return send(res, 401, { ok: false, error: 'Invalid passcode', configured, usingDefault });
       const token = createToken({ typ: 'admin', exp: Date.now() + 8 * 60 * 60 * 1000 });
       res.setHeader('set-cookie', cookieString('trip_admin', token, { maxAgeSeconds: 8 * 60 * 60, secure: isHttps(req) }));
@@ -980,7 +1027,7 @@ module.exports = async (req, res) => {
           try {
             const idx = colOk ? await listIndexesFor(USERS_COLLECTION_ID) : [];
             idxOk = (idx || []).some((i) => i && i.key === 'idx_username_lc_unique' && i.status === 'available');
-            idxUsernameOk = (idx || []).some((i) => i && i.key === 'idx_username_key' && i.status === 'available');
+            idxUsernameOk = (idx || []).some((i) => i && i.type === 'key' && Array.isArray(i.attributes) && i.attributes.length === 1 && String(i.attributes[0]) === 'username' && i.status === 'available');
           } catch {}
           const status = `DB:${dbOk ? 'OK' : 'MISSING'} • COL:${colOk ? 'OK' : 'MISSING'} • username:${hasUsername ? 'OK' : 'MISSING'} • idx_username_key:${idxUsernameOk ? 'OK' : 'MISSING'} • username_lc:${hasUsernameLc ? 'OK' : 'MISSING'} • idx_username_lc_unique:${idxOk ? 'OK' : 'MISSING'} • data:${hasData ? 'OK' : 'MISSING'} • perms:LOCKED`;
           return send(res, 200, { status });
@@ -993,20 +1040,10 @@ module.exports = async (req, res) => {
         if (!isAppwriteConfigured()) {
           return send(res, 200, { ok: true, hint: 'Skipped (Appwrite not configured in dev)' });
         }
-        await ensureDatabase();
-        await ensureCollection();
-        await lockCollectionPermissions();
-        await ensureAttributes();
-        await ensureRegistrationsCollection();
-        await ensureSubmissionsCollection();
-        await ensureNotificationsCollection();
-        await ensureLivePopupsCollection();
-        await ensureKycBucket();
-        await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_key', 'key', ['username'], []);
-        await ensureIndexFor(USERS_COLLECTION_ID, 'idx_username_lc_unique', 'unique', ['username_lc'], []);
-        return send(res, 200, { ok: true });
+        const actions = await schemaSync();
+        return send(res, 200, { ok: true, actions, ensuredAt: new Date().toISOString() });
       } catch (e) {
-        return send(res, 500, { error: e?.message || 'Schema ensure failed' });
+        return send(res, 500, { error: e?.payload?.message || e?.payload?.error || e?.message || 'Schema ensure failed', status: e?.status, details: e?.payload || null });
       }
     }
 
@@ -1051,7 +1088,7 @@ module.exports = async (req, res) => {
         }
         return send(res, 200, { databaseId: DATABASE_ID, collections });
       } catch (e) {
-        return send(res, 500, { error: e?.message || 'Schema inspect failed' });
+        return send(res, 500, { error: e?.payload?.message || e?.payload?.error || e?.message || 'Schema inspect failed', status: e?.status, details: e?.payload || null });
       }
     }
 
@@ -1064,7 +1101,7 @@ module.exports = async (req, res) => {
         const actions = await schemaSync();
         return send(res, 200, { ok: true, actions, syncedAt: new Date().toISOString() });
       } catch (e) {
-        return send(res, 500, { error: e?.message || 'Schema sync failed' });
+        return send(res, 500, { error: e?.payload?.message || e?.payload?.error || e?.message || 'Schema sync failed', status: e?.status, details: e?.payload || null });
       }
     }
 
@@ -1465,6 +1502,7 @@ module.exports = async (req, res) => {
 
       const local = findLocalUser(username);
       if (local) {
+        if (process.env.VERCEL) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
         if (normalizePin(local.pin) !== pin) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
         const token = createToken({ typ: 'user', u: String(local.username || username), src: 'local', exp: Date.now() + 6 * 60 * 60 * 1000 });
         res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
@@ -1472,6 +1510,7 @@ module.exports = async (req, res) => {
       }
 
       if (!isAppwriteConfigured()) {
+        if (process.env.VERCEL) return send(res, 503, { ok: false, error: 'Login service unavailable' });
         const u = devUsersStore()[username];
         if (!u || normalizePin(u.pin) !== pin) {
           return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
@@ -1776,7 +1815,7 @@ module.exports = async (req, res) => {
     return send(res, 404, { error: 'Not found' });
   }
 
-    if (scope === 'public') {
+  if (scope === 'public') {
     if (action === 'verify' && parts[2] === 'request') {
       if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
       const body = await readJson(req).catch(() => ({}));
@@ -2010,19 +2049,32 @@ module.exports = async (req, res) => {
 
       const block = Math.floor(Date.now() / (15 * 60 * 1000));
       const docs = await listAllUserDocs(500);
-      const items = docs
+      const itemsRaw = docs
         .map((doc) => ({ username: doc.username, userData: parseUserData(doc) }))
         .filter((x) => x.username && x.userData)
         .map((x) => makeBookingForUser(x.username, x.userData, block))
-        .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+      const used = new Set();
+      const items = itemsRaw.map((it) => {
+        const n = String(it.name || '');
+        if (!used.has(n)) {
+          used.add(n);
+          return it;
+        }
+        const suffix = (hashInt(`${it.id}:${block}:dedupe`) % 90) + 10;
+        const nn = `${n} ${suffix}`;
+        used.add(nn);
+        return { ...it, name: nn };
+      });
 
       return send(res, 200, { items, block });
     }
 
     return send(res, 404, { error: 'Not found' });
   }
-
-    return send(res, 404, { error: 'Not found' });
+  
+  return send(res, 404, { error: 'Not found' });
   } catch (e) {
     try {
       if (!res.headersSent) {
