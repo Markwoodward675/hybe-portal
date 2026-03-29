@@ -88,7 +88,7 @@
       const res = await fetch('/api/admin/me', { credentials: 'include' });
       if (res.ok) return true;
     } catch {}
-    redirect('/management.html');
+    redirect('/admin/login');
     return false;
   }
 

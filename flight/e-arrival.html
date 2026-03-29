@@ -66,6 +66,14 @@
                     </div>
                     <div style="width: 220px; height: 48px; border-radius: 12px; border:1px solid rgba(11, 18, 32, 0.18); background: repeating-linear-gradient(90deg, rgba(11,18,32,0.85) 0, rgba(11,18,32,0.85) 2px, transparent 2px, transparent 6px);"></div>
                 </div>
+
+                <div style="margin-top:12px; border-top:1px dashed rgba(11, 18, 32, 0.18); padding-top:12px; display:flex; justify-content:space-between; gap:12px; align-items:end; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:220px;">
+                        <div class="ticket-k">Signature</div>
+                        <div class="ticket-v" style="font-weight:900;" id="sigNameTxt">—</div>
+                    </div>
+                    <img id="sigImg" alt="Signature" style="width:220px; height:56px; object-fit:contain; border-bottom:1px solid rgba(11, 18, 32, 0.18); display:none;">
+                </div>
             </div>
             <div class="ticket-8k__stub">
                 <div class="stub-meta">
@@ -119,6 +127,15 @@
             badge.style.background = c === 'var(--success)' ? 'rgba(16,185,129,0.10)' : (c === 'var(--danger)' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)');
         }
 
+        function pickSignature(user) {
+            const form = user && user.form && typeof user.form === 'object' ? user.form : null;
+            if (form && form.signature && form.signature.dataUrl) return form.signature;
+            const subs = user && user.submissions && typeof user.submissions === 'object' ? user.submissions : null;
+            const arr = subs && Array.isArray(subs.indemnity) ? subs.indemnity : [];
+            if (arr[0] && arr[0].signature && arr[0].signature.dataUrl) return arr[0].signature;
+            return null;
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const u = q('u');
             const key = q('k');
@@ -150,6 +167,21 @@
                 document.getElementById('arrWindow').textContent = s.departAt ? `Arrival after ${s.departAt}` : '—';
 
                 setStatusBadge(f.status || 'PENDING');
+
+                const sig = pickSignature(user);
+                const sigNameTxt = document.getElementById('sigNameTxt');
+                const sigImg = document.getElementById('sigImg');
+                if (sig && sig.dataUrl) {
+                    if (sigNameTxt) sigNameTxt.textContent = sig.name ? String(sig.name) : '—';
+                    if (sigImg) {
+                        sigImg.src = sig.dataUrl;
+                        sigImg.style.display = 'block';
+                    }
+                } else {
+                    if (sigNameTxt) sigNameTxt.textContent = '—';
+                    if (sigImg) sigImg.style.display = 'none';
+                }
+
                 card.style.display = 'grid';
             } catch {
                 errCard.style.display = 'block';

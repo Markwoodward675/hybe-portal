@@ -1785,6 +1785,15 @@ module.exports = async (req, res) => {
         };
 
         userData.submissions[type].unshift(item);
+
+        if (needsSig) {
+          userData.form = userData.form && typeof userData.form === 'object' ? userData.form : {};
+          userData.form.signature = {
+            dataUrl: signatureDataUrl,
+            name: signatureName,
+            signedAt: item.signature.signedAt,
+          };
+        }
         await upsertUser(doc.username, userData);
 
         try {

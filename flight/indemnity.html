@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Airways | Indemnity</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="page-elegant" style="opacity:0;" data-user-editable="true">
+    <nav class="trip-nav">
+        <a href="/flight/dashboard.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Airways">
+            <span>TRIP Airways</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="/flight/dashboard.html">Status</a>
+                <a href="/flight/outbound.html">Outbound</a>
+                <a href="/flight/ledger.html">Ledger</a>
+                <a href="/flight/indemnity.html" class="active">Indemnity</a>
+                <a href="/scan.html">Scan QR</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="card">
+            <div class="form-head">
+                <h2>Passenger Indemnity</h2>
+                <div class="badge-pill" style="color:var(--text-dim); border-color:var(--border);">SIGNATURE</div>
+            </div>
+            <p class="form-sub">Sign once. Your signature will be applied to your boarding documents.</p>
+            <div class="progress"><div id="prog"></div></div>
+        </div>
+
+        <div class="card">
+            <form id="indForm" class="tech-form">
+                <div style="font-weight:900; letter-spacing:-0.4px;">Declaration</div>
+
+                <div class="field">
+                    <input id="fullName" type="text" placeholder=" " required>
+                    <label for="fullName">Full Name</label>
+                    <div class="help">Matches your registered identity.</div>
+                    <div class="err">Required.</div>
+                </div>
+
+                <div class="field">
+                    <input id="email" type="email" placeholder=" ">
+                    <label for="email">Email (optional)</label>
+                    <div class="help">Used for status updates when available.</div>
+                </div>
+
+                <div class="field">
+                    <textarea id="terms" rows="6" placeholder=" " readonly></textarea>
+                    <label for="terms">Indemnity Terms</label>
+                    <div class="help">Review and sign to acknowledge.</div>
+                </div>
+
+                <div style="margin-top:6px; font-weight:900; letter-spacing:-0.4px;">Signature</div>
+                <canvas id="sig" class="sig-pad" width="920" height="220"></canvas>
+                <div class="two-col">
+                    <div class="field">
+                        <input id="sigName" type="text" placeholder=" " required>
+                        <label for="sigName">Signed Name</label>
+                        <div class="help">Enter your full name.</div>
+                        <div class="err">Required.</div>
+                    </div>
+                    <div>
+                        <div class="help" style="margin-top:8px;">Draw signature using touch or mouse.</div>
+                        <button class="btn-secondary" type="button" id="btnClearSig" style="margin-top:10px; width:100%;">Erase</button>
+                    </div>
+                </div>
+
+                <div class="two-col">
+                    <button class="btn-secondary" type="button" id="btnReset">Reset</button>
+                    <button class="btn-primary" type="submit" id="btnSubmit">Submit Indemnity</button>
+                </div>
+                <div id="msg" style="color:var(--text-dim); font-weight:900; min-height:22px;"></div>
+                <div id="sigPreview" style="margin-top:10px;"></div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script src="/assets/js/app.js"></script>
+    <script>
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            sessionStorage.removeItem('system');
+            window.location.href = '/access.html';
+        }
+
+        function setupNav() {
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+        }
+
+        function statusPill(ok) {
+            const el = document.getElementById('sessionPill');
+            if (!el) return;
+            el.textContent = ok ? 'SERVER ACTIVE' : 'SESSION EXPIRED';
+            const color = ok ? 'var(--success)' : 'var(--danger)';
+            const bg = ok ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)';
+            el.style.color = color;
+            el.style.borderColor = color;
+            el.style.background = bg;
+        }
+
+        function sigCacheKey(username) {
+            return `trip_sig:${String(username || '').toLowerCase()}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle();
+            setupNav();
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            if (!enforceSystemAccess('flights')) return;
+            const me = await protectRoute();
+            if (!me) return;
+            try { await requireServiceCategory('FLIGHT'); } catch {}
+            statusPill(true);
+
+            const username = me.username;
+            const user = me.userData || {};
+            const pad = createSignaturePad(document.getElementById('sig'));
+            const form = document.getElementById('indForm');
+            const msg = document.getElementById('msg');
+            const prog = document.getElementById('prog');
+
+            document.getElementById('terms').value =
+                'I acknowledge and accept responsibility for compliance with travel requirements and the accuracy of information provided. ' +
+                'I agree to indemnify and hold harmless the service provider for claims arising from incorrect details, delays, or non-compliance, ' +
+                'to the extent permitted by applicable law.';
+
+            function loadCachedSig() {
+                try {
+                    const raw = localStorage.getItem(sigCacheKey(username));
+                    if (!raw) return null;
+                    const it = JSON.parse(raw);
+                    if (!it || !it.dataUrl || !String(it.dataUrl).startsWith('data:image/png;base64,')) return null;
+                    return it;
+                } catch {
+                    return null;
+                }
+            }
+
+            function applySig(dataUrl) {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.getElementById('sig');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                };
+                img.src = dataUrl;
+            }
+
+            function validate() {
+                const fields = [
+                    ['fullName', (v) => Boolean(v.trim())],
+                    ['sigName', (v) => Boolean(v.trim())],
+                ];
+                let ok = 0;
+                fields.forEach(([id, fn]) => {
+                    const el = document.getElementById(id);
+                    const good = fn(el.value);
+                    el.parentElement.classList.toggle('invalid', !good);
+                    if (good) ok += 1;
+                });
+                const sigOk = !pad.isBlank();
+                if (sigOk) ok += 1;
+                prog.style.width = `${Math.round((ok / (fields.length + 1)) * 100)}%`;
+                return ok === (fields.length + 1);
+            }
+
+            async function fillProfile() {
+                try {
+                    document.getElementById('fullName').value = user.fullName || user.passengerName || '';
+                    document.getElementById('email').value = (user.profile && user.profile.email) ? String(user.profile.email) : (user.email || '');
+                    document.getElementById('sigName').value = user.fullName || user.passengerName || '';
+                } catch {}
+            }
+            await fillProfile();
+
+            const cached = loadCachedSig();
+            if (cached && cached.dataUrl) {
+                applySig(cached.dataUrl);
+                if (cached.name && !document.getElementById('sigName').value.trim()) document.getElementById('sigName').value = cached.name;
+            }
+
+            document.getElementById('btnClearSig').addEventListener('click', () => {
+                pad.clear();
+                msg.textContent = '';
+                validate();
+            });
+
+            ['input', 'change', 'blur'].forEach((evt) => {
+                form.addEventListener(evt, () => validate(), true);
+            });
+            validate();
+
+            document.getElementById('btnReset').addEventListener('click', () => {
+                pad.clear();
+                msg.textContent = '';
+                validate();
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                msg.textContent = '';
+                if (!validate()) {
+                    msg.textContent = 'Fix the highlighted fields and provide signature.';
+                    return;
+                }
+                document.getElementById('btnSubmit').disabled = true;
+                try {
+                    const sigUrl = pad.exportDataUrl();
+                    const sigName = document.getElementById('sigName').value.trim();
+                    const res = await fetch('/api/user/submissions', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            type: 'indemnity',
+                            title: 'Indemnity',
+                            data: {
+                                fullName: document.getElementById('fullName').value.trim(),
+                                email: document.getElementById('email').value.trim(),
+                                terms: document.getElementById('terms').value.trim(),
+                            },
+                            signatureDataUrl: sigUrl,
+                            signatureName: sigName
+                        })
+                    });
+                    const out = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(out && out.error ? out.error : 'bad');
+                    try {
+                        localStorage.setItem(sigCacheKey(username), JSON.stringify({ dataUrl: sigUrl, name: sigName, signedAt: new Date().toISOString() }));
+                    } catch {}
+                    msg.textContent = 'Signature saved and applied.';
+                    document.getElementById('sigPreview').innerHTML = `<div style="font-weight:900; margin-bottom:8px;">Saved Signature</div><img src="${sigUrl}" alt="Signature" style="width:100%; max-width:520px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg);">`;
+                } catch {
+                    msg.textContent = 'Submission failed.';
+                } finally {
+                    document.getElementById('btnSubmit').disabled = false;
+                }
+            });
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>

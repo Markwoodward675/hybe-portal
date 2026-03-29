@@ -77,6 +77,16 @@
                     <div><div class="ticket-k">Board</div><div class="ticket-v" id="dispBoardAt">—</div></div>
                     <div><div class="ticket-k">Group</div><div class="ticket-v" id="dispGroup">—</div></div>
                 </div>
+
+                <div class="ticket-grid-mini" style="margin-top:12px; grid-template-columns: 1fr;">
+                    <div>
+                        <div class="ticket-k">Signature</div>
+                        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-top:6px;">
+                            <div class="ticket-v" id="sigNameTxt">—</div>
+                            <img id="sigImg" alt="Signature" style="width:200px; height:56px; object-fit:contain; border-bottom:1px solid var(--border); display:none;">
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="ticket-8k__stub">
                 <div class="stub-meta">
@@ -130,6 +140,15 @@
             badge.style.background = c === 'var(--success)' ? 'rgba(16,185,129,0.10)' : (c === 'var(--danger)' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)');
         }
 
+        function pickSignature(user) {
+            const f = user && user.form && typeof user.form === 'object' ? user.form : null;
+            if (f && f.signature && f.signature.dataUrl) return f.signature;
+            const subs = user && user.submissions && typeof user.submissions === 'object' ? user.submissions : null;
+            const arr = subs && Array.isArray(subs.indemnity) ? subs.indemnity : [];
+            if (arr[0] && arr[0].signature && arr[0].signature.dataUrl) return arr[0].signature;
+            return null;
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const u = q('u');
             const tc = q('tc');
@@ -164,6 +183,20 @@
                 document.getElementById('dispGroup').textContent = (b && b.group) ? b.group : '—';
                 setStatusBadge(f.status || m.status || 'PENDING');
                 document.getElementById('trackingCode').textContent = key || tc || '—';
+
+                const sig = pickSignature(user);
+                const sigNameTxt = document.getElementById('sigNameTxt');
+                const sigImg = document.getElementById('sigImg');
+                if (sig && sig.dataUrl) {
+                    if (sigNameTxt) sigNameTxt.textContent = sig.name ? String(sig.name) : '—';
+                    if (sigImg) {
+                        sigImg.src = sig.dataUrl;
+                        sigImg.style.display = 'block';
+                    }
+                } else {
+                    if (sigNameTxt) sigNameTxt.textContent = '—';
+                    if (sigImg) sigImg.style.display = 'none';
+                }
 
                 bp.style.display = 'grid';
             } catch (e) {

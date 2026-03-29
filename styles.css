@@ -46,6 +46,9 @@
 * { box-sizing: border-box; transition: all 0.3s ease; }
 body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
 
+img, video, iframe { max-width: 100%; height: auto; }
+svg { max-width: 100%; height: auto; }
+
 .session-pill { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.6px; text-transform: uppercase; }
 
 .page-elegant {
@@ -507,6 +510,7 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
 .admin-main { padding: 120px 26px 60px; }
 .admin-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .admin-row-1 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.admin-row > *, .admin-row-1 > * { min-width: 0; }
 .m-table { width: 100%; border-collapse: collapse; }
 .m-table th, .m-table td { border-bottom: 1px solid var(--border); padding: 14px 12px; text-align: left; }
 .m-table th { color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; }
@@ -526,6 +530,7 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
 }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.two-col > *, .three-col > * { min-width: 0; }
 .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-responsive table { min-width: 860px; }
 
@@ -553,28 +558,30 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
     border: 1px solid var(--border);
     border-radius: 18px;
     background: rgba(0,0,0,0.02);
+    min-width: 0;
 }
 .booking-item .bk-name { font-weight: 900; letter-spacing: -0.4px; }
 .booking-item .bk-meta { color: var(--text-dim); font-weight: 800; font-size: 0.85rem; }
 .booking-item .bk-price { font-weight: 900; text-align: right; }
 .booking-item .bk-status { text-align: right; }
+.booking-item .bk-name, .booking-item .bk-meta { overflow-wrap: anywhere; }
 
 /* Mobile Adjustments */
 @media (max-width: 900px) {
     .container { margin-top: 100px; padding: 0 15px; }
-    body { padding-bottom: 78px; }
+    body { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
     .nav-toggle { display: none; }
     .trip-nav { padding: 12px 12px; }
     .trip-links {
         position: fixed;
         left: 0;
         right: 0;
-        bottom: 78px;
+        bottom: calc(78px + env(safe-area-inset-bottom));
         top: auto;
         min-width: 0;
         border-radius: 18px 18px 0 0;
         padding-top: 14px;
-        padding-bottom: 16px;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom));
         max-height: 62vh;
         overflow: auto;
         z-index: 2600;
@@ -621,7 +628,7 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
         position: fixed;
         left: 10px;
         right: 10px;
-        bottom: 10px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
         z-index: 2700;
         padding: 10px;
         border-radius: 18px;

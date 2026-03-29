@@ -334,6 +334,7 @@ function enforceUserReadonly() {
     try {
         const path = String(window.location && window.location.pathname ? window.location.pathname : '');
         if (path.startsWith('/auth/')) return;
+        if (path.startsWith('/admin/')) return;
         if (path.endsWith('/management') || path.endsWith('/management.html')) return;
         const body = document.body;
         if (!body) return;
@@ -531,6 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function categorizeUserPage(pathname) {
     const p = String(pathname || '');
+    if (p.startsWith('/admin/')) return 'ADMIN';
     if (p.endsWith('/management.html') || p === '/management.html') return 'ADMIN';
     if (p.startsWith('/flight/') || p.startsWith('/flights/')) return 'FLIGHT';
     if (p.startsWith('/logistics/') || p.startsWith('/logistics/dashboard/')) return 'LOGISTICS';
@@ -565,7 +567,6 @@ function filterNavMenuByServiceCategory(serviceCategory) {
 function shouldEnableMobileTabbar() {
     const path = String(window.location && window.location.pathname ? window.location.pathname : '');
     if (path.startsWith('/auth/')) return false;
-    if (path.endsWith('/management.html') || path === '/management.html') return false;
     const body = document.body;
     if (body && body.dataset && String(body.dataset.tabbar || '').toLowerCase() === 'off') return false;
     return true;
@@ -630,6 +631,32 @@ function buildMobileTabbar(cat) {
     const shownHrefs = new Set(chosen.map((x) => String(x.href || '')));
     const remaining = links.filter((a) => !shownHrefs.has(String(a.getAttribute('href') || '')) && !a.classList.contains('active'));
 
+    const moreSheet = document.createElement('div');
+    moreSheet.id = 'mobileMoreSheet';
+    moreSheet.className = 'trip-links';
+
+    remaining.forEach((a) => {
+        const href = String(a.getAttribute('href') || '');
+        const label = String(a.textContent || '').trim() || 'Link';
+        const item = document.createElement('a');
+        item.href = href;
+        item.textContent = label;
+        moreSheet.appendChild(item);
+    });
+
+    const signOutBtn = menu.querySelector('#signOutBtn') || menu.querySelector('button.nav-signout');
+    if (signOutBtn) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'nav-signout';
+        item.textContent = String(signOutBtn.textContent || 'Sign Out').trim() || 'Sign Out';
+        item.addEventListener('click', () => {
+            moreSheet.classList.remove('open');
+            try { signOutBtn.click(); } catch {}
+        });
+        moreSheet.appendChild(item);
+    }
+
     function makeBtn({ href, label, icon, active }) {
         const b = document.createElement('button');
         b.type = 'button';
@@ -648,15 +675,12 @@ function buildMobileTabbar(cat) {
     moreBtn.setAttribute('data-icon', 'more');
     moreBtn.innerHTML = `<span class="mobile-tabicon"></span><span class="mobile-tabtxt">More</span>`;
     moreBtn.addEventListener('click', () => {
-        const sheet = findNavMenu();
-        if (!sheet) return;
-        const next = !sheet.classList.contains('open');
-        sheet.classList.toggle('open', next);
-        const togg = document.getElementById('navToggle');
-        if (togg) togg.setAttribute('aria-expanded', String(next));
+        const next = !moreSheet.classList.contains('open');
+        moreSheet.classList.toggle('open', next);
     });
     bar.appendChild(moreBtn);
 
+    document.body.appendChild(moreSheet);
     document.body.appendChild(bar);
 }
 
@@ -686,6 +710,107 @@ async function enforceServiceCategoryAccess() {
 
 document.addEventListener('DOMContentLoaded', () => {
     enforceServiceCategoryAccess();
+});
+
+function buildAdminMobileTabbar() {
+    try {
+        if (document.getElementById('adminTabbar')) return;
+        const menu = document.querySelector('.admin-menu');
+        if (!menu) return;
+
+        const bar = document.createElement('div');
+        bar.id = 'adminTabbar';
+        bar.className = 'mobile-tabbar';
+
+        const sheet = document.createElement('div');
+        sheet.id = 'adminMoreSheet';
+        sheet.className = 'trip-links';
+
+        const targets = Array.from(menu.querySelectorAll('button[data-target]')).map((b) => ({
+            target: String(b.getAttribute('data-target') || ''),
+            label: String(b.textContent || '').trim() || 'Section',
+            button: b,
+        })).filter((x) => x.target);
+
+        const primary = [
+            { key: 'secProvision', label: 'Users', icon: 'grid' },
+            { key: 'secManifest', label: 'Manifest', icon: 'doc' },
+            { key: 'secFinancial', label: 'Finance', icon: 'wallet' },
+            { key: 'secBoardingPass', label: 'Docs', icon: 'scan' },
+        ];
+
+        function setActiveFromMenu() {
+            const active = menu.querySelector('button.active[data-target]');
+            const t = active ? String(active.getAttribute('data-target') || '') : '';
+            bar.querySelectorAll('.mobile-tabbtn').forEach((btn) => btn.classList.remove('active'));
+            const match = t ? bar.querySelector(`.mobile-tabbtn[data-target="${CSS.escape(t)}"]`) : null;
+            if (match) match.classList.add('active');
+        }
+
+        function makeBtn(label, icon, target) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'mobile-tabbtn';
+            b.setAttribute('data-icon', icon);
+            if (target) b.setAttribute('data-target', target);
+            b.innerHTML = `<span class="mobile-tabicon"></span><span class="mobile-tabtxt">${label}</span>`;
+            b.addEventListener('click', () => {
+                sheet.classList.remove('open');
+                if (target) {
+                    const src = menu.querySelector(`button[data-target="${CSS.escape(target)}"]`);
+                    if (src) src.click();
+                    setActiveFromMenu();
+                }
+            });
+            return b;
+        }
+
+        primary.forEach((p) => {
+            const exists = targets.some((t) => t.target === p.key);
+            if (exists) bar.appendChild(makeBtn(p.label, p.icon, p.key));
+        });
+        const shownTargets = new Set(primary.map((p) => p.key).filter((k) => targets.some((t) => t.target === k)));
+
+        const moreBtn = document.createElement('button');
+        moreBtn.type = 'button';
+        moreBtn.className = 'mobile-tabbtn';
+        moreBtn.setAttribute('data-icon', 'more');
+        moreBtn.innerHTML = `<span class="mobile-tabicon"></span><span class="mobile-tabtxt">More</span>`;
+        moreBtn.addEventListener('click', () => {
+            const next = !sheet.classList.contains('open');
+            sheet.classList.toggle('open', next);
+        });
+        bar.appendChild(moreBtn);
+
+        targets.forEach((t) => {
+            if (shownTargets.has(t.target)) return;
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'nav-signout';
+            item.textContent = t.label;
+            item.addEventListener('click', () => {
+                sheet.classList.remove('open');
+                t.button.click();
+                setActiveFromMenu();
+            });
+            sheet.appendChild(item);
+        });
+
+        document.body.appendChild(sheet);
+        document.body.appendChild(bar);
+
+        menu.addEventListener('click', (e) => {
+            const btn = e.target && e.target.closest ? e.target.closest('button[data-target]') : null;
+            if (!btn) return;
+            setActiveFromMenu();
+        });
+
+        setActiveFromMenu();
+    } catch {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    buildAdminMobileTabbar();
 });
 
 async function adminLogin(passcode) {
