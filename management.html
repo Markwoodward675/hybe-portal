@@ -10,21 +10,20 @@
     <style>
         @media (max-width: 900px) {
             body { overflow-x: hidden; }
-            .trip-nav { flex-wrap: wrap; height: auto; padding: 10px 12px; }
-            .trip-nav-right { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+            .trip-nav { flex-wrap: nowrap; height: auto; padding: 10px 12px; }
+            .trip-nav-right { width: auto; justify-content: flex-end; flex-wrap: nowrap; gap: 10px; }
             .trip-nav-right > div { display: none; }
             .admin-shell { grid-template-columns: 1fr !important; }
             .admin-sidebar { display: none !important; }
-            .admin-mobile-bar { display: flex !important; }
+            .admin-mobile-bar { display: none !important; }
+            .admin-mobile-menu { display: none !important; }
             .admin-main { padding: 120px 12px 70px !important; }
             .admin-row { grid-template-columns: 1fr !important; }
             .two-col, .three-col { grid-template-columns: 1fr !important; }
             .card { padding: 14px; }
             .login-card { width: min(440px, calc(100vw - 24px)); }
-            .admin-mobile-bar { top: 74px; }
-            .admin-mobile-menu { top: auto; bottom: 0; max-height: 60vh; overflow: auto; border-radius: 16px 16px 0 0; }
-            .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
-            .table-wrap .m-table { min-width: 860px; }
+            .table-wrap { overflow-x: hidden !important; }
+            .table-wrap .m-table { min-width: 0 !important; }
         }
         .admin-mobile-bar {
             display: none;
@@ -152,8 +151,9 @@
             <span>TRIP Logistics</span>
         </a>
         <div class="trip-nav-right">
-            <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Admin Command Center</div>
+            <div id="adminHeaderTitle" style="color:var(--text-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Admin Command Center</div>
             <span id="adminSessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">ADMIN</span>
+            <button class="nav-signout theme-toggle" id="adminThemeToggle" type="button" aria-label="Toggle theme"></button>
             <button class="nav-toggle" id="adminMobileToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
             <button class="nav-signout" id="adminSignOutBtn" type="button">Exit Admin</button>
         </div>
@@ -271,7 +271,7 @@
 
                     <div class="three-col" style="margin-top:10px;">
                         <button class="btn-primary" type="button" id="btnCreateUser">Create User</button>
-                        <button class="btn-secondary" type="button" id="btnAutoCred">Generate Credentials (trip_user####)</button>
+                        <button class="btn-secondary" type="button" id="btnAutoCred">Generate Credentials (Trip_user####)</button>
                         <button class="btn-secondary" type="button" id="btnResetForm">Reset</button>
                     </div>
                     <div class="two-col" style="margin-top:10px;">
@@ -1794,10 +1794,10 @@
                 const originalIndex = (txs.length - 1) - i;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${tx.date || '--'}</td>
-                    <td>${tx.desc || '--'}</td>
-                    <td style="font-weight:900;">${tx.amount || '--'}</td>
-                    <td style="white-space:nowrap;">
+                    <td data-label="Date">${tx.date || '--'}</td>
+                    <td data-label="Description">${tx.desc || '--'}</td>
+                    <td data-label="Amount" style="font-weight:900;">${tx.amount || '--'}</td>
+                    <td data-label="Action" style="white-space:nowrap;">
                         <button class="btn-secondary btn-mini" type="button" data-txedit="${originalIndex}">Edit</button>
                         <button class="btn-secondary btn-mini" type="button" data-txdel="${originalIndex}">Delete</button>
                     </td>
@@ -1995,6 +1995,7 @@
         let onUserChange = () => {};
 
         document.addEventListener('DOMContentLoaded', async () => {
+            try { initThemeToggle('adminThemeToggle'); } catch {}
             const ok = await requireAdminSession();
             const adminSessionPill = document.getElementById('adminSessionPill');
             const setAdminPill = (label, type) => {
@@ -2170,7 +2171,7 @@
                 let username = '';
                 for (let i = 0; i < 200; i++) {
                     const suffix = String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0');
-                    const cand = `trip_user${suffix}`;
+                    const cand = `Trip_user${suffix}`;
                     if (!existing.has(cand.toLowerCase())) {
                         username = cand;
                         break;

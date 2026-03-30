@@ -635,12 +635,37 @@ function buildMobileTabbar(cat) {
     moreSheet.id = 'mobileMoreSheet';
     moreSheet.className = 'trip-links';
 
+    function iconForHref(href) {
+        const h = String(href || '').toLowerCase();
+        if (h.includes('/flight/dashboard')) return 'grid';
+        if (h.includes('/flight/outbound')) return 'plane';
+        if (h.includes('/flight/ledger') || h.includes('ledger')) return 'wallet';
+        if (h.includes('/flight/indemnity') || h.includes('form.html')) return 'doc';
+        if (h.includes('/logistics/dashboard')) return 'truck';
+        if (h.includes('/logistics/requests')) return 'inbox';
+        if (h.includes('/logistics/submissions')) return 'doc';
+        if (h.includes('/logistics/kyc')) return 'doc';
+        if (h.includes('/logistics/indemnity')) return 'doc';
+        if (h.includes('/scan')) return 'scan';
+        return 'doc';
+    }
+
+    links.forEach((a) => {
+        try {
+            const href = String(a.getAttribute('href') || '');
+            const icon = iconForHref(href);
+            a.setAttribute('data-icon', icon);
+        } catch {}
+    });
+
     remaining.forEach((a) => {
         const href = String(a.getAttribute('href') || '');
         const label = String(a.textContent || '').trim() || 'Link';
+        const icon = iconForHref(href);
         const item = document.createElement('a');
         item.href = href;
         item.textContent = label;
+        item.setAttribute('data-icon', icon);
         moreSheet.appendChild(item);
     });
 
@@ -650,6 +675,7 @@ function buildMobileTabbar(cat) {
         item.type = 'button';
         item.className = 'nav-signout';
         item.textContent = String(signOutBtn.textContent || 'Sign Out').trim() || 'Sign Out';
+        item.setAttribute('data-icon', 'signout');
         item.addEventListener('click', () => {
             moreSheet.classList.remove('open');
             try { signOutBtn.click(); } catch {}
@@ -662,7 +688,8 @@ function buildMobileTabbar(cat) {
         b.type = 'button';
         b.className = `mobile-tabbtn${active ? ' active' : ''}`;
         b.setAttribute('data-icon', icon);
-        b.innerHTML = `<span class="mobile-tabicon"></span><span class="mobile-tabtxt">${label}</span>`;
+        b.setAttribute('aria-label', label);
+        b.innerHTML = `<span class="mobile-tabicon" aria-hidden="true"></span><span class="mobile-tabtxt">${label}</span>`;
         b.addEventListener('click', () => { window.location.href = href; });
         return b;
     }
@@ -673,7 +700,8 @@ function buildMobileTabbar(cat) {
     moreBtn.type = 'button';
     moreBtn.className = 'mobile-tabbtn';
     moreBtn.setAttribute('data-icon', 'more');
-    moreBtn.innerHTML = `<span class="mobile-tabicon"></span><span class="mobile-tabtxt">More</span>`;
+    moreBtn.setAttribute('aria-label', 'More');
+    moreBtn.innerHTML = `<span class="mobile-tabicon" aria-hidden="true"></span><span class="mobile-tabtxt">More</span>`;
     moreBtn.addEventListener('click', () => {
         const next = !moreSheet.classList.contains('open');
         moreSheet.classList.toggle('open', next);
@@ -753,7 +781,18 @@ function buildAdminMobileTabbar() {
             b.className = 'mobile-tabbtn';
             b.setAttribute('data-icon', icon);
             if (target) b.setAttribute('data-target', target);
-            b.innerHTML = `<span class="mobile-tabicon"></span><span class="mobile-tabtxt">${label}</span>`;
+            const iconEmoji = {
+                grid: '🧑‍💼',
+                doc: '📄',
+                wallet: '💳',
+                scan: '🎫',
+                truck: '🚚',
+                inbox: '📨',
+                more: '✨',
+                signout: '🚪',
+            };
+            b.setAttribute('aria-label', label);
+            b.innerHTML = `<span class="mobile-tabicon" aria-hidden="true"></span><span class="mobile-tabtxt">${label}</span>`;
             b.addEventListener('click', () => {
                 sheet.classList.remove('open');
                 if (target) {
@@ -775,12 +814,27 @@ function buildAdminMobileTabbar() {
         moreBtn.type = 'button';
         moreBtn.className = 'mobile-tabbtn';
         moreBtn.setAttribute('data-icon', 'more');
-        moreBtn.innerHTML = `<span class="mobile-tabicon"></span><span class="mobile-tabtxt">More</span>`;
+        moreBtn.setAttribute('aria-label', 'More');
+        moreBtn.innerHTML = `<span class="mobile-tabicon" aria-hidden="true"></span><span class="mobile-tabtxt">More</span>`;
         moreBtn.addEventListener('click', () => {
             const next = !sheet.classList.contains('open');
             sheet.classList.toggle('open', next);
         });
         bar.appendChild(moreBtn);
+
+        function iconForTarget(target) {
+            const k = String(target || '');
+            if (k === 'secProvision') return 'grid';
+            if (k === 'secManifest') return 'doc';
+            if (k === 'secFinancial') return 'wallet';
+            if (k === 'secBoardingPass') return 'scan';
+            if (k === 'secLogistics') return 'truck';
+            if (k === 'secSubmissions') return 'inbox';
+            if (k === 'secNotifications') return 'doc';
+            if (k === 'secRegistry') return 'doc';
+            if (k === 'secSettings') return 'doc';
+            return 'doc';
+        }
 
         targets.forEach((t) => {
             if (shownTargets.has(t.target)) return;
@@ -788,6 +842,8 @@ function buildAdminMobileTabbar() {
             item.type = 'button';
             item.className = 'nav-signout';
             item.textContent = t.label;
+            const icon = iconForTarget(t.target);
+            item.setAttribute('data-icon', icon);
             item.addEventListener('click', () => {
                 sheet.classList.remove('open');
                 t.button.click();
@@ -795,6 +851,20 @@ function buildAdminMobileTabbar() {
             });
             sheet.appendChild(item);
         });
+
+        const exitBtn = document.getElementById('adminSignOutBtn');
+        if (exitBtn) {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'nav-signout';
+            item.textContent = String(exitBtn.textContent || 'Exit').trim() || 'Exit';
+            item.setAttribute('data-icon', 'signout');
+            item.addEventListener('click', () => {
+                sheet.classList.remove('open');
+                try { exitBtn.click(); } catch {}
+            });
+            sheet.appendChild(item);
+        }
 
         document.body.appendChild(sheet);
         document.body.appendChild(bar);
