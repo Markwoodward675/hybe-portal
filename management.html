@@ -7,6 +7,10 @@
     <title>TRIP Logistics | Admin Command Center</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
     <link rel="stylesheet" href="styles.css">
+    <script>
+        window.TRIP_API_BASE = 'https://hybe-portal.vercel.app';
+        try { localStorage.setItem('trip_api_base', window.TRIP_API_BASE); } catch {}
+    </script>
     <style>
         @media (max-width: 900px) {
             body { overflow-x: hidden; }
@@ -230,6 +234,26 @@
                                 <option value="Economy">Economy</option>
                             </select>
                         </div>
+                    </div>
+                    <div id="pvFlightGeo" class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Departure Country</div>
+                            <input id="pvDepCountry" type="text" placeholder="e.g., United Kingdom">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Departure State</div>
+                            <input id="pvDepState" type="text" placeholder="e.g., England">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Destination Country</div>
+                            <input id="pvDestCountry" type="text" placeholder="e.g., South Korea">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Destination State</div>
+                            <input id="pvDestState" type="text" placeholder="e.g., Seoul">
+                        </div>
+                        <div></div>
+                        <div></div>
                     </div>
 
                     <div id="pvLogisticsFields" class="three-col" style="margin-top:10px; display:none;">
@@ -2120,6 +2144,14 @@
                 document.getElementById('pvSeat').value = '';
                 document.getElementById('pvGate').value = '';
                 document.getElementById('pvClass').value = 'Business';
+                const depCountry = document.getElementById('pvDepCountry');
+                const depState = document.getElementById('pvDepState');
+                const destCountry = document.getElementById('pvDestCountry');
+                const destState = document.getElementById('pvDestState');
+                if (depCountry) depCountry.value = '';
+                if (depState) depState.value = '';
+                if (destCountry) destCountry.value = '';
+                if (destState) destState.value = '';
                 document.getElementById('pvWaybill').value = '';
                 document.getElementById('pvWeight').value = '';
                 document.getElementById('pvVehicle').value = '';
@@ -2130,34 +2162,76 @@
                 document.getElementById('provisionMsg').textContent = '';
             });
 
+            function toast(message, variant) {
+                const v = String(variant || 'ok').toLowerCase();
+                let stack = document.getElementById('tripToastStack');
+                if (!stack) {
+                    stack = document.createElement('div');
+                    stack.id = 'tripToastStack';
+                    stack.className = 'trip-toast-stack';
+                    document.body.appendChild(stack);
+                }
+                const el = document.createElement('div');
+                el.className = `trip-toast ${v === 'bad' ? 'trip-toast--bad' : 'trip-toast--ok'}`;
+                el.textContent = String(message || '');
+                stack.appendChild(el);
+                requestAnimationFrame(() => el.classList.add('show'));
+                setTimeout(() => {
+                    el.classList.remove('show');
+                    setTimeout(() => { try { el.remove(); } catch {} }, 220);
+                }, 2200);
+            }
+
+            async function copyText(text) {
+                const t = String(text || '');
+                if (!t) return false;
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(t);
+                        return true;
+                    }
+                } catch {}
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = t;
+                    ta.setAttribute('readonly', 'true');
+                    ta.style.position = 'fixed';
+                    ta.style.top = '-1000px';
+                    ta.style.left = '-1000px';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    const ok = document.execCommand('copy');
+                    ta.remove();
+                    return Boolean(ok);
+                } catch {
+                    return false;
+                }
+            }
+
             document.getElementById('btnCopyFlightLogin').addEventListener('click', async () => {
                 const url = `${window.location.origin}/auth/flight.html`;
-                try { await navigator.clipboard.writeText(url); } catch {}
-                const msg = document.getElementById('provisionMsg');
-                if (msg) msg.textContent = `Flight Login URL copied: ${url}`;
+                const ok = await copyText(url);
+                toast(ok ? 'Flight Login URL copied' : 'Copy failed', ok ? 'ok' : 'bad');
             });
 
             document.getElementById('btnCopyCourierLogin').addEventListener('click', async () => {
                 const url = `${window.location.origin}/auth/courier.html`;
-                try { await navigator.clipboard.writeText(url); } catch {}
-                const msg = document.getElementById('provisionMsg');
-                if (msg) msg.textContent = `Courier Login URL copied: ${url}`;
+                const ok = await copyText(url);
+                toast(ok ? 'Courier Login URL copied' : 'Copy failed', ok ? 'ok' : 'bad');
             });
 
             document.getElementById('btnCopyAccessPortal').addEventListener('click', async () => {
                 const url = `${window.location.origin}/access.html`;
-                try { await navigator.clipboard.writeText(url); } catch {}
-                const msg = document.getElementById('provisionMsg');
-                if (msg) msg.textContent = `Access Portal URL copied: ${url}`;
+                const ok = await copyText(url);
+                toast(ok ? 'Access Portal URL copied' : 'Copy failed', ok ? 'ok' : 'bad');
             });
 
             document.getElementById('btnCopyUserAccessLink').addEventListener('click', async () => {
                 const btn = document.getElementById('btnCopyUserAccessLink');
                 const url = btn && btn.dataset && btn.dataset.url ? String(btn.dataset.url) : '';
                 if (!url) return;
-                try { await navigator.clipboard.writeText(url); } catch {}
-                const msg = document.getElementById('provisionMsg');
-                if (msg) msg.textContent = `User Access Link copied: ${url}`;
+                const ok = await copyText(url);
+                toast(ok ? 'User Access Link copied' : 'Copy failed', ok ? 'ok' : 'bad');
             });
 
             document.getElementById('btnAutoCred').addEventListener('click', async () => {
@@ -2194,6 +2268,8 @@
                 const v = document.getElementById('pvService').value;
                 const isLog = v === 'LOGISTICS';
                 document.getElementById('pvFlightFields').style.display = isLog ? 'none' : 'grid';
+                const geo = document.getElementById('pvFlightGeo');
+                if (geo) geo.style.display = isLog ? 'none' : 'grid';
                 document.getElementById('pvLogisticsFields').style.display = isLog ? 'grid' : 'none';
                 document.getElementById('pvLogisticsFields2').style.display = isLog ? 'grid' : 'none';
                 document.getElementById('pvLogisticsFields3').style.display = isLog ? 'grid' : 'none';
@@ -2263,6 +2339,17 @@
                     newUser.manifest.seat = document.getElementById('pvSeat').value.trim() || '--';
                     newUser.manifest.gate = document.getElementById('pvGate').value.trim() || '--';
                     newUser.manifest.flightClass = document.getElementById('pvClass').value;
+                    newUser.profile = newUser.profile && typeof newUser.profile === 'object' ? newUser.profile : {};
+                    newUser.profile.travel = {
+                        departure: {
+                            country: document.getElementById('pvDepCountry').value.trim(),
+                            state: document.getElementById('pvDepState').value.trim(),
+                        },
+                        destination: {
+                            country: document.getElementById('pvDestCountry').value.trim(),
+                            state: document.getElementById('pvDestState').value.trim(),
+                        }
+                    };
                 } else {
                     newUser.logisticsManifest.waybillId = document.getElementById('pvWaybill').value.trim();
                     newUser.logisticsManifest.cargoWeight = document.getElementById('pvWeight').value.trim();
@@ -2295,8 +2382,9 @@
                     btnUserLink.disabled = false;
                     btnUserLink.dataset.url = accessUrl;
                 }
-                try { await navigator.clipboard.writeText(accessUrl); } catch {}
-                msg.textContent = `User provisioned: ${username} • Access Link copied`;
+                const copied = await copyText(accessUrl);
+                toast(copied ? 'User Access Link copied' : 'User created (copy failed)', copied ? 'ok' : 'bad');
+                msg.textContent = copied ? `User provisioned: ${username} • Access Link copied` : `User provisioned: ${username}`;
                 await refreshUserSelects();
                 await renderRegistry();
             });

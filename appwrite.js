@@ -233,15 +233,45 @@ function subscribeNotifications(onEvent) {
 })();
 
 async function tripApi(path, options = {}) {
-    const res = await fetch(path, {
-        method: options.method || 'GET',
-        headers: {
-            'content-type': 'application/json',
-            ...(options.headers || {})
-        },
-        credentials: 'include',
-        body: options.body ? JSON.stringify(options.body) : undefined
-    });
+    const metaEl = (typeof document !== 'undefined') ? document.querySelector('meta[name="trip-api-base"]') : null;
+    const metaBase = metaEl && metaEl.getAttribute ? String(metaEl.getAttribute('content') || '') : '';
+    const winBase = (typeof window !== 'undefined' && window.TRIP_API_BASE) ? String(window.TRIP_API_BASE) : '';
+    let storedBase = '';
+    try { storedBase = (typeof localStorage !== 'undefined') ? String(localStorage.getItem('trip_api_base') || '') : ''; } catch {}
+    const host = (typeof window !== 'undefined' && window.location && window.location.host) ? String(window.location.host) : '';
+    const isLocalhost = /^localhost(?::\d+)?$/i.test(host) || /^127\.0\.0\.1(?::\d+)?$/i.test(host) || /^\[::1\](?::\d+)?$/i.test(host);
+    const isPortalHost = /(^|\.)hybe-portal\.vercel\.app$/i.test(host);
+    const baseRaw = (winBase || metaBase || storedBase || (!isPortalHost && host ? 'https://hybe-portal.vercel.app' : '') || (isLocalhost ? 'https://hybe-portal.vercel.app' : '')).trim();
+    let url = String(path || '');
+    if (!/^https?:\/\//i.test(url) && baseRaw) {
+        const b = baseRaw.replace(/\/+$/, '');
+        let p = url;
+        if (!p.startsWith('/')) p = `/${p}`;
+        if (/^\/api(\/|$)/i.test(p) && /\/api$/i.test(b)) p = p.replace(/^\/api(\/|$)/i, '/');
+        url = `${b}${p}`;
+    }
+    let res;
+    try {
+        res = await fetch(url, {
+            method: options.method || 'GET',
+            headers: {
+                'content-type': 'application/json',
+                ...(options.headers || {})
+            },
+            credentials: 'include',
+            body: options.body ? JSON.stringify(options.body) : undefined
+        });
+    } catch (e) {
+        const err = new Error(`Network error calling ${url}`);
+        err.status = 0;
+        err.payload = {
+            error: 'Network error',
+            hint: 'Cannot reach API host (DNS or connectivity issue). Verify the deployed domain is correct and resolves.',
+            origin: (window && window.location && window.location.origin) ? window.location.origin : '(unknown)',
+            path: url
+        };
+        throw err;
+    }
     const contentType = (res.headers && res.headers.get) ? (res.headers.get('content-type') || '') : '';
     const text = await res.text();
     let json = null;
@@ -249,7 +279,7 @@ async function tripApi(path, options = {}) {
     try { json = text ? JSON.parse(text) : null; parsedOk = true; } catch { json = { raw: text }; }
     const looksJson = /^\s*[\[{]/.test(String(text || ''));
     if (!String(contentType).toLowerCase().includes('application/json') && !(parsedOk && looksJson)) {
-        const err = new Error(`Non-JSON response for ${path}`);
+        const err = new Error(`Non-JSON response for ${url}`);
         err.status = res.status;
         err.payload = {
             error: 'Non-JSON response from server',
@@ -259,7 +289,7 @@ async function tripApi(path, options = {}) {
         throw err;
     }
     if (!res.ok) {
-        const err = new Error(`API ${res.status} ${path}`);
+        const err = new Error(`API ${res.status} ${url}`);
         err.status = res.status;
         err.payload = json;
         throw err;
