@@ -63,6 +63,16 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const form = document.getElementById('loginForm');
             const msg = document.getElementById('loginMsg');
+            const btn = document.querySelector('#loginForm button[type="submit"]');
+
+            function setOnlineUI() {
+                const online = (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : true;
+                if (btn) btn.disabled = !online;
+                if (!online) msg.textContent = 'No internet connection detected.';
+            }
+            window.addEventListener('online', setOnlineUI);
+            window.addEventListener('offline', setOnlineUI);
+            setOnlineUI();
             try {
                 const p = new URLSearchParams(window.location.search);
                 const u = String(p.get('u') || '').trim();
@@ -76,6 +86,10 @@
                 const pin = document.getElementById('pin').value.trim();
                 if (!username || !pin) {
                     msg.textContent = 'Enter your Username and Access PIN.';
+                    return;
+                }
+                if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                    msg.textContent = 'No internet connection detected.';
                     return;
                 }
                 setBusy(true);
