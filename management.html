@@ -2350,6 +2350,36 @@
                             state: document.getElementById('pvDestState').value.trim(),
                         }
                     };
+
+                    const now = new Date();
+                    const departAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                    const fmt2 = (n) => String(n).padStart(2, '0');
+                    const fmtDateTime = (d) => `${d.getFullYear()}-${fmt2(d.getMonth() + 1)}-${fmt2(d.getDate())} ${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`;
+                    const fmtHHMM = (d) => `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`;
+                    const boardAt = new Date(departAt.getTime() - 45 * 60 * 1000);
+                    const flightNo = `TRIP-${String(Math.floor(100 + Math.random() * 900))}`;
+                    const pnr = `${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+                    const seq = String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0');
+                    const group = String.fromCharCode(65 + Math.floor(Math.random() * 5));
+
+                    newUser.flight = {
+                        status: (newUser.manifest.status || 'PENDING'),
+                        route: { from: String(newUser.manifest.from || 'LHR').toUpperCase(), to: String(newUser.manifest.to || 'ICN').toUpperCase() },
+                        boarding: {
+                            gate: newUser.manifest.gate || '--',
+                            seat: newUser.manifest.seat || '--',
+                            cabin: String(newUser.manifest.flightClass || 'Business').toUpperCase(),
+                            terminal: 'T1',
+                            group
+                        },
+                        schedule: {
+                            flightNo,
+                            pnr,
+                            seq,
+                            departAt: fmtDateTime(departAt),
+                            boardAt: fmtHHMM(boardAt),
+                        }
+                    };
                 } else {
                     newUser.logisticsManifest.waybillId = document.getElementById('pvWaybill').value.trim();
                     newUser.logisticsManifest.cargoWeight = document.getElementById('pvWeight').value.trim();

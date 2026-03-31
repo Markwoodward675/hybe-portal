@@ -754,11 +754,11 @@ function buildMobileTabbar(cat) {
 
 async function enforceServiceCategoryAccess() {
     try {
-        const active = sessionStorage.getItem('active_session');
-        if (!active) return;
-
         const me = await loadActiveUserFromDB().catch(() => null);
         if (!me || !me.userData) return;
+        if (me.username) {
+            try { sessionStorage.setItem('active_session', me.username); } catch {}
+        }
 
         const cat = serviceCategoryOf(me.userData);
         document.body.dataset.serviceCategory = cat;

@@ -179,7 +179,17 @@
                 document.getElementById('dispName').textContent = user.passengerName || username;
                 document.getElementById('dispFlightNo').textContent = (f.schedule && f.schedule.flightNo) ? f.schedule.flightNo : (m.flightNo || `${from}-${to}`);
                 document.getElementById('dispPnr').textContent = (f.schedule && f.schedule.pnr) ? f.schedule.pnr : '—';
-                document.getElementById('dispBoardAt').textContent = (f.schedule && f.schedule.boardAt) ? f.schedule.boardAt : '—';
+                let boardAt = (f.schedule && f.schedule.boardAt) ? f.schedule.boardAt : '';
+                if (!boardAt && f.schedule && f.schedule.departAt) {
+                    const dt = new Date(String(f.schedule.departAt));
+                    if (dt && !Number.isNaN(dt.getTime())) {
+                        const bdt = new Date(dt.getTime() - 45 * 60 * 1000);
+                        const hh = String(bdt.getHours()).padStart(2, '0');
+                        const mm = String(bdt.getMinutes()).padStart(2, '0');
+                        boardAt = `${hh}:${mm}`;
+                    }
+                }
+                document.getElementById('dispBoardAt').textContent = boardAt || '—';
                 document.getElementById('dispGroup').textContent = (b && b.group) ? b.group : '—';
                 setStatusBadge(f.status || m.status || 'PENDING');
                 document.getElementById('trackingCode').textContent = key || tc || '—';

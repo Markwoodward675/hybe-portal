@@ -302,13 +302,13 @@
                 sessionPill.style.background = bg;
             };
 
-            const pack = await loadActiveUserFromDB();
+            let pack = null;
+            try { pack = await loadActiveUserFromDB(); } catch {}
             if (!pack || !pack.userData) {
-                setPill('SESSION EXPIRED', 'bad');
-                signOut();
-                return;
+                setPill('OFFLINE MODE', 'bad');
+            } else {
+                setPill('SERVER ACTIVE', 'ok');
             }
-            setPill('SERVER ACTIVE', 'ok');
 
             let state = loadBookingState();
             if (!state || !state.nextAt || Date.now() > state.nextAt) {
