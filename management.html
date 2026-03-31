@@ -1284,9 +1284,14 @@
                 const user = ensureUserShape(db.users[username]);
                 const route = `${user.manifest.from || '--'}-${user.manifest.to || '--'}`;
                 const gs = `${user.manifest.gate || '--'} / ${user.manifest.seat || '--'}`;
+                const cur = (user.ledger && user.ledger.currency) ? String(user.ledger.currency) : '£';
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="font-weight:900;">${username}</td>
+                    <td style="font-weight:900;">
+                        <button type="button" class="btn-open-user" data-user="${username}" style="background:transparent; border:none; padding:0; color:var(--text); font-weight:900; cursor:pointer; text-decoration:underline; text-underline-offset:3px;">
+                            ${username}
+                        </button>
+                    </td>
                     <td style="font-weight:900;">${user.pin}</td>
                     <td>${user.passengerName || '--'}</td>
                     <td style="font-weight:900; color:var(--text-dim);">${String(user.serviceCategory || 'FLIGHT').toUpperCase()}</td>
@@ -1294,10 +1299,33 @@
                     <td>${route}</td>
                     <td>${gs}</td>
                     <td style="color:var(--text-dim); font-weight:900;">${String(user.manifest.flightClass || '').toUpperCase()}</td>
-                    <td style="font-weight:900;">£${user.ledger.balance}</td>
-                    <td><button class="btn-delete-user" data-user="${username}" style="background:var(--danger); color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.7rem; font-weight:bold;">Delete</button></td>
+                    <td style="font-weight:900;">${cur}${user.ledger.balance}</td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn-secondary btn-mini btn-open-user" type="button" data-user="${username}" data-open="secManifest">Open</button>
+                        <button class="btn-secondary btn-mini btn-open-user" type="button" data-user="${username}" data-open="secFinancial">Finance</button>
+                        <button class="btn-secondary btn-mini btn-delete-user" type="button" data-user="${username}" style="border-color: rgba(239,68,68,0.35); color: var(--danger);">Delete</button>
+                    </td>
                 `;
                 body.appendChild(tr);
+            });
+
+            const openUser = async (u, target) => {
+                const username = String(u || '').trim();
+                if (!username) return;
+                document.querySelectorAll('.user-select').forEach((sel) => { sel.value = username; });
+                if (typeof onUserChange === 'function') onUserChange();
+                if (target) setSection(String(target));
+                else setSection('secManifest');
+                try { toast(`Loaded: ${username}`, 'ok'); } catch {}
+                try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
+            };
+
+            document.querySelectorAll('.btn-open-user').forEach((btn) => {
+                btn.addEventListener('click', async (e) => {
+                    const u = e.currentTarget.getAttribute('data-user');
+                    const target = e.currentTarget.getAttribute('data-open');
+                    await openUser(u, target);
+                });
             });
 
             // Attach delete listeners
@@ -1308,11 +1336,11 @@
                         try {
                             const out = await tripApi(`/api/admin/users/${encodeURIComponent(u)}`, { method: 'DELETE' });
                             if (!out || out.ok !== true) {
-                                alert('Delete failed. Please re-run Schema Ensure and try again.');
+                                try { toast('Delete failed. Re-run Schema Ensure and try again.', 'bad'); } catch {}
                                 return;
                             }
                         } catch (err) {
-                            alert((err && err.payload && err.payload.error) ? err.payload.error : 'Delete failed.');
+                            try { toast((err && err.payload && err.payload.error) ? err.payload.error : 'Delete failed.', 'bad'); } catch {}
                             return;
                         }
 
@@ -1325,6 +1353,7 @@
                         
                         await refreshUserSelects();
                         await renderRegistry();
+                        try { toast(`Deleted: ${u}`, 'ok'); } catch {}
                     }
                 });
             });
