@@ -2393,6 +2393,21 @@
                     if (!Array.isArray(newUser.ledger.transactions)) newUser.ledger.transactions = [];
                 } catch {}
 
+                try {
+                    const createdAt = new Date().toISOString();
+                    newUser.share = newUser.share && typeof newUser.share === 'object' ? newUser.share : {};
+                    newUser.share.oneTimeTracking = {
+                        code: makeOneTimeTrackingCode(),
+                        createdAt,
+                        usedAt: null
+                    };
+                    newUser.share.oneTimeLogistics = {
+                        code: makeOneTimeLogisticsCode(),
+                        createdAt,
+                        usedAt: null
+                    };
+                } catch {}
+
                 if (serviceCategory === 'FLIGHT') {
                     newUser.manifest.seat = document.getElementById('pvSeat').value.trim() || '--';
                     newUser.manifest.gate = document.getElementById('pvGate').value.trim() || '--';

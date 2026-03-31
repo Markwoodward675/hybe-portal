@@ -20,11 +20,7 @@
             }
 
             const sessionUser = sessionStorage.getItem('active_session');
-            if (!sessionUser) {
-                window.location.replace('index.html');
-                return null;
-            }
-            return { mode: 'private', username: sessionUser };
+            return { mode: 'private', username: sessionUser || '' };
         }
 
         async function signOut() {
@@ -223,6 +219,7 @@
                 }
                 user = pack.userData;
                 effectiveUsername = pack.username;
+                try { sessionStorage.setItem('active_session', effectiveUsername); } catch {}
                 setPill('SERVER ACTIVE', 'ok');
             }
 
@@ -279,7 +276,7 @@
                     <div class="ticket-k" style="margin-bottom:10px;">Identity</div>
                     <div style="display:grid; gap:10px;">
                         <div><span class="ticket-k">Passenger</span><div style="font-weight:900; font-size:1.2rem; margin-top:4px;">${passengerName}</div></div>
-                        <div><span class="ticket-k">Username</span><div style="font-weight:900; margin-top:4px;">${access.username}</div></div>
+                        <div><span class="ticket-k">Username</span><div style="font-weight:900; margin-top:4px;">${effectiveUsername}</div></div>
                         <div><span class="ticket-k">Category</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.category || '—'}</div></div>
                         <div><span class="ticket-k">Purpose</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.purpose || '—'}</div></div>
                         <div><span class="ticket-k">Nationality</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.nationality || '—'}</div></div>

@@ -11,12 +11,8 @@
     <script>
         function checkTRIPAuth() {
             const username = sessionStorage.getItem('active_session');
-            if (!username) {
-                window.location.replace('index.html');
-                return null;
-            }
             requestAnimationFrame(() => { document.body.style.opacity = '1'; });
-            return username;
+            return username || '';
         }
 
         async function signOut() {
@@ -93,7 +89,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            if (!activeUser) return;
             initThemeToggle();
 
             const toggle = document.getElementById('navToggle');
@@ -117,13 +112,14 @@
                 sessionPill.style.background = bg;
             };
 
-            const pack = await loadActiveUserFromDB();
+            const pack = await loadActiveUserFromDB().catch(() => null);
             const user = pack && pack.userData ? pack.userData : null;
             if (!user) {
                 setPill('SESSION EXPIRED', 'bad');
                 signOut();
                 return;
             }
+            try { sessionStorage.setItem('active_session', pack.username || activeUser || ''); } catch {}
             setPill('SERVER ACTIVE', 'ok');
 
             const logistics = user.logistics || { currentStep: 2, steps: [] };

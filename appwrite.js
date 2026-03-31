@@ -928,7 +928,15 @@ async function adminLogin(passcode) {
 }
 
 async function adminMe() {
-    return tripApi('/api/admin/me');
+    const now = Date.now();
+    if (!window.__tripAdminMeCache) window.__tripAdminMeCache = { at: 0, value: null, promise: null };
+    const c = window.__tripAdminMeCache;
+    if (c.value && (now - c.at) < 8000) return c.value;
+    if (c.promise) return c.promise;
+    c.promise = tripApi('/api/admin/me')
+        .then((out) => { c.value = out; c.at = Date.now(); return out; })
+        .finally(() => { c.promise = null; });
+    return c.promise;
 }
 
 async function adminLogout() {
@@ -940,7 +948,15 @@ async function userLogin(username, pin) {
 }
 
 async function userMe() {
-    return tripApi('/api/user/me');
+    const now = Date.now();
+    if (!window.__tripUserMeCache) window.__tripUserMeCache = { at: 0, value: null, promise: null };
+    const c = window.__tripUserMeCache;
+    if (c.value && (now - c.at) < 8000) return c.value;
+    if (c.promise) return c.promise;
+    c.promise = tripApi('/api/user/me')
+        .then((out) => { c.value = out; c.at = Date.now(); return out; })
+        .finally(() => { c.promise = null; });
+    return c.promise;
 }
 
 async function userLogout() {
@@ -1025,6 +1041,12 @@ async function saveUserToDB(username, userData) {
 }
 
 async function loadAllUsersFromDB() {
+    const now = Date.now();
+    if (!window.__tripUsersListCache) window.__tripUsersListCache = { at: 0, value: null, promise: null };
+    const cache = window.__tripUsersListCache;
+    if (cache.value && (now - cache.at) < 15000) return cache.value;
+    if (cache.promise) return cache.promise;
+    cache.promise = (async () => {
     try {
         const adminOk = await adminMe().catch(() => ({ ok: false }));
         if (adminOk && adminOk.ok) {
@@ -1052,6 +1074,10 @@ async function loadAllUsersFromDB() {
     } else {
         return loadFromLocal();
     }
+    })()
+        .then((val) => { cache.value = val; cache.at = Date.now(); return val; })
+        .finally(() => { cache.promise = null; });
+    return cache.promise;
 }
 
 async function loadActiveUserFromDB() {

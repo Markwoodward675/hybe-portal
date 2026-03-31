@@ -11,12 +11,8 @@
     <script>
         function checkTRIPAuth() {
             const username = sessionStorage.getItem('active_session');
-            if (!username) {
-                window.location.replace('index.html');
-                return null;
-            }
             requestAnimationFrame(() => { document.body.style.opacity = '1'; });
-            return username;
+            return username || '';
         }
 
         function readTRIPDB() {
@@ -91,7 +87,6 @@
     <script src="appwrite.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            if (!activeUser) return;
             initThemeToggle();
 
             const toggle = document.getElementById('navToggle');
