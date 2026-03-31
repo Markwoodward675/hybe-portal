@@ -250,27 +250,37 @@ async function tripApi(path, options = {}) {
         if (/^\/api(\/|$)/i.test(p) && /\/api$/i.test(b)) p = p.replace(/^\/api(\/|$)/i, '/');
         url = `${b}${p}`;
     }
+    const method = options.method || 'GET';
+    const headers = {
+        'content-type': 'application/json',
+        ...(options.headers || {})
+    };
+    const body = options.body ? JSON.stringify(options.body) : undefined;
+
     let res;
-    try {
-        res = await fetch(url, {
-            method: options.method || 'GET',
-            headers: {
-                'content-type': 'application/json',
-                ...(options.headers || {})
-            },
-            credentials: 'include',
-            body: options.body ? JSON.stringify(options.body) : undefined
-        });
-    } catch (e) {
-        const err = new Error(`Network error calling ${url}`);
-        err.status = 0;
-        err.payload = {
-            error: 'Network error',
-            hint: 'Cannot reach API host (DNS or connectivity issue). Verify the deployed domain is correct and resolves.',
-            origin: (window && window.location && window.location.origin) ? window.location.origin : '(unknown)',
-            path: url
-        };
-        throw err;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            res = await fetch(url, { method, headers, credentials: 'include', body });
+            break;
+        } catch (e) {
+            const online = (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : null;
+            if (attempt === 0) {
+                await new Promise((r) => setTimeout(r, 350));
+                continue;
+            }
+            const err = new Error(`Network error calling ${url}`);
+            err.status = 0;
+            err.payload = {
+                error: 'Network error',
+                hint: online === false
+                    ? 'No internet connection detected.'
+                    : 'Network changed or API host unreachable. Try again or verify the deployed domain resolves.',
+                origin: (window && window.location && window.location.origin) ? window.location.origin : '(unknown)',
+                path: url,
+                online
+            };
+            throw err;
+        }
     }
     const contentType = (res.headers && res.headers.get) ? (res.headers.get('content-type') || '') : '';
     const text = await res.text();

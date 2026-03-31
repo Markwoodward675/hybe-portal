@@ -97,7 +97,10 @@
                 } catch (e) {
                     setBusy(false);
                     if (e && e.status === 0) {
-                        msg.textContent = 'Cannot reach server. Check your deployment domain.';
+                        const online = (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : null;
+                        msg.textContent = (e && e.payload && e.payload.hint)
+                            ? e.payload.hint
+                            : (online === false ? 'No internet connection detected.' : 'Network changed or server unreachable. Try again.');
                         return;
                     }
                     if (e && (e.status === 401 || e.status === 403)) {
