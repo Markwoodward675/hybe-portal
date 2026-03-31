@@ -294,6 +294,22 @@
                     </div>
 
                     <div class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Initial Balance</div>
+                            <input id="pvBalance" type="text" placeholder="e.g., 186.00" value="186.00">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Currency</div>
+                            <select id="pvCurrency">
+                                <option value="£">GBP (£)</option>
+                                <option value="$">USD ($)</option>
+                                <option value="€">EUR (€)</option>
+                            </select>
+                        </div>
+                        <div></div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:10px;">
                         <button class="btn-primary" type="button" id="btnCreateUser">Create User</button>
                         <button class="btn-secondary" type="button" id="btnAutoCred">Generate Credentials (Trip_user####)</button>
                         <button class="btn-secondary" type="button" id="btnResetForm">Reset</button>
@@ -2159,6 +2175,10 @@
                 document.getElementById('pvOrigin').value = '';
                 document.getElementById('pvDest').value = '';
                 document.getElementById('pvCourier').value = '';
+                const pvBalance = document.getElementById('pvBalance');
+                const pvCurrency = document.getElementById('pvCurrency');
+                if (pvBalance) pvBalance.value = '0.00';
+                if (pvCurrency) pvCurrency.value = '$';
                 document.getElementById('provisionMsg').textContent = '';
             });
 
@@ -2334,6 +2354,15 @@
                         courierId: ""
                     }
                 });
+                try {
+                    const balRaw = document.getElementById('pvBalance') ? document.getElementById('pvBalance').value.trim() : '';
+                    const cur = document.getElementById('pvCurrency') ? document.getElementById('pvCurrency').value : '£';
+                    const bal = fmtMoney(parseMoney(balRaw || '186.00'));
+                    newUser.ledger = newUser.ledger && typeof newUser.ledger === 'object' ? newUser.ledger : {};
+                    newUser.ledger.balance = bal || '0.00';
+                    newUser.ledger.currency = cur || '£';
+                    if (!Array.isArray(newUser.ledger.transactions)) newUser.ledger.transactions = [];
+                } catch {}
 
                 if (serviceCategory === 'FLIGHT') {
                     newUser.manifest.seat = document.getElementById('pvSeat').value.trim() || '--';
