@@ -423,7 +423,22 @@ function shouldStartLivePopups() {
         if (hasLogin) return false;
     }
     const body = document.body;
-    if (body && body.dataset && String(body.dataset.popups || '').toLowerCase() === 'off') return false;
+    if (body && body.dataset) {
+        const flag = String(body.dataset.popups || '').toLowerCase();
+        if (flag === 'off') return false;
+        if (flag === 'on') return true;
+    }
+
+    const host = (window.location && window.location.host) ? String(window.location.host) : '';
+    const isLocal = /^localhost(?::\d+)?$/i.test(host) || /^127\.0\.0\.1(?::\d+)?$/i.test(host) || /^\[::1\](?::\d+)?$/i.test(host);
+    if (isLocal) {
+        let base = '';
+        try { base = String(window.TRIP_API_BASE || '').trim(); } catch {}
+        if (!base) {
+            try { base = String(localStorage.getItem('trip_api_base') || '').trim(); } catch {}
+        }
+        if (base && /^https:\/\/hybe-portal\.vercel\.app(\/|$)/i.test(base)) return false;
+    }
     return true;
 }
 
