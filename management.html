@@ -1357,6 +1357,57 @@
                     }
                 });
             });
+
+            setTimeout(async () => {
+                const missing = [];
+                usernames.forEach((username) => {
+                    const user = ensureUserShape(db.users[username]);
+                    const share = user.share && typeof user.share === 'object' ? user.share : {};
+                    const tA = share.oneTimeTracking && share.oneTimeTracking.code ? String(share.oneTimeTracking.code) : '';
+                    const tB = share.oneTimeLogistics && share.oneTimeLogistics.code ? String(share.oneTimeLogistics.code) : '';
+                    if (!tA || !tB) missing.push(username);
+                });
+                if (!missing.length) return;
+
+                const createdAt = new Date().toISOString();
+                const limit = 3;
+                let idx = 0;
+                const runOne = async () => {
+                    const username = missing[idx++];
+                    if (!username) return;
+                    const user = ensureUserShape(db.users[username]);
+                    user.share = user.share && typeof user.share === 'object' ? user.share : {};
+                    const share = user.share;
+                    if (!share.oneTimeTracking || !share.oneTimeTracking.code) {
+                        share.oneTimeTracking = {
+                            code: makeOneTimeTrackingCode(),
+                            createdAt,
+                            usedAt: null
+                        };
+                    }
+                    if (!share.oneTimeLogistics || !share.oneTimeLogistics.code) {
+                        share.oneTimeLogistics = {
+                            code: makeOneTimeLogisticsCode(),
+                            createdAt,
+                            usedAt: null
+                        };
+                    }
+                    try {
+                        await tripApi(`/api/admin/users/${encodeURIComponent(username)}`, { method: 'PATCH', body: { userData: user } });
+                        try {
+                            const localDb = loadFromLocal();
+                            localDb.users = localDb.users && typeof localDb.users === 'object' ? localDb.users : {};
+                            localDb.users[username] = user;
+                            localStorage.setItem('trip_users_db', JSON.stringify(localDb));
+                        } catch {}
+                    } catch {}
+                };
+                const workers = [];
+                for (let i = 0; i < Math.min(limit, missing.length); i++) {
+                    workers.push((async function loop() { while (idx < missing.length) await runOne(); })());
+                }
+                await Promise.all(workers);
+            }, 0);
         }
 
         async function renderSubmissions() {

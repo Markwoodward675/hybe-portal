@@ -44,6 +44,36 @@ function readJson(req) {
   });
 }
 
+function getAllowedOrigin(req) {
+  const origin = String(req.headers?.origin || '').trim();
+  if (!origin) return '';
+  if (/^http:\/\/localhost:\d+$/i.test(origin)) return origin;
+  if (/^http:\/\/127\.0\.0\.1:\d+$/i.test(origin)) return origin;
+  if (/^https:\/\/hybe-portal([a-z0-9-]*)\.vercel\.app$/i.test(origin) || /^https:\/\/hybe-portal\.vercel\.app$/i.test(origin)) return origin;
+  return '';
+}
+
+function applyCors(req, res) {
+  const allow = getAllowedOrigin(req);
+  if (!allow) return;
+  res.setHeader('access-control-allow-origin', allow);
+  res.setHeader('vary', 'Origin');
+  res.setHeader('access-control-allow-credentials', 'true');
+  res.setHeader('access-control-allow-methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('access-control-allow-headers', 'content-type, authorization');
+}
+
+function cookieSameSite(req) {
+  const origin = String(req.headers?.origin || '').trim();
+  const host = String(req.headers?.host || '').trim();
+  if (!origin || !host) return 'Lax';
+  try {
+    const o = new URL(origin);
+    if (String(o.host).toLowerCase() !== String(host).toLowerCase()) return 'None';
+  } catch {}
+  return 'Lax';
+}
+
 function send(res, status, payload) {
   res.statusCode = status;
   res.setHeader('content-type', 'application/json');
@@ -942,6 +972,12 @@ Return ONLY JSON array, no markdown.`;
 }
 
 module.exports = async (req, res) => {
+  applyCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end('');
+    return;
+  }
   try {
     const q = req.query || {};
     let parts = Array.isArray(q.path) ? q.path : (q.path ? [q.path] : []);
@@ -991,12 +1027,12 @@ module.exports = async (req, res) => {
       }
       if (passcode !== primary && passcode !== alt) return send(res, 401, { ok: false, error: 'Invalid passcode', configured, usingDefault });
       const token = createToken({ typ: 'admin', exp: Date.now() + 8 * 60 * 60 * 1000 });
-      res.setHeader('set-cookie', cookieString('trip_admin', token, { maxAgeSeconds: 8 * 60 * 60, secure: isHttps(req) }));
+      res.setHeader('set-cookie', cookieString('trip_admin', token, { maxAgeSeconds: 8 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
       return send(res, 200, { ok: true });
     }
 
     if (action === 'logout') {
-      res.setHeader('set-cookie', cookieString('trip_admin', '', { maxAgeSeconds: 0, secure: isHttps(req) }));
+      res.setHeader('set-cookie', cookieString('trip_admin', '', { maxAgeSeconds: 0, secure: isHttps(req), sameSite: cookieSameSite(req) }));
       return send(res, 200, { ok: true });
     }
 
@@ -1505,7 +1541,7 @@ module.exports = async (req, res) => {
         if (process.env.VERCEL) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
         if (normalizePin(local.pin) !== pin) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
         const token = createToken({ typ: 'user', u: String(local.username || username), src: 'local', exp: Date.now() + 6 * 60 * 60 * 1000 });
-        res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
+        res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
         return send(res, 200, { ok: true, username: String(local.username || username) });
       }
 
@@ -1516,7 +1552,7 @@ module.exports = async (req, res) => {
           return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
         }
         const token = createToken({ typ: 'user', u: username, exp: Date.now() + 6 * 60 * 60 * 1000 });
-        res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
+        res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
         return send(res, 200, { ok: true, username });
       }
 
@@ -1534,7 +1570,7 @@ module.exports = async (req, res) => {
           return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
         }
         const token = createToken({ typ: 'user', u: doc.username, exp: Date.now() + 6 * 60 * 60 * 1000 });
-        res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
+        res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
         return send(res, 200, { ok: true, username: doc.username });
       }
 
@@ -1548,7 +1584,7 @@ module.exports = async (req, res) => {
           const ok = cached && cached.pinHash && cached.pinHash === pinHash(pin);
           if (!ok) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
           const token = createToken({ typ: 'user', u: username, src: 'kv', exp: Date.now() + 6 * 60 * 60 * 1000 });
-          res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req) }));
+          res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
           return send(res, 200, { ok: true, username });
         } catch {
           return send(res, 503, { ok: false, error: 'Login service unavailable' });
@@ -1559,7 +1595,7 @@ module.exports = async (req, res) => {
     }
 
     if (action === 'logout') {
-      res.setHeader('set-cookie', cookieString('trip_session', '', { maxAgeSeconds: 0, secure: isHttps(req) }));
+      res.setHeader('set-cookie', cookieString('trip_session', '', { maxAgeSeconds: 0, secure: isHttps(req), sameSite: cookieSameSite(req) }));
       return send(res, 200, { ok: true });
     }
 

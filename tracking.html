@@ -7,11 +7,19 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="page-elegant" style="opacity:0;">
+<body class="page-elegant">
+    <div id="pageLoader" class="page-loader" aria-live="polite" aria-busy="true">
+        <div class="page-loader__card">
+            <div class="page-loader__row">
+                <div class="page-loader__spin" aria-hidden="true"></div>
+                <div class="page-loader__title">Loading tracker…</div>
+            </div>
+            <div class="page-loader__sub">Preparing the movement timeline.</div>
+        </div>
+    </div>
     <script>
         function checkTRIPAuth() {
             const username = sessionStorage.getItem('active_session');
-            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
             return username || '';
         }
 
@@ -46,6 +54,22 @@
     </nav>
 
     <div class="container" style="max-width: 980px;">
+        <div class="card" id="trackCodesCard" style="display:none; margin-bottom: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px;">
+                <div style="font-weight:950; letter-spacing:-0.6px;">Tracking Codes</div>
+                <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Share</div>
+            </div>
+            <div class="two-col">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">One‑Time Tracking Code</div>
+                    <div class="badge-pill" id="trackCodeA" style="display:inline-block; font-weight:950; letter-spacing:0.6px;">—</div>
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">One‑Time Logistics Code</div>
+                    <div class="badge-pill" id="trackCodeB" style="display:inline-block; font-weight:950; letter-spacing:0.6px;">—</div>
+                </div>
+            </div>
+        </div>
         <h2 style="letter-spacing:-1px; margin-bottom: 14px;">Movement Tracker</h2>
         <div style="color:var(--text-dim); font-weight:700; margin-bottom: 18px;">Active, passed, and future logistics steps are scoped to the active TRIP session.</div>
 
@@ -90,6 +114,9 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             initThemeToggle();
+            const loader = document.getElementById('pageLoader');
+            const hideLoader = () => { if (loader) loader.classList.add('hide'); };
+            try { document.body.style.opacity = '1'; } catch {}
 
             const toggle = document.getElementById('navToggle');
             const menu = document.getElementById('navMenu');
@@ -116,11 +143,22 @@
             const user = pack && pack.userData ? pack.userData : null;
             if (!user) {
                 setPill('SESSION EXPIRED', 'bad');
+                hideLoader();
                 signOut();
                 return;
             }
             try { sessionStorage.setItem('active_session', pack.username || activeUser || ''); } catch {}
             setPill('SERVER ACTIVE', 'ok');
+
+            const share = user.share && typeof user.share === 'object' ? user.share : {};
+            const tA = share.oneTimeTracking && share.oneTimeTracking.code ? String(share.oneTimeTracking.code) : '';
+            const tB = share.oneTimeLogistics && share.oneTimeLogistics.code ? String(share.oneTimeLogistics.code) : '';
+            const card = document.getElementById('trackCodesCard');
+            if (card && (tA || tB)) card.style.display = 'block';
+            const aEl = document.getElementById('trackCodeA');
+            const bEl = document.getElementById('trackCodeB');
+            if (aEl) aEl.textContent = tA || 'AWAITING ADMIN';
+            if (bEl) bEl.textContent = tB || 'AWAITING ADMIN';
 
             const logistics = user.logistics || { currentStep: 2, steps: [] };
             const current = Math.max(1, Math.min(8, parseInt(String(logistics.currentStep || 2), 10) || 2));
@@ -160,6 +198,7 @@
             if (!futureBox.innerHTML) {
                 futureBox.innerHTML = `<div style="color:var(--text-dim); font-weight:800;">No future steps queued.</div>`;
             }
+            hideLoader();
         });
     </script>
 </body>

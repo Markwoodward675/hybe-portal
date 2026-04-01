@@ -251,11 +251,11 @@ async function tripApi(path, options = {}) {
         url = `${b}${p}`;
     }
     const method = options.method || 'GET';
-    const headers = {
-        'content-type': 'application/json',
-        ...(options.headers || {})
-    };
     const body = options.body ? JSON.stringify(options.body) : undefined;
+    const headers = { ...(options.headers || {}) };
+    if (body && !Object.keys(headers).some((k) => String(k).toLowerCase() === 'content-type')) {
+        headers['content-type'] = 'application/json';
+    }
 
     let res;
     for (let attempt = 0; attempt < 2; attempt++) {

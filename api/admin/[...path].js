@@ -4,6 +4,36 @@ const { listAllUserDocs, parseUserData, upsertUser, deleteUser, findUserDocByUse
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+function getAllowedOrigin(req) {
+  const origin = String(req.headers?.origin || '').trim();
+  if (!origin) return '';
+  if (/^http:\/\/localhost:\d+$/i.test(origin)) return origin;
+  if (/^http:\/\/127\.0\.0\.1:\d+$/i.test(origin)) return origin;
+  if (/^https:\/\/hybe-portal([a-z0-9-]*)\.vercel\.app$/i.test(origin) || /^https:\/\/hybe-portal\.vercel\.app$/i.test(origin)) return origin;
+  return '';
+}
+
+function applyCors(req, res) {
+  const allow = getAllowedOrigin(req);
+  if (!allow) return;
+  res.setHeader('access-control-allow-origin', allow);
+  res.setHeader('vary', 'Origin');
+  res.setHeader('access-control-allow-credentials', 'true');
+  res.setHeader('access-control-allow-methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('access-control-allow-headers', 'content-type, authorization');
+}
+
+function cookieSameSite(req) {
+  const origin = String(req.headers?.origin || '').trim();
+  const host = String(req.headers?.host || '').trim();
+  if (!origin || !host) return 'Lax';
+  try {
+    const o = new URL(origin);
+    if (String(o.host).toLowerCase() !== String(host).toLowerCase()) return 'None';
+  } catch {}
+  return 'Lax';
+}
+
 const SUBMISSIONS_COLLECTION_ID = process.env.APPWRITE_COLLECTION_SUBMISSIONS_ID || 'submissions';
 const REGISTRATIONS_COLLECTION_ID = process.env.APPWRITE_COLLECTION_REGISTRATIONS_ID || 'registrations';
 const LIVE_POPUPS_COLLECTION_ID = process.env.APPWRITE_COLLECTION_LIVE_POPUPS_ID || 'live_popups';
@@ -326,6 +356,12 @@ async function schemaEnsureAll() {
 }
 
 module.exports = async (req, res) => {
+  applyCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end('');
+    return;
+  }
   const parts = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path] : []);
 
   if (parts[0] === 'login') {
@@ -338,12 +374,16 @@ module.exports = async (req, res) => {
     const usingDefault = !configured;
     if (passcode !== primary && passcode !== alt) return send(res, 401, { ok: false, error: 'Invalid passcode', configured, usingDefault });
     const token = createToken({ typ: 'admin', exp: Date.now() + 8 * 60 * 60 * 1000 });
-    res.setHeader('set-cookie', cookieString('trip_admin', token, { maxAgeSeconds: 8 * 60 * 60, secure: isHttps(req) }));
+    const secure = isHttps(req);
+    const sameSite = cookieSameSite(req);
+    res.setHeader('set-cookie', cookieString('trip_admin', token, { maxAgeSeconds: 8 * 60 * 60, secure, sameSite }));
     return send(res, 200, { ok: true });
   }
 
   if (parts[0] === 'logout') {
-    res.setHeader('set-cookie', cookieString('trip_admin', '', { maxAgeSeconds: 0, secure: isHttps(req) }));
+    const secure = isHttps(req);
+    const sameSite = cookieSameSite(req);
+    res.setHeader('set-cookie', cookieString('trip_admin', '', { maxAgeSeconds: 0, secure, sameSite }));
     return send(res, 200, { ok: true });
   }
 

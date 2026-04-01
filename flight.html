@@ -7,7 +7,16 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="page-elegant" style="opacity:0;">
+<body class="page-elegant">
+    <div id="pageLoader" class="page-loader" aria-live="polite" aria-busy="true">
+        <div class="page-loader__card">
+            <div class="page-loader__row">
+                <div class="page-loader__spin" aria-hidden="true"></div>
+                <div class="page-loader__title">Loading flight status…</div>
+            </div>
+            <div class="page-loader__sub">Syncing your scoped session and manifest.</div>
+        </div>
+    </div>
     <script>
         function getAccessContext() {
             const params = new URLSearchParams(window.location.search);
@@ -165,6 +174,9 @@
         document.addEventListener('DOMContentLoaded', async () => {
             if (!access) return;
             initThemeToggle();
+            const loader = document.getElementById('pageLoader');
+            const hideLoader = () => { if (loader) loader.classList.add('hide'); };
+            try { document.body.style.opacity = '1'; } catch {}
 
             const toggle = document.getElementById('navToggle');
             const menu = document.getElementById('navMenu');
@@ -207,13 +219,14 @@
                     menu.style.display = 'none';
                     toggle.style.display = 'none';
                     setPill('DETAILS EXPIRED', 'bad');
-                    requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+                    hideLoader();
                     return;
                 }
             } else {
                 const pack = await loadActiveUserFromDB();
                 if (!pack || !pack.userData) {
                     setPill('SESSION EXPIRED', 'bad');
+                    hideLoader();
                     signOut();
                     return;
                 }
@@ -334,6 +347,7 @@
             `;
 
             requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            hideLoader();
         });
     </script>
 </body>
