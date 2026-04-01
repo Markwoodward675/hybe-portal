@@ -77,8 +77,11 @@
                 try {
                     const out = await userLogin(username, pin);
                     sessionStorage.setItem('active_session', out && out.username ? out.username : username);
-                    const me = await userMe();
-                    const cat = serviceCategoryOf(me && me.userData);
+                    let cat = out && out.serviceCategory ? String(out.serviceCategory).toUpperCase() : '';
+                    if (!cat) {
+                        const me = await userMe();
+                        cat = serviceCategoryOf(me && me.userData);
+                    }
                     sessionStorage.setItem('system', cat === 'LOGISTICS' ? 'logistics' : 'flights');
                     window.location.href = cat === 'LOGISTICS' ? '/logistics/dashboard/index.html' : '/flights/dashboard/index.html';
                 } catch (e) {

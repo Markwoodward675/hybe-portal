@@ -150,13 +150,7 @@ async function findUserDocByUsername(username) {
     const docs2 = Array.isArray(out2?.documents) ? out2.documents : [];
     if (docs2[0]) return docs2[0];
   } catch {}
-
-  try {
-    const all = await listAllUserDocs(1000);
-    return all.find((d) => String(d?.username || '').trim().toLowerCase() === ulc) || null;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 async function listAllUserDocs(limit = 1000) {

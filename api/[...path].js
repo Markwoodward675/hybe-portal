@@ -1571,7 +1571,10 @@ module.exports = async (req, res) => {
         }
         const token = createToken({ typ: 'user', u: doc.username, exp: Date.now() + 6 * 60 * 60 * 1000 });
         res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
-        return send(res, 200, { ok: true, username: doc.username });
+        const safe = { ...userData };
+        delete safe.pin;
+        const serviceCategory = String(safe.serviceCategory || safe.service_category || '').toUpperCase();
+        return send(res, 200, { ok: true, username: doc.username, serviceCategory, userData: safe });
       }
 
       if (!appwriteFailed) {

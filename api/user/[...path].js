@@ -76,7 +76,10 @@ module.exports = async (req, res) => {
     const secure = isHttps(req);
     const sameSite = cookieSameSite(req);
     res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure, sameSite }));
-    return send(res, 200, { ok: true, username: doc.username });
+    const safe = { ...userData };
+    delete safe.pin;
+    const serviceCategory = String(safe.serviceCategory || safe.service_category || '').toUpperCase();
+    return send(res, 200, { ok: true, username: doc.username, serviceCategory, userData: safe });
   }
 
   if (parts[0] === 'logout') {

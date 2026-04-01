@@ -577,14 +577,62 @@ function categorizeUserPage(pathname) {
     if (p.startsWith('/flight/') || p.startsWith('/flights/')) return 'FLIGHT';
     if (p.startsWith('/logistics/') || p.startsWith('/logistics/dashboard/')) return 'LOGISTICS';
     const base = p.split('/').pop() || '';
-    const flightLegacy = new Set(['flight.html', 'passengers.html', 'bookings.html', 'form.html']);
-    const logisticsLegacy = new Set(['tracking.html', 'logistics-view.html']);
-    if (flightLegacy.has(base)) return 'FLIGHT';
-    if (logisticsLegacy.has(base)) return 'LOGISTICS';
+    const passengerLegacy = new Set(['flight.html', 'passengers.html', 'tracking.html', 'ledger.html', 'bookings.html', 'form.html', 'logistics-view.html']);
+    if (passengerLegacy.has(base)) return 'PASSENGER';
     return null;
 }
 
+function isLegacyPassengerPage(pathname) {
+    return categorizeUserPage(pathname) === 'PASSENGER';
+}
+
+function normalizeLegacyPassengerNavMenu() {
+    try {
+        const p = String(window.location && window.location.pathname ? window.location.pathname : '');
+        if (!isLegacyPassengerPage(p)) return;
+        const menu = findNavMenu();
+        if (!menu) return;
+
+        const base = (p.split('/').pop() || '').toLowerCase();
+        const signOutExisting = menu.querySelector('#signOutBtn') || menu.querySelector('button.nav-signout');
+        const signOutBtn = signOutExisting || (() => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'nav-signout';
+            b.textContent = 'Sign Out';
+            return b;
+        })();
+        signOutBtn.id = 'signOutBtn';
+        signOutBtn.type = 'button';
+        signOutBtn.classList.add('nav-signout');
+
+        const links = [
+            { href: 'flight.html', label: 'Status' },
+            { href: 'passengers.html', label: 'Personnel' },
+            { href: 'tracking.html', label: 'Logistics' },
+            { href: 'ledger.html', label: 'Ledger' },
+            { href: 'bookings.html', label: 'Bookings' },
+            { href: 'form.html', label: 'Indemnity' },
+        ];
+
+        menu.innerHTML = '';
+        links.forEach((l) => {
+            const a = document.createElement('a');
+            a.href = l.href;
+            a.textContent = l.label;
+            const hrefBase = String(l.href).split('/').pop().toLowerCase();
+            if (hrefBase && hrefBase === base) a.classList.add('active');
+            menu.appendChild(a);
+        });
+        menu.appendChild(signOutBtn);
+    } catch {}
+}
+
 function filterNavMenuByServiceCategory(serviceCategory) {
+    try {
+        const p = String(window.location && window.location.pathname ? window.location.pathname : '');
+        if (isLegacyPassengerPage(p)) return;
+    } catch {}
     const cat = String(serviceCategory || '').toUpperCase();
     const menu = document.getElementById('navMenu') || document.querySelector('.trip-links');
     if (!menu) return;
@@ -617,6 +665,14 @@ function findNavMenu() {
 }
 
 function primaryTabsForCategory(cat) {
+    if (cat === 'PASSENGER') {
+        return [
+            { key: 'status', match: 'flight.html', label: 'Status', icon: 'grid' },
+            { key: 'people', match: 'passengers.html', label: 'Personnel', icon: 'doc' },
+            { key: 'track', match: 'tracking.html', label: 'Logistics', icon: 'truck' },
+            { key: 'ledger', match: 'ledger.html', label: 'Ledger', icon: 'wallet' },
+        ];
+    }
     if (cat === 'LOGISTICS') {
         return [
             { key: 'track', match: '/logistics/dashboard', label: 'Tracking', icon: 'truck' },
@@ -762,10 +818,16 @@ async function enforceServiceCategoryAccess() {
 
         const cat = serviceCategoryOf(me.userData);
         document.body.dataset.serviceCategory = cat;
+        const pageCat = categorizeUserPage(window.location && window.location.pathname ? window.location.pathname : '');
+        if (pageCat === 'PASSENGER') {
+            normalizeLegacyPassengerNavMenu();
+            buildMobileTabbar('PASSENGER');
+            return;
+        }
+
         filterNavMenuByServiceCategory(cat);
         buildMobileTabbar(cat);
 
-        const pageCat = categorizeUserPage(window.location && window.location.pathname ? window.location.pathname : '');
         if (pageCat === 'ADMIN') {
             window.location.replace(cat === 'LOGISTICS' ? '/logistics/dashboard/index.html' : '/flights/dashboard/index.html');
             return;
