@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Global Logistics | KYC</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="page-elegant" style="opacity:0;" data-user-editable="true">
+    <nav class="trip-nav">
+        <a href="/logistics/dashboard.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Global Logistics">
+            <span>TRIP Global Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="/logistics/dashboard.html">Tracking</a>
+                <a href="/logistics/requests.html">Requests</a>
+                <a href="/logistics/kyc.html" class="active">KYC</a>
+                <a href="/logistics/indemnity.html">Indemnity</a>
+                <a href="/logistics/submissions.html">Submissions</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="card">
+            <div class="form-head">
+                <h2>Secure Submission Portal</h2>
+                <div class="badge-pill" style="color:var(--text-dim); border-color:var(--border);">KYC</div>
+            </div>
+            <p class="form-sub">Submit identity verification for cargo operations. Signature is required.</p>
+            <div class="progress"><div id="prog"></div></div>
+        </div>
+
+        <div class="card">
+            <form id="kycForm" class="tech-form">
+                <div style="font-weight:900; letter-spacing:-0.4px;">Personal Info</div>
+
+                <div class="field">
+                    <input id="fullName" type="text" placeholder=" " required>
+                    <label for="fullName">Full Name</label>
+                    <div class="help">Matches your registered identity.</div>
+                    <div class="err">Required.</div>
+                </div>
+                <div class="field">
+                    <input id="email" type="email" placeholder=" " required>
+                    <label for="email">Email</label>
+                    <div class="help">Used for verification status updates.</div>
+                    <div class="err">Invalid email.</div>
+                </div>
+                <div class="field">
+                    <input id="phone" type="tel" placeholder=" " required>
+                    <label for="phone">Phone</label>
+                    <div class="help">Include country code if available.</div>
+                    <div class="err">Required.</div>
+                </div>
+
+                <div style="margin-top:6px; font-weight:900; letter-spacing:-0.4px;">Document Info</div>
+
+                <div class="field">
+                    <input id="docType" type="text" placeholder=" " required>
+                    <label for="docType">Document Type</label>
+                    <div class="help">Passport, National ID, Driver License, etc.</div>
+                    <div class="err">Required.</div>
+                </div>
+                <div class="field">
+                    <input id="docNo" type="text" placeholder=" " required>
+                    <label for="docNo">Document Number</label>
+                    <div class="help">Will be masked in views.</div>
+                    <div class="err">Required.</div>
+                </div>
+                <div class="field">
+                    <input id="docFile" type="file" accept="image/*,application/pdf">
+                    <label for="docFile">Upload Document (optional)</label>
+                    <div class="help">Optional scan/photo/PDF. Stored securely.</div>
+                </div>
+
+                <div style="margin-top:6px; font-weight:900; letter-spacing:-0.4px;">Declaration</div>
+                <div class="field">
+                    <textarea id="decl" rows="4" placeholder=" " required></textarea>
+                    <label for="decl">Declaration</label>
+                    <div class="help">Confirm that details are accurate.</div>
+                    <div class="err">Required.</div>
+                </div>
+
+                <div style="margin-top:6px; font-weight:900; letter-spacing:-0.4px;">Signature</div>
+                <canvas id="sig" class="sig-pad" width="920" height="220"></canvas>
+                <div class="two-col">
+                    <div class="field">
+                        <input id="sigName" type="text" placeholder=" " required>
+                        <label for="sigName">Signed Name</label>
+                        <div class="help">Enter your full name.</div>
+                        <div class="err">Required.</div>
+                    </div>
+                    <div>
+                        <div class="help" style="margin-top:8px;">Draw signature using touch or mouse.</div>
+                        <button class="btn-secondary" type="button" id="btnClearSig" style="margin-top:10px; width:100%;">Clear</button>
+                    </div>
+                </div>
+
+                <div class="two-col">
+                    <button class="btn-secondary" type="button" id="btnReset">Reset</button>
+                    <button class="btn-primary" type="submit" id="btnSubmit">Submit KYC</button>
+                </div>
+                <div id="msg" style="color:var(--text-dim); font-weight:900; min-height:22px;"></div>
+                <div id="sigPreview" style="margin-top:10px;"></div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script src="/assets/js/app.js"></script>
+    <script>
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = '/auth/login.html';
+        }
+
+        function setupNav() {
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+        }
+
+        function statusPill(ok) {
+            const el = document.getElementById('sessionPill');
+            if (!el) return;
+            el.textContent = ok ? 'SERVER ACTIVE' : 'SESSION EXPIRED';
+            const color = ok ? 'var(--success)' : 'var(--danger)';
+            const bg = ok ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)';
+            el.style.color = color;
+            el.style.borderColor = color;
+            el.style.background = bg;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle();
+            setupNav();
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            if (!enforceSystemAccess('logistics')) return;
+            const me = await protectRoute();
+            if (!me) return;
+            try { await requireServiceCategory('LOGISTICS'); } catch {}
+            statusPill(true);
+
+            const pad = createSignaturePad(document.getElementById('sig'));
+            document.getElementById('btnClearSig').addEventListener('click', () => pad.clear());
+
+            const form = document.getElementById('kycForm');
+            const msg = document.getElementById('msg');
+            const prog = document.getElementById('prog');
+
+            async function fillProfile() {
+                try {
+                    const me2 = await userMe();
+                    const u = me2 && me2.userData ? me2.userData : {};
+                    document.getElementById('fullName').value = u.fullName || u.passengerName || '';
+                    document.getElementById('email').value = u.email || '';
+                    document.getElementById('phone').value = u.phone || '';
+                    document.getElementById('sigName').value = u.fullName || u.passengerName || '';
+                } catch {}
+            }
+            await fillProfile();
+
+            function maskDoc(v) {
+                const s = String(v || '').trim();
+                if (s.length <= 4) return '****';
+                return `${s.slice(0, 2)}****${s.slice(-2)}`;
+            }
+
+            function validate() {
+                const fields = [
+                    ['fullName', (v) => Boolean(v.trim())],
+                    ['email', (v) => validateEmail(v)],
+                    ['phone', (v) => Boolean(normalizePhone(v))],
+                    ['docType', (v) => Boolean(v.trim())],
+                    ['docNo', (v) => Boolean(v.trim())],
+                    ['decl', (v) => Boolean(v.trim())],
+                    ['sigName', (v) => Boolean(v.trim())],
+                ];
+                let ok = 0;
+                fields.forEach(([id, fn]) => {
+                    const el = document.getElementById(id);
+                    const good = fn(el.value);
+                    el.parentElement.classList.toggle('invalid', !good);
+                    if (good) ok += 1;
+                });
+                const sigOk = !pad.isBlank();
+                if (sigOk) ok += 1;
+                prog.style.width = `${Math.round((ok / (fields.length + 1)) * 100)}%`;
+                return ok === (fields.length + 1);
+            }
+
+            ['input', 'change', 'blur'].forEach((evt) => {
+                form.addEventListener(evt, () => validate(), true);
+            });
+            validate();
+
+            document.getElementById('btnReset').addEventListener('click', () => {
+                ['docType', 'docNo', 'decl'].forEach((id) => (document.getElementById(id).value = ''));
+                pad.clear();
+                msg.textContent = '';
+                validate();
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                msg.textContent = '';
+                if (!validate()) {
+                    msg.textContent = 'Fix the highlighted fields and provide signature.';
+                    return;
+                }
+                document.getElementById('btnSubmit').disabled = true;
+                try {
+                    const docNo = document.getElementById('docNo').value.trim();
+                    const sigUrl = pad.exportDataUrl();
+                    const sigName = document.getElementById('sigName').value.trim();
+                    let upload = null;
+                    const fileEl = document.getElementById('docFile');
+                    const f = fileEl && fileEl.files && fileEl.files[0] ? fileEl.files[0] : null;
+                    if (f) {
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const r = new FileReader();
+                            r.onerror = () => reject(new Error('read'));
+                            r.onload = () => resolve(String(r.result || ''));
+                            r.readAsDataURL(f);
+                        });
+                        const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+                        if (m) {
+                            const upRes = await fetch('/api/user/kyc-upload', {
+                                method: 'POST',
+                                headers: { 'content-type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({
+                                    filename: f.name || 'kyc_upload',
+                                    contentType: m[1],
+                                    dataBase64: m[2],
+                                }),
+                            });
+                            const upJson = await upRes.json().catch(() => ({}));
+                            if (!upRes.ok) throw new Error(upJson && upJson.error ? upJson.error : 'upload');
+                            upload = { bucketId: upJson.bucketId, fileId: upJson.fileId, filename: f.name || '', contentType: m[1] };
+                        }
+                    }
+                    const res = await fetch('/api/user/submissions', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            type: 'kyc',
+                            title: `KYC • ${document.getElementById('docType').value.trim()}`,
+                            data: {
+                                fullName: document.getElementById('fullName').value.trim(),
+                                email: document.getElementById('email').value.trim(),
+                                phone: normalizePhone(document.getElementById('phone').value),
+                                documentType: document.getElementById('docType').value.trim(),
+                                documentNumberMasked: maskDoc(docNo),
+                                declaration: document.getElementById('decl').value.trim(),
+                                ...(upload ? { upload } : {}),
+                            },
+                            signatureDataUrl: sigUrl,
+                            signatureName: sigName
+                        })
+                    });
+                    if (!res.ok) throw new Error('bad');
+                    msg.textContent = 'KYC submitted. Awaiting verification.';
+                    document.getElementById('sigPreview').innerHTML = `<div style="font-weight:900; margin-bottom:8px;">Saved Signature</div><img src="${sigUrl}" alt="Signature" style="width:100%; max-width:520px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg);">`;
+                } catch {
+                    msg.textContent = 'Submission failed.';
+                } finally {
+                    document.getElementById('btnSubmit').disabled = false;
+                }
+            });
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>

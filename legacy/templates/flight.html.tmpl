@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Portal | Flight Status</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-elegant">
+    <div id="pageLoader" class="page-loader" aria-live="polite" aria-busy="true">
+        <div class="page-loader__card">
+            <div class="page-loader__row">
+                <div class="page-loader__spin" aria-hidden="true"></div>
+                <div class="page-loader__title">Loading flight status…</div>
+            </div>
+            <div class="page-loader__sub">Syncing your scoped session and manifest.</div>
+        </div>
+    </div>
+    <script>
+        function getAccessContext() {
+            const params = new URLSearchParams(window.location.search);
+            const view = (params.get('view') || '').trim();
+            const u = (params.get('u') || '').trim();
+            const tc = (params.get('tc') || '').trim();
+
+            if (view === 'details' && u) {
+                return { mode: 'public', username: u, tc };
+            }
+
+            const sessionUser = sessionStorage.getItem('active_session');
+            return { mode: 'private', username: sessionUser || '' };
+        }
+
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = 'index.html';
+        }
+
+        const access = getAccessContext();
+    </script>
+
+    <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Portal">
+            <span>TRIP Portal</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="flight.html" class="active">Status</a>
+                <a href="passengers.html">Personnel</a>
+                <a href="tracking.html">Logistics</a>
+                <a href="ledger.html">Ledger</a>
+                <a href="bookings.html">Bookings</a>
+                <a href="form.html">Indemnity</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="ticket-8k ticket-surface">
+            <div class="ticket-8k__main">
+                <div class="ticket-8k__top">
+                    <div>
+                        <div class="ticket-8k__brandline">TRIP Portal</div>
+                        <div class="ticket-8k__sub">Private e‑Ticket • Scoped Session Access</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span id="stBadge" class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">PENDING</span>
+                        <div style="margin-top:10px; color:var(--ticket-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Official Manifest</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__route">
+                    <div class="route-side">
+                        <div class="route-label">Departure</div>
+                        <div class="route-code dep" id="codeDep">LHR</div>
+                    </div>
+                    <div class="route-mid">
+                        <div class="route-icons">
+                            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="opacity:0.9;">
+                                <path fill="currentColor" d="M2.5 19.2l1.1-1.1 6.2 1.6 2.7-2.7-7.1-4.4 1.4-1.4 8.8 2.3 3.4-3.4c.8-.8 2.1-.8 2.9 0s.8 2.1 0 2.9l-3.4 3.4 2.3 8.8-1.4 1.4-4.4-7.1-2.7 2.7 1.6 6.2-1.1 1.1-3.1-5.1-5.1-3.1z"/>
+                            </svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="opacity:0.9; transform: rotate(180deg);">
+                                <path fill="currentColor" d="M2.5 19.2l1.1-1.1 6.2 1.6 2.7-2.7-7.1-4.4 1.4-1.4 8.8 2.3 3.4-3.4c.8-.8 2.1-.8 2.9 0s.8 2.1 0 2.9l-3.4 3.4 2.3 8.8-1.4 1.4-4.4-7.1-2.7 2.7 1.6 6.2-1.1 1.1-3.1-5.1-5.1-3.1z"/>
+                            </svg>
+                        </div>
+                        <div class="route-line"></div>
+                        <div style="color:var(--ticket-dim); font-weight:800; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">
+                            <span id="routeTxt">LHR-ICN</span>
+                        </div>
+                    </div>
+                    <div class="route-side" style="text-align:right;">
+                        <div class="route-label">Arrival</div>
+                        <div class="route-code arr" id="codeArr">ICN</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__grid">
+                    <div>
+                        <div class="ticket-k">Passenger Name</div>
+                        <div class="ticket-passenger" id="dispName">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Username</div>
+                        <div class="ticket-v" id="dispUser">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Gate</div>
+                        <div class="ticket-v" id="dispGate">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Seat</div>
+                        <div class="ticket-v" id="dispSeat">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Flight Class</div>
+                        <div class="ticket-v" id="dispCls" style="color:var(--ticket-blue);">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Verification</div>
+                        <div class="ticket-v" id="dispTag">Securely Verified</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ticket-8k__stub">
+                <div class="stub-meta">
+                    <div>
+                        <div class="ticket-k">One‑Time Tracking Code</div>
+                        <div class="stub-id" id="trackingCode">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Session ID</div>
+                        <div class="stub-id" id="stubId">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="detailsView" style="max-width: 980px; display:none;">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:14px;">
+                <div style="font-weight:900; letter-spacing:-0.6px; font-size:1.25rem;">Passenger Details</div>
+                <div style="color:var(--text-dim); font-weight:800;" id="detailsMode">—</div>
+            </div>
+            <div id="detailsGrid" class="admin-row"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        function setStatusBadge(status) {
+            const b = document.getElementById('stBadge');
+            b.textContent = status;
+            let color = 'var(--warning)';
+            let bg = 'rgba(245,158,11,0.10)';
+            if (status === 'VERIFYING') { color = 'var(--accent)'; bg = 'rgba(225,29,72,0.10)'; }
+            if (status === 'VERIFIED') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+            if (status === 'CONFIRMED') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+            if (status === 'SUSPENDED' || status === 'REJECTED' || status === 'DECLINED' || status === 'CANCELLED') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+            b.style.color = color;
+            b.style.borderColor = color;
+            b.style.background = bg;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!access) return;
+            initThemeToggle();
+            const loader = document.getElementById('pageLoader');
+            const hideLoader = () => { if (loader) loader.classList.add('hide'); };
+            try { document.body.style.opacity = '1'; } catch {}
+
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+            const signOutBtn = document.getElementById('signOutBtn');
+            signOutBtn.addEventListener('click', signOut);
+            const sessionPill = document.getElementById('sessionPill');
+            const setPill = (label, type) => {
+                if (!sessionPill) return;
+                sessionPill.textContent = label;
+                let color = 'var(--warning)';
+                let bg = 'rgba(245,158,11,0.10)';
+                if (type === 'ok') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+                if (type === 'bad') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+                sessionPill.style.color = color;
+                sessionPill.style.borderColor = color;
+                sessionPill.style.background = bg;
+            };
+
+            let user = null;
+            let effectiveUsername = access.username;
+
+            if (access.mode === 'public') {
+                try {
+                    const out = await publicDetails(access.username, access.tc || '');
+                    user = out && out.userData ? out.userData : null;
+                    effectiveUsername = out && out.username ? out.username : access.username;
+                    setPill('DETAILS ACTIVE', 'ok');
+                } catch {
+                    const detailsView = document.getElementById('detailsView');
+                    const detailsMode = document.getElementById('detailsMode');
+                    const detailsGrid = document.getElementById('detailsGrid');
+                    detailsView.style.display = 'block';
+                    detailsMode.textContent = 'Invalid / Used Code';
+                    detailsGrid.innerHTML = `<div style="color:var(--danger); font-weight:900;">Tracking code invalid or already used.</div>`;
+                    menu.style.display = 'none';
+                    toggle.style.display = 'none';
+                    setPill('DETAILS EXPIRED', 'bad');
+                    hideLoader();
+                    return;
+                }
+            } else {
+                const pack = await loadActiveUserFromDB();
+                if (!pack || !pack.userData) {
+                    setPill('SESSION EXPIRED', 'bad');
+                    hideLoader();
+                    signOut();
+                    return;
+                }
+                user = pack.userData;
+                effectiveUsername = pack.username;
+                try { sessionStorage.setItem('active_session', effectiveUsername); } catch {}
+                setPill('SERVER ACTIVE', 'ok');
+            }
+
+            if (!user) return;
+            if (!user.share) user.share = {};
+            if (!user.profile) user.profile = {};
+            const passengerName = user.passengerName || effectiveUsername;
+            const m = user.manifest || {};
+            const from = m.from || 'LHR';
+            const to = m.to || 'ICN';
+            const route = `${from}-${to}`;
+            const flightClass = m.flightClass || 'Business';
+            const status = m.status || 'PENDING';
+
+            document.getElementById('dispName').textContent = passengerName;
+            document.getElementById('dispUser').textContent = effectiveUsername;
+            document.getElementById('codeDep').textContent = from;
+            document.getElementById('codeArr').textContent = to;
+            document.getElementById('routeTxt').textContent = route;
+            document.getElementById('dispGate').textContent = m.gate || '--';
+            document.getElementById('dispSeat').textContent = m.seat || '--';
+            document.getElementById('dispCls').textContent = String(flightClass).toUpperCase();
+            document.getElementById('dispTag').textContent = `Verified Passenger • ${flightClass}`;
+            setStatusBadge(status);
+
+            const oneTime = user.share.oneTimeTracking || {};
+            document.getElementById('trackingCode').textContent = oneTime.code ? oneTime.code : 'AWAITING ADMIN';
+            document.getElementById('stubId').textContent = effectiveUsername;
+
+            const detailsView = document.getElementById('detailsView');
+            const detailsMode = document.getElementById('detailsMode');
+            const detailsGrid = document.getElementById('detailsGrid');
+            detailsGrid.innerHTML = '';
+
+            if (access.mode === 'public') {
+                detailsMode.textContent = 'Details View';
+                detailsView.style.display = 'block';
+                menu.style.display = 'none';
+                toggle.style.display = 'none';
+                signOutBtn.style.display = 'none';
+            } else {
+                detailsMode.textContent = 'Private Session';
+            }
+
+            const p = user.profile || {};
+            const gw = (p && typeof p.gateway === 'object' && p.gateway) ? p.gateway : {};
+            const extras = Array.isArray(p.additionalPassengers) ? p.additionalPassengers : [];
+            const ledger = user.ledger || {};
+            const steps = (user.logistics && Array.isArray(user.logistics.steps)) ? user.logistics.steps : [];
+            const currentStep = (user.logistics && user.logistics.currentStep) ? user.logistics.currentStep : 0;
+
+            detailsGrid.innerHTML = `
+                <div class="card" style="margin:0;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Identity</div>
+                    <div style="display:grid; gap:10px;">
+                        <div><span class="ticket-k">Passenger</span><div style="font-weight:900; font-size:1.2rem; margin-top:4px;">${passengerName}</div></div>
+                        <div><span class="ticket-k">Username</span><div style="font-weight:900; margin-top:4px;">${effectiveUsername}</div></div>
+                        <div><span class="ticket-k">Category</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.category || '—'}</div></div>
+                        <div><span class="ticket-k">Purpose</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.purpose || '—'}</div></div>
+                        <div><span class="ticket-k">Nationality</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.nationality || '—'}</div></div>
+                        <div><span class="ticket-k">Passport</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.passport || '—'}</div></div>
+                        <div><span class="ticket-k">Notes</span><div style="font-weight:800; margin-top:4px; color:var(--text-dim);">${p.notes || '—'}</div></div>
+                    </div>
+                </div>
+                <div class="card" style="margin:0;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Flight</div>
+                    <div style="display:grid; gap:10px;">
+                        <div><span class="ticket-k">Route</span><div style="font-weight:900; margin-top:4px;">${route}</div></div>
+                        <div><span class="ticket-k">Gate / Seat</span><div style="font-weight:900; margin-top:4px;">${m.gate || '--'} / ${m.seat || '--'}</div></div>
+                        <div><span class="ticket-k">Class</span><div style="font-weight:900; margin-top:4px;">${String(flightClass).toUpperCase()}</div></div>
+                        <div><span class="ticket-k">Status</span><div style="font-weight:900; margin-top:4px;">${status}</div></div>
+                        <div><span class="ticket-k">Ledger</span><div style="font-weight:900; margin-top:4px;">£${ledger.balance || '0.00'}</div></div>
+                    </div>
+                </div>
+                <div class="card" style="margin:0;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Gateway</div>
+                    <div style="display:grid; gap:10px;">
+                        <div><span class="ticket-k">Terminal</span><div style="font-weight:900; margin-top:4px;">${gw.terminal || '—'}</div></div>
+                        <div><span class="ticket-k">Check‑in</span><div style="font-weight:900; margin-top:4px;">${gw.checkin || '—'}</div></div>
+                        <div><span class="ticket-k">Baggage</span><div style="font-weight:900; margin-top:4px;">${gw.baggage || '—'}</div></div>
+                        <div><span class="ticket-k">Assistance</span><div style="font-weight:900; margin-top:4px;">${gw.assistance || '—'}</div></div>
+                    </div>
+                </div>
+                <div class="card" style="margin:0; grid-column: 1 / -1;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Logistics Summary</div>
+                    <div style="display:grid; gap:10px;">
+                        <div style="color:var(--text-dim); font-weight:800;">Current Step: ${currentStep || '—'}</div>
+                        <div style="display:grid; gap:8px;">
+                            ${steps.map((s, idx) => `<div style="display:flex; justify-content:space-between; gap:12px; font-weight:800; color:${(idx+1)===currentStep ? 'var(--accent)' : 'var(--text-dim)'};">
+                                <div>Step ${idx+1}: ${s.title || '—'}</div>
+                                <div>${s.date || '—'}</div>
+                            </div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="margin:0; grid-column: 1 / -1;">
+                    <div class="ticket-k" style="margin-bottom:10px;">Additional Passengers</div>
+                    <div style="display:grid; gap:10px;">
+                        ${extras.length === 0 ? `<div style="color:var(--text-dim); font-weight:800;">None assigned.</div>` : extras.map((x) => `
+                            <div style="display:flex; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:14px; padding:12px;">
+                                <div style="min-width:0;">
+                                    <div style="font-weight:900; letter-spacing:-0.4px;">${x.name || '—'}</div>
+                                    <div style="color:var(--text-dim); font-weight:800; margin-top:6px;">${x.role || 'Passenger'} • ${(x.flightClass || '—').toUpperCase()}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <span class="badge-pill" style="color:${(x.status === 'CONFIRMED') ? 'var(--success)' : (x.status === 'CANCELLED' ? 'var(--danger)' : 'var(--warning)')}; border-color:${(x.status === 'CONFIRMED') ? 'var(--success)' : (x.status === 'CANCELLED' ? 'var(--danger)' : 'var(--warning)')};">${x.status || 'PENDING'}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            hideLoader();
+        });
+    </script>
+</body>
+</html>

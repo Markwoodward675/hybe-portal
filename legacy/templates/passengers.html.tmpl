@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Portal | Personnel</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <script>
+        function checkTRIPAuth() {
+            const username = sessionStorage.getItem('active_session');
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            return username || '';
+        }
+
+        function readTRIPDB() {
+            const raw = localStorage.getItem('trip_users_db');
+            if (!raw) return { users: {} };
+            try { return JSON.parse(raw) || { users: {} }; } catch { return { users: {} }; }
+        }
+
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = 'index.html';
+        }
+
+        const activeUser = checkTRIPAuth();
+    </script>
+
+    <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Portal">
+            <span>TRIP Portal</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="flight.html">Status</a>
+                <a href="passengers.html" class="active">Personnel</a>
+                <a href="tracking.html">Logistics</a>
+                <a href="ledger.html">Ledger</a>
+                <a href="bookings.html">Bookings</a>
+                <a href="form.html">Indemnity</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <h2 style="font-size: 2.2rem; margin-bottom: 22px; letter-spacing: -1px;">Personnel Manifest</h2>
+        <div style="color:var(--text-dim); font-weight:700; margin-bottom: 22px;">Primary Passenger is scoped to the active TRIP session. Other entries are controlled by TRIP registry and rotate as verification completes.</div>
+
+        <div class="card" style="margin-bottom: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Primary Passenger</div>
+                    <div style="font-weight:900; font-size:1.5rem; letter-spacing:-0.8px;" id="primaryName">—</div>
+                    <div style="color:var(--text-dim); font-weight:800; margin-top:6px;" id="primaryMeta">—</div>
+                </div>
+                <div style="text-align:right;">
+                    <span class="badge-pill" id="primaryStatus" style="color:var(--warning); border-color:var(--warning);">PENDING</span>
+                    <div style="margin-top:10px;">
+                        <a href="flight.html" style="display:inline-block; text-decoration:none; padding:10px 12px; border-radius:12px; border:1px solid var(--border); color:var(--text); font-weight:800;">View e‑Ticket</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card table-responsive" style="padding:0; margin-bottom: 18px;">
+            <table class="m-table">
+                <thead><tr><th>Name</th><th>Role</th><th>Flight Class</th><th>Verification</th><th>Outcome</th></tr></thead>
+                <tbody id="mBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card table-responsive" style="padding:0;">
+            <table class="m-table">
+                <thead><tr><th>Verified Status</th><th>Role</th><th>Flight Class</th><th>Verification</th><th>Marker</th></tr></thead>
+                <tbody id="confirmedBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        let rosterBase = [
+            { n: "Adebayo K.", role: "Business Owner", c: "Business" },
+            { n: "Isabella Chen", role: "Tech Founder", c: "First" },
+            { n: "David & Priya Shah", role: "Family Vacation", c: "Business" },
+            { n: "Noah & Emma Brooks", role: "Couple • Maternity", c: "First" },
+            { n: "Dr. Sofia Martins", role: "Medical Specialist", c: "Business" },
+            { n: "Hassan Al‑Rashid", role: "Private Investor", c: "VVIP" },
+            { n: "Marie Dubois", role: "Diplomatic Liaison", c: "First" },
+            { n: "K. Adeyemi", role: "High Profile Client", c: "VVIP" },
+            { n: "Rina Yamamoto", role: "Luxury Concierge", c: "Business" },
+            { n: "Owen Parker", role: "Security Escort", c: "Business" },
+            { n: "Confidential Family 11", role: "Family Vacation", c: "Economy" },
+            { n: "Confidential Family 12", role: "Family Vacation", c: "Business" },
+            { n: "Confidential Client 13", role: "High Profile Client", c: "First" },
+            { n: "Confidential Client 14", role: "Private Investor", c: "Business" },
+            { n: "Confidential Couple 15", role: "Couple • Maternity", c: "Business" },
+            { n: "Confidential Owner 16", role: "Business Owner", c: "First" },
+            { n: "Confidential Client 17", role: "Diplomatic Liaison", c: "First" },
+            { n: "Confidential Client 18", role: "High Profile Client", c: "VVIP" }
+        ];
+        let aiHiddenRoster = [];
+
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function nextUpdateMillis() {
+            return randInt(10, 15) * 60 * 1000;
+        }
+
+        function buildHiddenRoster(count) {
+            const roles = ["Business Owner", "Family Vacation", "Private Investor", "High Profile Client", "Couple • Maternity", "Medical Specialist"];
+            const classes = ["Economy", "Business", "First", "VVIP"];
+            const out = [];
+            if (Array.isArray(aiHiddenRoster) && aiHiddenRoster.length) {
+                for (let i = 0; i < Math.min(count, aiHiddenRoster.length); i++) {
+                    out.push(aiHiddenRoster[i]);
+                }
+                if (out.length >= count) return out.slice(0, count);
+            }
+            for (let i = 1; i <= count; i++) {
+                const r = roles[(i * 7) % roles.length];
+                const c = classes[(i * 5) % classes.length];
+                out.push({ n: `Confidential Passenger ${String(i).padStart(2, "0")}`, role: r, c });
+            }
+            return out;
+        }
+
+        function loadAiRosterCache() {
+            const raw = localStorage.getItem('trip_ai_roster_v1');
+            if (!raw) return null;
+            try { return JSON.parse(raw); } catch { return null; }
+        }
+
+        function saveAiRosterCache(payload) {
+            try { localStorage.setItem('trip_ai_roster_v1', JSON.stringify(payload)); } catch {}
+        }
+
+        async function hydrateAiRoster() {
+            const cached = loadAiRosterCache();
+            if (cached && cached.items && cached.expiresAt && Date.now() < cached.expiresAt) {
+                applyAiRoster(cached.items);
+                return;
+            }
+            try {
+                const res = await fetch('/api/public/ai/passengers?limit=50', { credentials: 'include' });
+                const out = await res.json().catch(() => ({}));
+                const items = out && Array.isArray(out.items) ? out.items : [];
+                if (items.length) {
+                    saveAiRosterCache({ items, expiresAt: Date.now() + 10 * 60 * 1000 });
+                    applyAiRoster(items);
+                }
+            } catch {}
+        }
+
+        function applyAiRoster(items) {
+            const roles = ["Business Owner", "Family Vacation", "Private Investor", "High Profile Client", "Couple • Maternity", "Medical Specialist"];
+            const mapped = items.slice(0, 50).map((p, idx) => {
+                const n = String(p.fullName || `Passenger ${idx + 1}`);
+                const role = roles[idx % roles.length];
+                const c = String(p.flightClass || p.flightClass === '' ? p.flightClass : 'Business') || 'Business';
+                return { n, role, c };
+            });
+            rosterBase = mapped.slice(0, 18);
+            aiHiddenRoster = mapped.slice(18);
+            localStorage.removeItem('trip_roster_state_v2');
+        }
+
+        function loadRosterState() {
+            const raw = localStorage.getItem('trip_roster_state_v2');
+            if (!raw) return null;
+            try { return JSON.parse(raw); } catch { return null; }
+        }
+
+        function saveRosterState(state) {
+            localStorage.setItem('trip_roster_state_v2', JSON.stringify(state));
+        }
+
+        function makeIdForPassenger(p, idx) {
+            return `P-${idx}-${String(p.n).toLowerCase().replaceAll(' ', '_').replaceAll('&', 'and')}`;
+        }
+
+        function statusColor(stat) {
+            if (stat === 'CONFIRMED' || stat === 'VERIFIED') return 'var(--success)';
+            if (stat === 'REJECTED' || stat === 'DECLINED' || stat === 'SUSPENDED') return 'var(--danger)';
+            if (stat === 'VERIFYING') return 'var(--accent)';
+            return 'var(--warning)';
+        }
+
+        function getRosterState() {
+            const all = rosterBase.concat(buildHiddenRoster(54));
+            const now = Date.now();
+            const stages = ['ON-HOLD', 'PENDING', 'VERIFYING', 'VERIFIED'];
+            const finals = ['CONFIRMED', 'SUSPENDED', 'REJECTED', 'DECLINED'];
+
+            let state = loadRosterState();
+            if (!state || !state.nextAt || !Array.isArray(state.activeIds) || !Array.isArray(state.hiddenIds) || typeof state.map !== 'object') {
+                const allIds = all.map((p, idx) => makeIdForPassenger(p, idx));
+                const activeIds = allIds.slice(0, 22);
+                const hiddenIds = allIds.slice(22);
+                const map = {};
+                allIds.forEach((id, idx) => {
+                    map[id] = { stage: 1, final: '', updatedAt: now, marker: '' };
+                });
+                state = { nextAt: now + nextUpdateMillis(), activeIds, hiddenIds, confirmedIds: [], map };
+                saveRosterState(state);
+            }
+
+            if (now > state.nextAt) {
+                const updated = state.map || {};
+
+                state.activeIds.forEach((id) => {
+                    const entry = updated[id] || { stage: 1, final: '', updatedAt: now, marker: '' };
+                    if (entry.final) return;
+                    if (entry.stage < stages.length - 1) {
+                        const jump = Math.random() < 0.65 ? 1 : 0;
+                        entry.stage = Math.min(stages.length - 1, entry.stage + jump);
+                        entry.updatedAt = now;
+                    } else {
+                        const roll = Math.random();
+                        if (roll < 0.50) {
+                            entry.final = 'VERIFIED';
+                        } else {
+                            let out = 'CONFIRMED';
+                            if (roll >= 0.70 && roll < 0.82) out = 'SUSPENDED';
+                            if (roll >= 0.82 && roll < 0.92) out = 'REJECTED';
+                            if (roll >= 0.92) out = 'DECLINED';
+                            entry.final = out;
+                        }
+                        entry.updatedAt = now;
+                        entry.marker = new Date(now).toLocaleTimeString();
+                    }
+                    updated[id] = entry;
+                });
+
+                const remainingActive = [];
+                state.activeIds.forEach((id) => {
+                    const entry = updated[id];
+                    if (entry && (entry.final === 'CONFIRMED' || entry.final === 'VERIFIED')) {
+                        state.confirmedIds = Array.isArray(state.confirmedIds) ? state.confirmedIds : [];
+                        state.confirmedIds.unshift(id);
+                    } else {
+                        remainingActive.push(id);
+                    }
+                });
+
+                while (remainingActive.length < 22 && state.hiddenIds.length > 0) {
+                    const nextId = state.hiddenIds.shift();
+                    remainingActive.push(nextId);
+                }
+
+                state.activeIds = remainingActive;
+                state.map = updated;
+                state.nextAt = now + nextUpdateMillis();
+                saveRosterState(state);
+            }
+
+            const idToPassenger = {};
+            all.forEach((p, idx) => {
+                const id = makeIdForPassenger(p, idx);
+                idToPassenger[id] = { ...p, id };
+            });
+
+            const active = state.activeIds.map((id) => {
+                const p = idToPassenger[id];
+                const entry = state.map[id] || { stage: 1, final: '', marker: '' };
+                const stages = ['ON-HOLD', 'PENDING', 'VERIFYING', 'VERIFIED'];
+                const verification = entry.final ? entry.final : stages[entry.stage] || 'PENDING';
+                const outcome = entry.final ? entry.final : (verification === 'VERIFIED' ? 'VERIFIED' : '');
+                return { ...p, verification, outcome, marker: entry.marker || '' };
+            }).filter(Boolean);
+
+            const confirmed = (state.confirmedIds || []).map((id) => {
+                const p = idToPassenger[id];
+                const entry = state.map[id] || { marker: '' };
+                const final = entry.final || 'VERIFIED';
+                return p ? { ...p, verification: final, outcome: final, marker: entry.marker || '' } : null;
+            }).filter(Boolean);
+
+            return { active, confirmed, nextAt: state.nextAt };
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle();
+
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+            const sessionPill = document.getElementById('sessionPill');
+            const setPill = (label, type) => {
+                if (!sessionPill) return;
+                sessionPill.textContent = label;
+                let color = 'var(--warning)';
+                let bg = 'rgba(245,158,11,0.10)';
+                if (type === 'ok') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+                if (type === 'bad') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+                sessionPill.style.color = color;
+                sessionPill.style.borderColor = color;
+                sessionPill.style.background = bg;
+            };
+
+            const pack = await loadActiveUserFromDB();
+            const user = pack && pack.userData ? pack.userData : null;
+            if (!user) {
+                setPill('SESSION EXPIRED', 'bad');
+                signOut();
+                return;
+            }
+            setPill('SERVER ACTIVE', 'ok');
+
+            await hydrateAiRoster();
+
+            const passengerName = user.passengerName || activeUser;
+            const m = user.manifest || {};
+            const flightClass = m.flightClass || 'Business';
+            const status = m.status || 'PENDING';
+            const route = `${m.from || 'LHR'}-${m.to || 'ICN'}`;
+            const gs = `${m.gate || '--'} / ${m.seat || '--'}`;
+
+            document.getElementById('primaryName').textContent = passengerName;
+            document.getElementById('primaryMeta').textContent = `${route} • ${gs} • ${String(flightClass).toUpperCase()}`;
+            setStatusBadge(document.getElementById('primaryStatus'), status);
+
+            const b = document.getElementById('mBody');
+            const cb = document.getElementById('confirmedBody');
+            b.innerHTML = '';
+            cb.innerHTML = '';
+
+            const outcomeFromStatus = (s) => {
+                const st = String(s || '').toUpperCase();
+                const locked = ['VERIFIED', 'CONFIRMED', 'SUSPENDED', 'REJECTED', 'DECLINED', 'CANCELLED'];
+                return locked.includes(st) ? st : '';
+            };
+            renderRow(b, passengerName, "Primary Passenger", flightClass, status, outcomeFromStatus(status));
+            const extras = Array.isArray(user.profile && user.profile.additionalPassengers) ? user.profile.additionalPassengers : [];
+            extras.forEach((p) => {
+                const n = p.name || '—';
+                const r = p.role || 'Passenger';
+                const c = p.flightClass || flightClass;
+                const s = p.status || 'PENDING';
+                renderRow(b, n, r, c, s, outcomeFromStatus(s));
+            });
+
+            const roster = getRosterState();
+            const next = new Date(roster.nextAt);
+            const hint = document.createElement('div');
+            hint.style.color = 'var(--text-dim)';
+            hint.style.fontWeight = '800';
+            hint.style.marginBottom = '14px';
+            hint.textContent = `Registry update cycle: ${next.toLocaleTimeString()}`;
+            const container = document.querySelector('.container');
+            const existing = document.getElementById('rosterHint');
+            if (existing) existing.remove();
+            hint.id = 'rosterHint';
+            container.insertBefore(hint, container.children[2]);
+
+            roster.active.forEach((item) => {
+                if (String(item.n).toLowerCase().includes('clare bland')) return;
+                renderRow(b, item.n, item.role, item.c, item.verification, item.outcome);
+            });
+
+            roster.confirmed.slice(0, 30).forEach((item) => {
+                const color = statusColor(item.verification);
+                cb.innerHTML += `<tr>
+                    <td style="font-weight:900;">${item.n}</td>
+                    <td style="font-size:0.75rem; font-weight:800; color:var(--text-dim);">${item.role}</td>
+                    <td style="font-size:0.7rem; font-weight:800; color:var(--text-dim);">${String(item.c).toUpperCase()}</td>
+                    <td><span class="badge-pill" style="color:${color}; border-color:${color}">${item.verification}</span></td>
+                    <td style="color:var(--text-dim); font-weight:800;">${item.marker || '—'}</td>
+                </tr>`;
+            });
+        });
+
+        function setStatusBadge(el, stat) {
+            let color = statusColor(stat);
+            el.textContent = stat;
+            el.style.color = color;
+            el.style.borderColor = color;
+        }
+
+        function renderRow(target, name, role, cls, stat, outcome) {
+            let color = statusColor(stat);
+            target.innerHTML += `<tr>
+                <td style="font-weight:700;">${name}</td>
+                <td style="font-size:0.75rem; font-weight:800; color:var(--text-dim);">${role}</td>
+                <td style="font-size:0.7rem; font-weight:800; color:var(--text-dim);">${cls.toUpperCase()}</td>
+                <td><span class="badge-pill" style="color:${color}; border-color:${color}">${stat}</span></td>
+                <td style="color:var(--text-dim); font-weight:800;">${outcome || '—'}</td>
+            </tr>`;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Global Logistics | Submissions</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <nav class="trip-nav">
+        <a href="/logistics/dashboard.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Global Logistics">
+            <span>TRIP Global Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="/logistics/dashboard.html">Tracking</a>
+                <a href="/logistics/requests.html">Requests</a>
+                <a href="/logistics/kyc.html">KYC</a>
+                <a href="/logistics/indemnity.html">Indemnity</a>
+                <a href="/logistics/submissions.html" class="active">Submissions</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="card">
+            <div class="form-head">
+                <h2>Submission History</h2>
+                <div class="badge-pill" style="color:var(--text-dim); border-color:var(--border);">LOGISTICS</div>
+            </div>
+            <p class="form-sub">Track your submitted forms and their approval status.</p>
+        </div>
+
+        <div class="card table-responsive" style="padding:0;">
+            <table class="m-table">
+                <thead><tr><th>Type</th><th>Title</th><th>Status</th><th>Submitted</th></tr></thead>
+                <tbody id="rows"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script src="/assets/js/app.js"></script>
+    <script>
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = '/auth/login.html';
+        }
+
+        function setupNav() {
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+        }
+
+        function statusPill(ok) {
+            const el = document.getElementById('sessionPill');
+            if (!el) return;
+            el.textContent = ok ? 'SERVER ACTIVE' : 'SESSION EXPIRED';
+            const color = ok ? 'var(--success)' : 'var(--danger)';
+            const bg = ok ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)';
+            el.style.color = color;
+            el.style.borderColor = color;
+            el.style.background = bg;
+        }
+
+        function badge(status) {
+            const st = String(status || 'PENDING').toUpperCase();
+            const c = st === 'APPROVED' ? 'var(--success)' : (st === 'REJECTED' ? 'var(--danger)' : 'var(--warning)');
+            return `<span class="badge-pill" style="color:${c}; border-color:${c}; background:${st === 'APPROVED' ? 'rgba(16,185,129,0.10)' : (st === 'REJECTED' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)')};">${st}</span>`;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle();
+            setupNav();
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+            if (!enforceSystemAccess('logistics')) return;
+            const me = await protectRoute();
+            if (!me) return;
+            try { await requireServiceCategory('LOGISTICS'); } catch {}
+            statusPill(true);
+
+            const rows = document.getElementById('rows');
+            rows.innerHTML = '';
+            try {
+                const res = await fetch('/api/user/submissions', { credentials: 'include' });
+                const out = await res.json().catch(() => ({}));
+                const subs = out && out.submissions ? out.submissions : {};
+                const all = []
+                    .concat(Array.isArray(subs.requests) ? subs.requests : [])
+                    .concat(Array.isArray(subs.kyc) ? subs.kyc : [])
+                    .concat(Array.isArray(subs.indemnity) ? subs.indemnity : []);
+                all.sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
+                all.forEach((s) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td style="font-weight:900;">${String(s.type || '').toUpperCase()}</td><td>${s.title || '—'}</td><td>${badge(s.status)}</td><td style="color:var(--text-dim); font-weight:800;">${s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '—'}</td>`;
+                    rows.appendChild(tr);
+                });
+                if (!all.length) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td colspan="4" style="color:var(--text-dim); font-weight:800; padding:14px;">No submissions yet.</td>`;
+                    rows.appendChild(tr);
+                }
+            } catch {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="4" style="color:var(--text-dim); font-weight:800; padding:14px;">Unable to load submissions.</td>`;
+                rows.appendChild(tr);
+            }
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>

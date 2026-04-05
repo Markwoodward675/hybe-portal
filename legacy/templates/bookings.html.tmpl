@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Portal | Future Bookings</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <script>
+        function checkTRIPAuth() {
+            const username = sessionStorage.getItem('active_session');
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            return username || '';
+        }
+
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = 'index.html';
+        }
+
+        const activeUser = checkTRIPAuth();
+    </script>
+
+    <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Portal">
+            <span>TRIP Portal</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="flight.html">Status</a>
+                <a href="passengers.html">Personnel</a>
+                <a href="tracking.html">Logistics</a>
+                <a href="ledger.html">Ledger</a>
+                <a href="bookings.html" class="active">Bookings</a>
+                <a href="form.html">Indemnity</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <h2 style="letter-spacing:-1px; margin-bottom: 14px;">Future Booked Flights</h2>
+        <div id="subTxt" style="color:var(--text-dim); font-weight:700; margin-bottom: 18px;">Auto-refreshes every 10–15 minutes.</div>
+        <div class="card">
+            <div class="booking-grid" id="bookingsGrid"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function pick(arr) {
+            return arr[randInt(0, arr.length - 1)];
+        }
+
+        function formatGBP(n) {
+            return `£${n.toFixed(2)}`;
+        }
+
+        function nextRefreshMillis() {
+            return randInt(10, 15) * 60 * 1000;
+        }
+
+        function loadBookingState() {
+            const raw = localStorage.getItem('trip_bookings_state');
+            if (!raw) return null;
+            try { return JSON.parse(raw); } catch { return null; }
+        }
+
+        function saveBookingState(state) {
+            localStorage.setItem('trip_bookings_state', JSON.stringify(state));
+        }
+
+        function loadAdminBookingState() {
+            const raw = localStorage.getItem('trip_bookings_admin_state');
+            if (!raw) return null;
+            try { return JSON.parse(raw); } catch { return null; }
+        }
+
+        function saveAdminBookingState(state) {
+            localStorage.setItem('trip_bookings_admin_state', JSON.stringify(state));
+        }
+
+        function buildBookings() {
+            const first = ['Isabella', 'Noah', 'Emma', 'Sofia', 'Marie', 'Rina', 'Owen', 'Clare', 'David', 'Priya', 'Liam', 'Amina', 'Yuna', 'Minho', 'Arjun', 'Zara', 'Mateo', 'Leila', 'Oliver', 'Maya', 'Ethan', 'Ava', 'Lucas', 'Mina'];
+            const last = ['Chen', 'Martins', 'Dubois', 'Yamamoto', 'Parker', 'Brooks', 'Shah', 'Kim', 'Singh', 'Hernandez', 'Kowalski', 'Nguyen', 'Costa', 'Nakamura', 'Alvarez', 'Patel', 'Watanabe', 'Rahman', 'Schmidt', 'Novak', 'Santos', 'Lee', 'Garcia', 'Murphy', 'Lopez'];
+            const airports = [
+                { iata: 'LHR', city: 'London', country: 'United Kingdom' },
+                { iata: 'MAN', city: 'Manchester', country: 'United Kingdom' },
+                { iata: 'AMS', city: 'Amsterdam', country: 'Netherlands' },
+                { iata: 'CDG', city: 'Paris', country: 'France' },
+                { iata: 'FRA', city: 'Frankfurt', country: 'Germany' },
+                { iata: 'DXB', city: 'Dubai', country: 'UAE' },
+                { iata: 'DOH', city: 'Doha', country: 'Qatar' },
+                { iata: 'JFK', city: 'New York', country: 'USA' },
+                { iata: 'LAX', city: 'Los Angeles', country: 'USA' },
+                { iata: 'ICN', city: 'Seoul/Incheon', country: 'Korea' },
+                { iata: 'NRT', city: 'Tokyo/Narita', country: 'Japan' },
+                { iata: 'SIN', city: 'Singapore', country: 'Singapore' },
+                { iata: 'ZRH', city: 'Zurich', country: 'Switzerland' },
+                { iata: 'MAD', city: 'Madrid', country: 'Spain' }
+            ];
+            const statuses = ["PENDING", "CONFIRMED", "HOLD", "SCHEDULED"];
+            const classes = ["Economy", "Premium", "Business", "First"];
+            const baseTime = Date.now() + randInt(6, 72) * 60 * 60 * 1000;
+            const usedNames = new Set();
+
+            const items = Array.from({ length: 14 }).map((_, idx) => {
+                let name = '';
+                for (let i = 0; i < 200; i++) {
+                    const cand = `${pick(first)} ${pick(last)}`;
+                    if (!usedNames.has(cand)) { name = cand; usedNames.add(cand); break; }
+                }
+                const from = pick(airports);
+                let to = pick(airports);
+                while (to.iata === from.iata) to = pick(airports);
+                const route = `${from.iata} ${from.city} → ${to.iata} ${to.city}`;
+                const dep = new Date(baseTime + idx * randInt(35, 95) * 60 * 1000);
+                const hrs = String(dep.getHours()).padStart(2, "0");
+                const mins = String(dep.getMinutes()).padStart(2, "0");
+                const price = randInt(1400, 18500) + Math.random();
+                const stat = pick(statuses);
+                return {
+                    id: `BK-${randInt(1000, 9999)}`,
+                    name,
+                    cls: pick(classes),
+                    route,
+                    time: `${hrs}:${mins}`,
+                    date: dep.toLocaleDateString(),
+                    price,
+                    status: stat
+                };
+            });
+
+            const nextAt = Date.now() + nextRefreshMillis();
+            const state = { nextAt, items };
+            saveBookingState(state);
+            return state;
+        }
+
+        function statusBadge(stat) {
+            let color = 'var(--warning)';
+            if (stat === 'VERIFYING') color = 'var(--accent)';
+            if (stat === 'VERIFIED') color = 'var(--success)';
+            if (stat === 'CONFIRMED') color = 'var(--success)';
+            if (stat === 'SUSPENDED' || stat === 'REJECTED' || stat === 'DECLINED' || stat === 'CANCELLED') color = 'var(--danger)';
+            if (stat === 'HOLD' || stat === 'ON-HOLD') color = 'var(--danger)';
+            return `<span class="badge-pill" style="color:${color}; border-color:${color};">${stat}</span>`;
+        }
+
+        function toTimeParts(ts) {
+            const d = new Date(ts);
+            const hrs = String(d.getHours()).padStart(2, "0");
+            const mins = String(d.getMinutes()).padStart(2, "0");
+            return { date: d.toLocaleDateString(), time: `${hrs}:${mins}` };
+        }
+
+        function clampFuture(ts) {
+            const minFuture = Date.now() + 60 * 60 * 1000;
+            return Math.max(ts, minFuture);
+        }
+
+        function makeAdminBookingItems(db) {
+            const users = db && db.users ? db.users : {};
+            const usernames = Object.keys(users).sort((a, b) => a.localeCompare(b));
+
+            const now = Date.now();
+            let adminState = loadAdminBookingState();
+            if (!adminState || typeof adminState !== 'object' || !adminState.map) {
+                adminState = { nextAt: now + nextRefreshMillis(), map: {} };
+            }
+
+            const shouldRefresh = !adminState.nextAt || now > adminState.nextAt;
+            const baseTime = now + randInt(6, 72) * 60 * 60 * 1000;
+
+            const first = ['Isabella', 'Noah', 'Emma', 'Sofia', 'Marie', 'Rina', 'Owen', 'Clare', 'David', 'Priya', 'Liam', 'Amina', 'Yuna', 'Minho', 'Arjun', 'Zara', 'Mateo', 'Leila', 'Oliver', 'Maya', 'Ethan', 'Ava', 'Lucas', 'Mina'];
+            const last = ['Chen', 'Martins', 'Dubois', 'Yamamoto', 'Parker', 'Brooks', 'Shah', 'Kim', 'Singh', 'Hernandez', 'Kowalski', 'Nguyen', 'Costa', 'Nakamura', 'Alvarez', 'Patel', 'Watanabe', 'Rahman', 'Schmidt', 'Novak', 'Santos', 'Lee', 'Garcia', 'Murphy', 'Lopez'];
+            const airports = [
+                { iata: 'LHR', city: 'London', country: 'United Kingdom' },
+                { iata: 'MAN', city: 'Manchester', country: 'United Kingdom' },
+                { iata: 'AMS', city: 'Amsterdam', country: 'Netherlands' },
+                { iata: 'CDG', city: 'Paris', country: 'France' },
+                { iata: 'FRA', city: 'Frankfurt', country: 'Germany' },
+                { iata: 'DXB', city: 'Dubai', country: 'UAE' },
+                { iata: 'DOH', city: 'Doha', country: 'Qatar' },
+                { iata: 'JFK', city: 'New York', country: 'USA' },
+                { iata: 'LAX', city: 'Los Angeles', country: 'USA' },
+                { iata: 'ICN', city: 'Seoul/Incheon', country: 'Korea' },
+                { iata: 'NRT', city: 'Tokyo/Narita', country: 'Japan' },
+                { iata: 'SIN', city: 'Singapore', country: 'Singapore' },
+                { iata: 'ZRH', city: 'Zurich', country: 'Switzerland' },
+                { iata: 'MAD', city: 'Madrid', country: 'Spain' }
+            ];
+            const classes = ["Economy", "Premium", "Business", "First"];
+            const statuses = ["PENDING", "CONFIRMED", "HOLD", "SCHEDULED"];
+            const usedNames = new Set();
+
+            const items = usernames.map((username, idx) => {
+                const key = username;
+                const existing = adminState.map[key] || {};
+                if (!existing.persona) {
+                    let nm = '';
+                    for (let i = 0; i < 200; i++) {
+                        const cand = `${pick(first)} ${pick(last)}`;
+                        if (!usedNames.has(cand)) { nm = cand; usedNames.add(cand); break; }
+                    }
+                    const from = pick(airports);
+                    let to = pick(airports);
+                    while (to.iata === from.iata) to = pick(airports);
+                    existing.persona = {
+                        name: nm,
+                        cls: pick(classes),
+                        route: `${from.iata} ${from.city} → ${to.iata} ${to.city}`,
+                        status: pick(statuses),
+                    };
+                } else if (!usedNames.has(existing.persona.name)) {
+                    usedNames.add(existing.persona.name);
+                }
+
+                let ts = typeof existing.ts === 'number' ? existing.ts : (baseTime + idx * randInt(22, 88) * 60 * 1000);
+                let price = typeof existing.price === 'number' ? existing.price : (randInt(1400, 18500) + Math.random());
+
+                if (shouldRefresh) {
+                    ts = clampFuture(ts + randInt(-18, 44) * 60 * 1000);
+                    price = Math.max(220, price + randInt(-160, 220) + Math.random());
+                }
+
+                adminState.map[key] = { ...existing, ts, price };
+                const { date, time } = toTimeParts(ts);
+
+                return {
+                    id: `BK-${randInt(1000, 9999)}`,
+                    name: existing.persona.name,
+                    cls: existing.persona.cls,
+                    route: existing.persona.route,
+                    time,
+                    date,
+                    price,
+                    status: existing.persona.status
+                };
+            });
+
+            if (shouldRefresh) {
+                adminState.nextAt = now + nextRefreshMillis();
+            }
+            saveAdminBookingState(adminState);
+
+            return { items, nextAt: adminState.nextAt };
+        }
+
+        function mergeBookings(adminItems, randomItems) {
+            const merged = [];
+            const maxLen = 28;
+            const a = adminItems.slice();
+            const r = randomItems.slice();
+
+            while (merged.length < maxLen && (a.length || r.length)) {
+                if (a.length) merged.push(a.shift());
+                if (merged.length >= maxLen) break;
+                if (r.length) merged.push(r.shift());
+            }
+            return merged;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle();
+
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+            const sessionPill = document.getElementById('sessionPill');
+            const setPill = (label, type) => {
+                if (!sessionPill) return;
+                sessionPill.textContent = label;
+                let color = 'var(--warning)';
+                let bg = 'rgba(245,158,11,0.10)';
+                if (type === 'ok') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+                if (type === 'bad') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+                sessionPill.style.color = color;
+                sessionPill.style.borderColor = color;
+                sessionPill.style.background = bg;
+            };
+
+            let pack = null;
+            try { pack = await loadActiveUserFromDB(); } catch {}
+            if (!pack || !pack.userData) {
+                setPill('OFFLINE MODE', 'bad');
+            } else {
+                setPill('SERVER ACTIVE', 'ok');
+            }
+
+            let state = loadBookingState();
+            if (!state || !state.nextAt || Date.now() > state.nextAt) {
+                state = buildBookings();
+            }
+
+            let adminPack = { items: [], nextAt: 0 };
+            try {
+                const out = await publicBookings();
+                adminPack = { items: Array.isArray(out.items) ? out.items : [], nextAt: Date.now() + nextRefreshMillis() };
+            } catch {
+                const db = loadFromLocal();
+                adminPack = makeAdminBookingItems(db);
+            }
+
+            const next = new Date(Math.max(state.nextAt || 0, adminPack.nextAt || 0));
+            document.getElementById('subTxt').textContent = `Auto-refreshes every 10–15 minutes. Next update: ${next.toLocaleTimeString()} • Provisioned Users: ${adminPack.items.length} • Random: ${state.items.length}`;
+
+            const grid = document.getElementById('bookingsGrid');
+            grid.innerHTML = '';
+
+            const combined = mergeBookings(adminPack.items, state.items);
+            const used = new Set();
+            combined.forEach((b) => {
+                const n = String(b.name || '');
+                if (!n) return;
+                if (!used.has(n)) { used.add(n); return; }
+                const suffix = String(randInt(10, 99));
+                b.name = `${n} ${suffix}`;
+                used.add(b.name);
+            });
+            combined.forEach((b) => {
+                const el = document.createElement('div');
+                el.className = 'booking-item';
+                el.innerHTML = `
+                    <div>
+                        <div class="bk-name">${b.name}</div>
+                        <div class="bk-meta">${String(b.cls || '').toUpperCase()}</div>
+                    </div>
+                    <div class="bk-meta">${b.route} • ${b.time}</div>
+                `;
+                grid.appendChild(el);
+            });
+        });
+    </script>
+</body>
+</html>

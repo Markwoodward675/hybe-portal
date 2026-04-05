@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Airways | E‑Arrival</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <nav class="trip-nav">
+        <a href="/index.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Airways">
+            <span>TRIP Airways</span>
+        </a>
+        <div class="trip-nav-right">
+            <span class="badge-pill session-pill" style="color:var(--accent); border-color:var(--accent); background: rgba(225,29,72,0.10);">SHARED</span>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="ticket-8k ticket-surface boarding-pass" id="card" style="display:none;">
+            <div class="ticket-8k__main">
+                <div class="ticket-8k__top">
+                    <div>
+                        <div class="ticket-8k__brandline">TRIP Airways</div>
+                        <div class="ticket-8k__sub">E‑ARRIVAL</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span id="stBadge" class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">PENDING</span>
+                        <div style="margin-top:10px; color:var(--ticket-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;" id="flightNo">—</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__route">
+                    <div class="route-side">
+                        <div class="route-label">Arrival</div>
+                        <div class="route-code arr" id="codeArr">ICN</div>
+                    </div>
+                    <div class="route-mid">
+                        <div class="route-line"></div>
+                        <div class="route-txt" id="routeTxt">MAN-ICN</div>
+                    </div>
+                    <div class="route-side" style="text-align:right;">
+                        <div class="route-label">Terminal</div>
+                        <div class="route-code dep" id="termTxt">T3</div>
+                    </div>
+                </div>
+
+                <div class="ticket-8k__grid">
+                    <div>
+                        <div class="ticket-k">Passenger</div>
+                        <div class="ticket-passenger" id="dispName">—</div>
+                    </div>
+                    <div class="ticket-grid-mini">
+                        <div><div class="ticket-k">PNR</div><div class="ticket-v" id="pnr">—</div></div>
+                        <div><div class="ticket-k">Destination</div><div class="ticket-v" id="dest">—</div></div>
+                        <div><div class="ticket-k">Gate</div><div class="ticket-v" id="gate">—</div></div>
+                        <div><div class="ticket-k">Seat</div><div class="ticket-v" id="seat">—</div></div>
+                    </div>
+                </div>
+
+                <div style="margin-top:14px; border-top:1px dashed rgba(11, 18, 32, 0.18); padding-top:12px; display:flex; justify-content:space-between; gap:12px; align-items:end;">
+                    <div style="flex:1;">
+                        <div class="ticket-k">Arrival Window</div>
+                        <div class="ticket-v" style="font-weight:900;" id="arrWindow">—</div>
+                    </div>
+                    <div style="width: 220px; height: 48px; border-radius: 12px; border:1px solid rgba(11, 18, 32, 0.18); background: repeating-linear-gradient(90deg, rgba(11,18,32,0.85) 0, rgba(11,18,32,0.85) 2px, transparent 2px, transparent 6px);"></div>
+                </div>
+
+                <div style="margin-top:12px; border-top:1px dashed rgba(11, 18, 32, 0.18); padding-top:12px; display:flex; justify-content:space-between; gap:12px; align-items:end; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:220px;">
+                        <div class="ticket-k">Signature</div>
+                        <div class="ticket-v" style="font-weight:900;" id="sigNameTxt">—</div>
+                    </div>
+                    <img id="sigImg" alt="Signature" style="width:220px; height:56px; object-fit:contain; border-bottom:1px solid rgba(11, 18, 32, 0.18); display:none;">
+                </div>
+            </div>
+            <div class="ticket-8k__stub">
+                <div class="stub-meta">
+                    <div>
+                        <div class="ticket-k">Document</div>
+                        <div class="stub-id">E‑ARRIVAL</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">Status</div>
+                        <div class="stub-id" id="stTxt">—</div>
+                    </div>
+                    <div>
+                        <div class="ticket-k">PDF</div>
+                        <button class="btn-secondary" type="button" id="btnPdf" style="margin-top:10px; width:100%;">Download</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="errCard" style="display:none;">
+            <div style="font-weight:900; color:var(--danger);">Access denied</div>
+            <div id="errMsg" style="margin-top:10px; color:var(--text-dim); font-weight:800;"></div>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script>
+        function q(k) {
+            return new URLSearchParams(window.location.search).get(k) || '';
+        }
+
+        function setStatusBadge(status) {
+            const st = String(status || 'PENDING').toUpperCase();
+            document.getElementById('stTxt').textContent = st;
+            const badge = document.getElementById('stBadge');
+            const map = {
+                CONFIRMED: 'var(--success)',
+                VERIFIED: 'var(--success)',
+                CANCELLED: 'var(--danger)',
+                DECLINED: 'var(--danger)',
+                REJECTED: 'var(--danger)',
+                SUSPENDED: 'var(--warning)',
+                VERIFYING: 'var(--warning)',
+                PENDING: 'var(--warning)',
+                'ON-HOLD': 'var(--warning)'
+            };
+            const c = map[st] || 'var(--warning)';
+            badge.textContent = st;
+            badge.style.color = c;
+            badge.style.borderColor = c;
+            badge.style.background = c === 'var(--success)' ? 'rgba(16,185,129,0.10)' : (c === 'var(--danger)' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)');
+        }
+
+        function pickSignature(user) {
+            const form = user && user.form && typeof user.form === 'object' ? user.form : null;
+            if (form && form.signature && form.signature.dataUrl) return form.signature;
+            const subs = user && user.submissions && typeof user.submissions === 'object' ? user.submissions : null;
+            const arr = subs && Array.isArray(subs.indemnity) ? subs.indemnity : [];
+            if (arr[0] && arr[0].signature && arr[0].signature.dataUrl) return arr[0].signature;
+            return null;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const u = q('u');
+            const key = q('k');
+            const card = document.getElementById('card');
+            const errCard = document.getElementById('errCard');
+            const errMsg = document.getElementById('errMsg');
+
+            try {
+                const out = await publicEArrival(u, key);
+                const user = out && out.userData ? out.userData : null;
+                const username = out && out.username ? out.username : u;
+                if (!user) throw new Error('No user data');
+                const f = user.flight || {};
+                const r = f.route || {};
+                const b = f.boarding || {};
+                const s = f.schedule || {};
+
+                const from = r.from || 'MAN';
+                const to = r.to || 'ICN';
+                document.getElementById('codeArr').textContent = to;
+                document.getElementById('routeTxt').textContent = `${from}-${to}`;
+                document.getElementById('termTxt').textContent = b.terminal || '—';
+                document.getElementById('dispName').textContent = user.passengerName || username;
+                document.getElementById('flightNo').textContent = s.flightNo || `${from}-${to}`;
+                document.getElementById('pnr').textContent = s.pnr || '—';
+                document.getElementById('dest').textContent = to;
+                document.getElementById('gate').textContent = b.gate || '—';
+                document.getElementById('seat').textContent = b.seat || '—';
+                document.getElementById('arrWindow').textContent = s.departAt ? `Arrival after ${s.departAt}` : '—';
+
+                setStatusBadge(f.status || 'PENDING');
+
+                const sig = pickSignature(user);
+                const sigNameTxt = document.getElementById('sigNameTxt');
+                const sigImg = document.getElementById('sigImg');
+                if (sig && sig.dataUrl) {
+                    if (sigNameTxt) sigNameTxt.textContent = sig.name ? String(sig.name) : '—';
+                    if (sigImg) {
+                        sigImg.src = sig.dataUrl;
+                        sigImg.style.display = 'block';
+                    }
+                } else {
+                    if (sigNameTxt) sigNameTxt.textContent = '—';
+                    if (sigImg) sigImg.style.display = 'none';
+                }
+
+                card.style.display = 'grid';
+            } catch {
+                errCard.style.display = 'block';
+                errMsg.textContent = 'Invalid or expired link.';
+            }
+
+            const btnPdf = document.getElementById('btnPdf');
+            if (btnPdf) btnPdf.addEventListener('click', () => window.print());
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>

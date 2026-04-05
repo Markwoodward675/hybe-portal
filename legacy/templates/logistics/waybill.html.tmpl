@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" data-default-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Global Logistics | Digital Waybill</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <nav class="trip-nav">
+        <a href="/index.html" class="trip-brand">
+            <img class="trip-logo" src="/logo.png" alt="TRIP Global Logistics">
+            <span>TRIP Global Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <span class="badge-pill session-pill" style="color:var(--accent); border-color:var(--accent); background: rgba(225,29,72,0.10);">WAYBILL</span>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="card" id="card" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px;">
+                <div style="font-weight:900; letter-spacing:-0.6px; font-size:1.1rem;">Digital Waybill</div>
+                <div class="badge-pill" style="color:var(--text-dim); border-color:var(--border)">READ-ONLY</div>
+            </div>
+            <div id="whoLine" style="margin-top:10px; color:var(--text-dim); font-weight:800;">—</div>
+        </div>
+
+        <div class="card" id="metaCard" style="display:none;">
+            <div class="two-col">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Waybill ID</div>
+                    <div class="ticket-v" id="wbId" style="font-weight:900;">—</div>
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Delivery Estimate</div>
+                    <div class="ticket-v" id="wbEta" style="font-weight:900;">—</div>
+                </div>
+            </div>
+            <div class="two-col">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Cargo Weight</div>
+                    <div class="ticket-v" id="wbWeight" style="font-weight:900;">—</div>
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Vehicle Type</div>
+                    <div class="ticket-v" id="wbVehicle" style="font-weight:900;">—</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card table-responsive" style="padding:0;" id="stepsCard">
+            <table class="m-table">
+                <thead><tr><th>Checkpoint</th><th>Location</th><th>Marker</th></tr></thead>
+                <tbody id="stepsBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card" id="errCard" style="display:none;">
+            <div style="font-weight:900; color:var(--danger);">Access denied</div>
+            <div id="errMsg" style="margin-top:10px; color:var(--text-dim); font-weight:800;"></div>
+        </div>
+    </div>
+
+    <script src="/appwrite.js"></script>
+    <script>
+        function q(k) {
+            return new URLSearchParams(window.location.search).get(k) || '';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const u = q('u');
+            const tc = q('tc');
+            const body = document.getElementById('stepsBody');
+            const errCard = document.getElementById('errCard');
+            const errMsg = document.getElementById('errMsg');
+
+            try {
+                const res = await fetch(`/api/public/logistics?u=${encodeURIComponent(u)}&tc=${encodeURIComponent(tc)}`, { credentials: 'include' });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    errCard.style.display = 'block';
+                    errMsg.textContent = data && data.error ? data.error : 'Invalid or expired link.';
+                    requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+                    return;
+                }
+
+                document.getElementById('card').style.display = 'block';
+                document.getElementById('metaCard').style.display = 'block';
+                document.getElementById('whoLine').textContent = `${data.passengerName || u} • ${u}`;
+
+                const m = data.manifest || {};
+                document.getElementById('wbId').textContent = m.waybillId || '—';
+                document.getElementById('wbEta').textContent = m.deliveryEstimate || '—';
+                document.getElementById('wbWeight').textContent = m.cargoWeight || '—';
+                document.getElementById('wbVehicle').textContent = m.vehicleType || '—';
+
+                body.innerHTML = '';
+                (data.steps || []).forEach((s) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td style="font-weight:900;">${s.title || '—'}</td><td>${s.location || '—'}</td><td style="color:var(--text-dim); font-weight:800;">${s.date || '—'}</td>`;
+                    body.appendChild(tr);
+                });
+            } catch {
+                errCard.style.display = 'block';
+                errMsg.textContent = 'Waybill unavailable.';
+            }
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>

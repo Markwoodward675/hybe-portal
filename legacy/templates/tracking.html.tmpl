@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Logistics</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-elegant">
+    <div id="pageLoader" class="page-loader" aria-live="polite" aria-busy="true">
+        <div class="page-loader__card">
+            <div class="page-loader__row">
+                <div class="page-loader__spin" aria-hidden="true"></div>
+                <div class="page-loader__title">Loading tracker…</div>
+            </div>
+            <div class="page-loader__sub">Preparing the movement timeline.</div>
+        </div>
+    </div>
+    <script>
+        function checkTRIPAuth() {
+            const username = sessionStorage.getItem('active_session');
+            return username || '';
+        }
+
+        async function signOut() {
+            try { await userLogout(); } catch {}
+            sessionStorage.removeItem('active_session');
+            window.location.href = 'index.html';
+        }
+
+        const activeUser = checkTRIPAuth();
+    </script>
+
+    <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+            <span>TRIP Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <span id="sessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">SESSION</span>
+            <button class="nav-signout theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <div class="trip-links" id="navMenu">
+                <a href="flight.html">Status</a>
+                <a href="passengers.html">Personnel</a>
+                <a href="tracking.html" class="active">Logistics</a>
+                <a href="ledger.html">Ledger</a>
+                <a href="bookings.html">Bookings</a>
+                <a href="/logistics/indemnity.html">Indemnity</a>
+                <button class="nav-signout" id="signOutBtn" type="button">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="card" id="trackCodesCard" style="display:none; margin-bottom: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px;">
+                <div style="font-weight:950; letter-spacing:-0.6px;">Tracking Codes</div>
+                <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Share</div>
+            </div>
+            <div class="two-col">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">One‑Time Tracking Code</div>
+                    <div class="badge-pill" id="trackCodeA" style="display:inline-block; font-weight:950; letter-spacing:0.6px;">—</div>
+                </div>
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">One‑Time Logistics Code</div>
+                    <div class="badge-pill" id="trackCodeB" style="display:inline-block; font-weight:950; letter-spacing:0.6px;">—</div>
+                </div>
+            </div>
+        </div>
+        <h2 style="letter-spacing:-1px; margin-bottom: 14px;">Movement Tracker</h2>
+        <div style="color:var(--text-dim); font-weight:700; margin-bottom: 18px;">Active, passed, and future logistics steps are scoped to the active TRIP session.</div>
+
+        <div class="admin-row">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px;">
+                    <div style="font-weight:900; letter-spacing:-0.6px;">Active Step</div>
+                    <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Live</div>
+                </div>
+                <div class="track-line" id="activeBox"></div>
+            </div>
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px;">
+                    <div style="font-weight:900; letter-spacing:-0.6px;">Passed Steps</div>
+                    <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">History</div>
+                </div>
+                <div class="track-line" id="passedBox"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px;">
+                <div style="font-weight:900; letter-spacing:-0.6px;">Future Steps</div>
+                <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Upcoming</div>
+            </div>
+            <div class="track-line" id="futureBox"></div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        function renderStepCard(stepIdx, current, s) {
+            return `<div class="step ${stepIdx === current ? 'active' : ''} ${stepIdx > current ? 'future' : ''}">
+                <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline;">
+                    <div style="font-size:0.65rem; color:var(--accent); font-weight:900; letter-spacing:1px; text-transform:uppercase;">Step ${stepIdx}</div>
+                    <div style="font-size:0.75rem; color:var(--text-dim); font-weight:800;">${s.date || '—'}</div>
+                </div>
+                <div style="font-weight:900; font-size:1.05rem; letter-spacing:-0.4px; margin-top:8px;">${s.title || '—'}</div>
+                <div style="font-size:0.85rem; color:var(--text-dim); font-weight:700; margin-top:4px;">${s.location || '—'}</div>
+            </div>`;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle();
+            const loader = document.getElementById('pageLoader');
+            const hideLoader = () => { if (loader) loader.classList.add('hide'); };
+            try { document.body.style.opacity = '1'; } catch {}
+
+            const toggle = document.getElementById('navToggle');
+            const menu = document.getElementById('navMenu');
+            toggle.addEventListener('click', () => {
+                const next = !menu.classList.contains('open');
+                menu.classList.toggle('open', next);
+                toggle.setAttribute('aria-expanded', String(next));
+            });
+            document.getElementById('signOutBtn').addEventListener('click', signOut);
+            const sessionPill = document.getElementById('sessionPill');
+            const setPill = (label, type) => {
+                if (!sessionPill) return;
+                sessionPill.textContent = label;
+                let color = 'var(--warning)';
+                let bg = 'rgba(245,158,11,0.10)';
+                if (type === 'ok') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+                if (type === 'bad') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+                sessionPill.style.color = color;
+                sessionPill.style.borderColor = color;
+                sessionPill.style.background = bg;
+            };
+
+            const pack = await loadActiveUserFromDB().catch(() => null);
+            const user = pack && pack.userData ? pack.userData : null;
+            if (!user) {
+                setPill('SESSION EXPIRED', 'bad');
+                hideLoader();
+                signOut();
+                return;
+            }
+            try { sessionStorage.setItem('active_session', pack.username || activeUser || ''); } catch {}
+            setPill('SERVER ACTIVE', 'ok');
+
+            const share = user.share && typeof user.share === 'object' ? user.share : {};
+            const tA = share.oneTimeTracking && share.oneTimeTracking.code ? String(share.oneTimeTracking.code) : '';
+            const tB = share.oneTimeLogistics && share.oneTimeLogistics.code ? String(share.oneTimeLogistics.code) : '';
+            const card = document.getElementById('trackCodesCard');
+            if (card && (tA || tB)) card.style.display = 'block';
+            const aEl = document.getElementById('trackCodeA');
+            const bEl = document.getElementById('trackCodeB');
+            if (aEl) aEl.textContent = tA || 'AWAITING ADMIN';
+            if (bEl) bEl.textContent = tB || 'AWAITING ADMIN';
+
+            const logistics = user.logistics || { currentStep: 2, steps: [] };
+            const current = Math.max(1, Math.min(8, parseInt(String(logistics.currentStep || 2), 10) || 2));
+            const steps = Array.isArray(logistics.steps) && logistics.steps.length === 8
+                ? logistics.steps
+                : [
+                    { title: "Booking Confirmed", location: "Origin Desk", date: "Scheduled" },
+                    { title: "Picked Up", location: "Courier Network", date: "Scheduled" },
+                    { title: "Arrived at Warehouse", location: "Origin Hub", date: "Scheduled" },
+                    { title: "Export Clearance", location: "TRIP Gateway", date: "Pending" },
+                    { title: "In Transit", location: "Airborne", date: "In Progress" },
+                    { title: "Arrived at Destination Hub", location: "Arrival Hub", date: "Scheduled" },
+                    { title: "Out for Delivery", location: "Last Mile", date: "Scheduled" },
+                    { title: "Delivered", location: "Destination", date: "Scheduled" }
+                ];
+
+            const activeBox = document.getElementById('activeBox');
+            const passedBox = document.getElementById('passedBox');
+            const futureBox = document.getElementById('futureBox');
+            activeBox.innerHTML = '';
+            passedBox.innerHTML = '';
+            futureBox.innerHTML = '';
+
+            steps.forEach((s, i) => {
+                const stepIdx = i + 1;
+                if (stepIdx < current) passedBox.innerHTML += renderStepCard(stepIdx, current, s);
+                if (stepIdx === current) activeBox.innerHTML += renderStepCard(stepIdx, current, s);
+                if (stepIdx > current) futureBox.innerHTML += renderStepCard(stepIdx, current, s);
+            });
+
+            if (!activeBox.innerHTML) {
+                activeBox.innerHTML = `<div style="color:var(--text-dim); font-weight:800;">No active step set.</div>`;
+            }
+            if (!passedBox.innerHTML) {
+                passedBox.innerHTML = `<div style="color:var(--text-dim); font-weight:800;">No passed steps yet.</div>`;
+            }
+            if (!futureBox.innerHTML) {
+                futureBox.innerHTML = `<div style="color:var(--text-dim); font-weight:800;">No future steps queued.</div>`;
+            }
+            hideLoader();
+        });
+    </script>
+</body>
+</html>

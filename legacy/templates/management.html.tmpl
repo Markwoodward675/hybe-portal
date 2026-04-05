@@ -1,0 +1,3333 @@
+<!DOCTYPE html>
+<html lang="en" data-force-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/">
+    <title>TRIP Logistics | Admin Command Center</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        window.TRIP_API_BASE = 'https://hybe-portal.vercel.app';
+        try { localStorage.setItem('trip_api_base', window.TRIP_API_BASE); } catch {}
+    </script>
+    <style>
+        @media (max-width: 900px) {
+            body { overflow-x: hidden; }
+            .trip-nav { flex-wrap: nowrap; height: auto; padding: 10px 12px; }
+            .trip-nav-right { width: auto; justify-content: flex-end; flex-wrap: nowrap; gap: 10px; }
+            .trip-nav-right > div { display: none; }
+            .admin-shell { grid-template-columns: 1fr !important; }
+            .admin-sidebar { display: none !important; }
+            .admin-mobile-bar { display: none !important; }
+            .admin-mobile-menu { display: none !important; }
+            .admin-main { padding: 120px 12px 70px !important; }
+            .admin-row { grid-template-columns: 1fr !important; }
+            .two-col, .three-col { grid-template-columns: 1fr !important; }
+            .card { padding: 14px; }
+            .login-card { width: min(440px, calc(100vw - 24px)); }
+            .table-wrap { overflow-x: hidden !important; }
+            .table-wrap .m-table { min-width: 0 !important; }
+        }
+        .admin-mobile-bar {
+            display: none;
+            position: fixed;
+            top: 74px;
+            z-index: 40;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 12px;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .admin-mobile-title {
+            font-weight: 900;
+            letter-spacing: -0.4px;
+        }
+        .admin-mobile-actions { display: flex; gap: 8px; }
+        .admin-mobile-shortcuts {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            flex: 1;
+            padding-bottom: 2px;
+        }
+        .admin-mobile-shortcuts::-webkit-scrollbar { height: 0; }
+        .admin-mobile-shortcuts button{
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text);
+            font-weight: 900;
+            border-radius: 999px;
+            padding: 10px 12px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .admin-mobile-shortcuts button.active{
+            border-color: rgba(30,64,175,0.35);
+            background: rgba(30,64,175,0.10);
+            color: rgba(30,64,175,1);
+        }
+        .admin-mobile-menu {
+            position: fixed;
+            top: 102px;
+            left: 0;
+            right: 0;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.12);
+            padding: 10px;
+            display: none;
+            z-index: 45;
+        }
+        .admin-mobile-menu.open { display: grid; }
+        .admin-mobile-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .admin-mobile-menu button {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text);
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .admin-actionbar{
+            position: sticky;
+            bottom: 12px;
+            z-index: 25;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.10);
+        }
+        @media (max-width: 900px) {
+            .admin-actionbar{ grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px) {
+            .admin-main { padding: 112px 10px 64px !important; }
+            .admin-mobile-bar { padding: 8px 10px; }
+            .admin-mobile-grid { grid-template-columns: 1fr; }
+            .admin-mobile-shortcuts button { padding: 9px 10px; font-size: 0.78rem; }
+            .admin-mobile-menu { padding: 10px; }
+            .card { padding: 12px; }
+        }
+    </style>
+</head>
+<body style="opacity:0; transition: opacity 0.5s ease;">
+    <!-- Admin Login Overlay -->
+    <div id="adminAuthOverlay" class="login-shell" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999;">
+        <div class="login-card">
+            <div class="login-brand">
+                <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+                <h1>TRIP Admin Gateway</h1>
+            </div>
+            <p class="login-sub">Enter the master passcode to access the Closed-Loop Command Center.</p>
+            <form id="adminLoginForm" class="login-row">
+                <input type="text" autocomplete="username" value="admin" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;" aria-hidden="true">
+                <div>
+                    <div class="ticket-k" style="margin-bottom:8px;">Admin Passcode</div>
+                    <input id="adminPassInput" type="password" placeholder="••••••••" autocomplete="current-password">
+                </div>
+                <div class="login-actions">
+                    <button id="btnAdminLogin" class="btn-primary" type="submit">Access Command Center</button>
+                </div>
+            </form>
+            <div id="adminLoginMsg" class="login-msg" style="margin-top:12px; color:var(--danger); text-align:center;"></div>
+        </div>
+    </div>
+
+    <div id="adminAppContent" style="display:none;">
+        <nav class="trip-nav">
+        <a href="flight.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+            <span>TRIP Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <div id="adminHeaderTitle" style="color:var(--text-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">Admin Command Center</div>
+            <span id="adminSessionPill" class="badge-pill session-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">ADMIN</span>
+            <button class="nav-signout theme-toggle" id="adminThemeToggle" type="button" aria-label="Toggle theme"></button>
+            <button class="nav-toggle" id="adminMobileToggle" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+            <button class="nav-signout" id="adminSignOutBtn" type="button">Exit Admin</button>
+        </div>
+    </nav>
+    <div class="admin-mobile-bar">
+        <div class="admin-mobile-shortcuts" id="adminMobileShortcuts"></div>
+    </div>
+    <div class="admin-mobile-menu" id="adminMobileMenu">
+        <div class="admin-mobile-grid" id="adminMobileGrid"></div>
+    </div>
+
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="admin-brand">
+                <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+                <div>
+                    <strong>TRIP Admin</strong>
+                    <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem; margin-top:2px;">Closed-Loop Provisioning</div>
+                </div>
+            </div>
+
+            <div class="admin-menu" role="tablist" aria-label="Admin Sections">
+                <button type="button" class="active" data-target="secProvision">User Provisioning</button>
+                <button type="button" data-target="secManifest">Manifest Editor</button>
+                <button type="button" data-target="secFinancial">Financial Control</button>
+                <button type="button" data-target="secLogistics">Logistics Sync</button>
+                <button type="button" data-target="secFlightForm">Flight Form</button>
+                <button type="button" data-target="secBoardingPass">Boarding Pass</button>
+                <button type="button" data-target="secSubmissions">Submissions</button>
+                <button type="button" data-target="secNotifications">Notifications</button>
+                <button type="button" data-target="secRegistry">User Registry</button>
+                <button type="button" data-target="secSettings">Settings</button>
+            </div>
+        </aside>
+
+        <main class="admin-main">
+            <section id="secProvision" class="admin-sec">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">User Provisioning</h2>
+                <div class="card">
+                    <form id="pvForm" class="three-col">
+                        <input id="pvUsername" type="hidden">
+                        <input id="pvPin" type="hidden">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Passenger Name</div>
+                            <input id="pvPassenger" type="text" placeholder="Full Name">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Service Type</div>
+                            <select id="pvService">
+                                <option value="FLIGHT">FLIGHT</option>
+                                <option value="LOGISTICS">LOGISTICS</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Generated Credentials</div>
+                            <input id="pvCredPreview" type="text" readonly placeholder="Auto-generated on create">
+                        </div>
+                    </form>
+
+                    <div id="pvFlightFields" class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Seat</div>
+                            <input id="pvSeat" type="text" placeholder="e.g., 12A">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Gate</div>
+                            <input id="pvGate" type="text" placeholder="e.g., B7">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Flight Class</div>
+                            <select id="pvClass">
+                                <option value="Business">Business</option>
+                                <option value="First">First</option>
+                                <option value="Economy">Economy</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="pvFlightGeo" class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Departure Country</div>
+                            <input id="pvDepCountry" type="text" placeholder="e.g., United Kingdom">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Departure State</div>
+                            <input id="pvDepState" type="text" placeholder="e.g., England">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Destination Country</div>
+                            <input id="pvDestCountry" type="text" placeholder="e.g., South Korea">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Destination State</div>
+                            <input id="pvDestState" type="text" placeholder="e.g., Seoul">
+                        </div>
+                        <div></div>
+                        <div></div>
+                    </div>
+
+                    <div id="pvLogisticsFields" class="three-col" style="margin-top:10px; display:none;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Waybill ID</div>
+                            <input id="pvWaybill" type="text" placeholder="e.g., WB-009128">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Cargo Weight</div>
+                            <input id="pvWeight" type="text" placeholder="e.g., 1200kg">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Vehicle Type</div>
+                            <input id="pvVehicle" type="text" placeholder="e.g., Truck / Ship / Air Cargo">
+                        </div>
+                    </div>
+                    <div id="pvLogisticsFields2" class="three-col" style="margin-top:10px; display:none;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Delivery Estimate</div>
+                            <input id="pvEta" type="text" placeholder="e.g., 2026-06-12 19:30">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Origin</div>
+                            <input id="pvOrigin" type="text" placeholder="Origin address">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Destination</div>
+                            <input id="pvDest" type="text" placeholder="Destination address">
+                        </div>
+                    </div>
+                    <div id="pvLogisticsFields3" class="three-col" style="margin-top:10px; display:none;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Courier ID</div>
+                            <input id="pvCourier" type="text" placeholder="Courier ID">
+                        </div>
+                        <div></div>
+                        <div></div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Initial Balance</div>
+                            <input id="pvBalance" type="text" placeholder="e.g., 186.00" value="186.00">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Currency</div>
+                            <select id="pvCurrency">
+                                <option value="£">GBP (£)</option>
+                                <option value="$">USD ($)</option>
+                                <option value="€">EUR (€)</option>
+                            </select>
+                        </div>
+                        <div></div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:10px;">
+                        <button class="btn-primary" type="button" id="btnCreateUser">Create User</button>
+                        <button class="btn-secondary" type="button" id="btnAutoCred">Generate Credentials (Trip_user####)</button>
+                        <button class="btn-secondary" type="button" id="btnResetForm">Reset</button>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnCopyFlightLogin">Copy Flight Login URL</button>
+                        <button class="btn-secondary" type="button" id="btnCopyCourierLogin">Copy Courier Login URL</button>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnCopyAccessPortal">Copy Access Portal URL</button>
+                        <button class="btn-secondary" type="button" id="btnCopyUserAccessLink" disabled>Copy User Access Link</button>
+                    </div>
+                    <div id="provisionMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
+                </div>
+            </section>
+
+            <section id="secManifest" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Manifest Editor</h2>
+                <div class="card">
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Select Username</div>
+                            <select class="user-select" id="manUser"></select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Status</div>
+                            <select id="manStatus">
+                                <option value="ON-HOLD">ON-HOLD</option>
+                                <option value="PENDING">PENDING</option>
+                                <option value="VERIFYING">VERIFYING</option>
+                                <option value="VERIFIED">VERIFIED</option>
+                                <option value="CONFIRMED">CONFIRMED</option>
+                                <option value="SUSPENDED">SUSPENDED</option>
+                                <option value="REJECTED">REJECTED</option>
+                                <option value="DECLINED">DECLINED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Route (From)</div>
+                            <input id="manFrom" type="text" placeholder="LHR">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Route (To)</div>
+                            <input id="manTo" type="text" placeholder="ICN">
+                        </div>
+                    </div>
+                    <div class="three-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Gate</div>
+                            <input id="manGate" type="text" placeholder="B-22">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Seat</div>
+                            <input id="manSeat" type="text" placeholder="01-A">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Flight Class</div>
+                            <select id="manClass">
+                                <option value="VVIP">VVIP</option>
+                                <option value="First">First</option>
+                                <option value="Business">Business</option>
+                                <option value="Economy">Economy</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px; margin-bottom:10px;">Passenger Details</div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Category</div>
+                                <select id="detCategory">
+                                    <option value="">—</option>
+                                    <option value="Business Owner">Business Owner</option>
+                                    <option value="Family Vacation">Family Vacation</option>
+                                    <option value="Couple • Maternity">Couple • Maternity</option>
+                                    <option value="High Profile Client">High Profile Client</option>
+                                    <option value="Medical Specialist">Medical Specialist</option>
+                                    <option value="Private Investor">Private Investor</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Purpose</div>
+                                <input id="detPurpose" type="text" placeholder="e.g., Vacation / Medical / Business">
+                            </div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Nationality</div>
+                                <input id="detNationality" type="text" placeholder="e.g., British">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Passport</div>
+                                <input id="detPassport" type="text" placeholder="Passport No.">
+                            </div>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Notes</div>
+                            <input id="detNotes" type="text" placeholder="Internal notes (visible on Details QR view)">
+                        </div>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px; margin-bottom:10px;">Gateway Details</div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Terminal</div>
+                                <input id="gwTerminal" type="text" placeholder="e.g., T3">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Check‑in Desk</div>
+                                <input id="gwCheckin" type="text" placeholder="e.g., A12">
+                            </div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Baggage</div>
+                                <input id="gwBaggage" type="text" placeholder="e.g., Priority Tag">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Assistance</div>
+                                <input id="gwAssist" type="text" placeholder="e.g., Medical / Family / VIP">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">Additional Passengers</div>
+                            <div id="extraCount" style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">0</div>
+                        </div>
+                        <div class="three-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Name</div>
+                                <input id="exName" type="text" placeholder="Full Name">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Role</div>
+                                <input id="exRole" type="text" placeholder="Family / Client / Assistant">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Class</div>
+                                <select id="exClass">
+                                    <option value="VVIP">VVIP</option>
+                                    <option value="First">First</option>
+                                    <option value="Business">Business</option>
+                                    <option value="Economy">Economy</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Status</div>
+                                <select id="exStatus">
+                                    <option value="ON-HOLD">ON-HOLD</option>
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="VERIFYING">VERIFYING</option>
+                                    <option value="VERIFIED">VERIFIED</option>
+                                    <option value="CONFIRMED">CONFIRMED</option>
+                                    <option value="SUSPENDED">SUSPENDED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="DECLINED">DECLINED</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select>
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <button class="btn-secondary" type="button" id="btnAddExtra" style="width:100%;">Add Passenger</button>
+                            </div>
+                        </div>
+                        <div id="extraPassengersList" style="display:grid; gap:10px; margin-top:12px;"></div>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-primary" type="button" id="btnSaveManifest">Save Manifest</button>
+                        <button class="btn-secondary" type="button" id="btnLoadManifest">Reload</button>
+                    </div>
+                    <div id="manifestMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
+                </div>
+            </section>
+
+            <section id="secFinancial" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Financial Control</h2>
+                <div class="admin-row">
+                    <div class="card">
+                        <div class="ticket-k" style="margin-bottom:8px;">Select Username</div>
+                        <select class="user-select" id="finUser"></select>
+                        <div class="ticket-k" style="margin-bottom:8px;">Ledger Balance (GBP)</div>
+                        <input id="finBalance" type="text" placeholder="186.00">
+                        <div class="ticket-k" style="margin-bottom:8px;">Quick Adjust</div>
+                        <div class="two-col">
+                            <input id="finDelta" type="text" placeholder="e.g., 50.00">
+                            <div class="two-col" style="gap:8px;">
+                                <button class="btn-secondary" type="button" id="btnAddFunds" style="padding:14px 12px;">Add</button>
+                                <button class="btn-secondary" type="button" id="btnSubFunds" style="padding:14px 12px;">Subtract</button>
+                            </div>
+                        </div>
+                        <button class="btn-primary" type="button" id="btnSaveBalance">Save Balance</button>
+                        <div id="finMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
+                    </div>
+                    <div class="card">
+                        <div class="ticket-k" style="margin-bottom:8px;">Add Transaction</div>
+                        <input id="txDate" type="text" placeholder="Mar 26, 2026">
+                        <input id="txDesc" type="text" placeholder="Description">
+                        <input id="txAmt" type="text" placeholder="-£24.00 or +£300.00">
+                        <input id="txEditIndex" type="hidden" value="">
+                        <div class="two-col">
+                            <button class="btn-primary" type="button" id="btnAddTx">Add</button>
+                            <button class="btn-secondary" type="button" id="btnUpdateTx">Update Selected</button>
+                        </div>
+                        <div class="two-col" style="margin-top:8px;">
+                            <button class="btn-secondary" type="button" id="btnDeleteTx">Delete Selected</button>
+                            <button class="btn-secondary" type="button" id="btnClearTx">Clear History</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
+                    <table class="m-table">
+                        <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Action</th></tr></thead>
+                        <tbody id="txTable"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="secLogistics" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Logistics Sync</h2>
+                <div class="card">
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Select Username</div>
+                            <select class="user-select" id="logUser"></select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Current Step (1–8)</div>
+                            <select id="logCurrent">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">One‑Time Tracking Code</div>
+                            <div id="otcStatus" style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">—</div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Current Code</div>
+                                <input id="otcCode" type="text" placeholder="Generate code" readonly>
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Used At</div>
+                                <input id="otcUsedAt" type="text" placeholder="—" readonly>
+                            </div>
+                        </div>
+                        <div class="two-col" style="margin-top:10px;">
+                            <button class="btn-primary" type="button" id="btnGenOTC">Generate New Code</button>
+                            <button class="btn-secondary" type="button" id="btnClearOTC">Clear Code</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">Admin Logistics Share Link</div>
+                            <div id="lgxStatus" style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">—</div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Current Code</div>
+                                <input id="lgxCode" type="text" placeholder="Generate code" readonly>
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Used At</div>
+                                <input id="lgxUsedAt" type="text" placeholder="—" readonly>
+                            </div>
+                        </div>
+                        <div class="two-col" style="margin-top:10px;">
+                            <button class="btn-primary" type="button" id="btnGenLGX">Generate Link</button>
+                            <button class="btn-secondary" type="button" id="btnClearLGX">Clear Link</button>
+                        </div>
+                        <div id="lgxShareUrl" style="margin-top:10px; color:var(--text-dim); font-weight:800; word-break:break-all;"></div>
+                        <div style="margin-top:12px;">
+                            <img id="lgxQr" alt="Waybill QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
+                        </div>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">Admin Custom Movement</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Manual tracker update</div>
+                        </div>
+                        <div class="three-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Update Title</div>
+                                <input id="cmTitle" type="text" placeholder="Arrived at Warehouse">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Location (State & Country)</div>
+                                <input id="cmLocation" type="text" placeholder="Amsterdam, Netherlands">
+                            </div>
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Marker / Time</div>
+                                <input id="cmMarker" type="text" placeholder="Mar 27, 2026 14:05">
+                            </div>
+                        </div>
+                        <div class="two-col" style="margin-top:10px;">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Apply To Step</div>
+                                <select id="cmStep">
+                                    <option value="current">Current Step</option>
+                                    <option value="1">Step 1</option>
+                                    <option value="2">Step 2</option>
+                                    <option value="3">Step 3</option>
+                                    <option value="4">Step 4</option>
+                                    <option value="5">Step 5</option>
+                                    <option value="6">Step 6</option>
+                                    <option value="7">Step 7</option>
+                                    <option value="8">Step 8</option>
+                                </select>
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <button class="btn-primary" type="button" id="btnCustomMove">Apply Movement</button>
+                            </div>
+                        </div>
+                        <div style="margin-top:10px; color:var(--text-dim); font-weight:800; font-size:0.85rem;">
+                            Tip: Use Update Title like “Arrived at {state & country}” and Marker like a timestamp.
+                        </div>
+                    </div>
+                    <div id="stepsEditor" style="margin-top:10px; display:grid; gap:12px;"></div>
+                    <div class="admin-actionbar" style="margin-top:10px;">
+                        <button class="btn-primary" type="button" id="btnSaveLogistics">Save Tracker</button>
+                        <button class="btn-secondary" type="button" id="btnLoadLogistics">Reload</button>
+                    </div>
+                    <div id="logMsg" style="margin-top:12px; color:var(--text-dim); font-weight:700; min-height:22px;"></div>
+                </div>
+            </section>
+
+            <section id="secFlightForm" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Flight Form (Admin Locked)</h2>
+                <div class="card">
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Select Username</div>
+                            <select class="user-select" id="ffUser"></select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Lock Status</div>
+                            <select id="ffLocked">
+                                <option value="LOCKED">LOCKED (User can sign only)</option>
+                                <option value="DRAFT">DRAFT (Admin editing)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Flight Number</div>
+                            <input id="ffFlightNo" type="text" placeholder="e.g., BA 001">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Departure (Local)</div>
+                            <input id="ffDepartAt" type="text" placeholder="e.g., 2026-06-12 19:30">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="ticket-k" style="margin-bottom:8px;">Special Instructions</div>
+                        <textarea id="ffNotes" rows="4" placeholder="Security notes, assistance, baggage routing..."></textarea>
+                    </div>
+
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnLoadFlightForm">Load</button>
+                        <button class="btn-primary" type="button" id="btnSaveFlightForm">Save</button>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnClearFormSig">Clear Signature</button>
+                    </div>
+                    <div id="flightFormMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+                    <div id="flightFormSigPreview" style="margin-top:12px;"></div>
+                </div>
+            </section>
+
+            <section id="secBoardingPass" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Boarding Pass</h2>
+                <div class="card">
+                    <div class="two-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Select Username</div>
+                            <select class="user-select" id="bpUser"></select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Status</div>
+                            <select id="bpStatus">
+                                <option value="PENDING">PENDING</option>
+                                <option value="VERIFYING">VERIFYING</option>
+                                <option value="VERIFIED">VERIFIED</option>
+                                <option value="CONFIRMED">CONFIRMED</option>
+                                <option value="SUSPENDED">SUSPENDED</option>
+                                <option value="REJECTED">REJECTED</option>
+                                <option value="DECLINED">DECLINED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Passenger Name</div>
+                            <input id="bpName" type="text" placeholder="Full Name">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Flight Number</div>
+                            <input id="bpFlightNo" type="text" placeholder="TRIP-402">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Class</div>
+                            <select id="bpClass">
+                                <option value="VVIP">VVIP</option>
+                                <option value="First">First</option>
+                                <option value="Business">Business</option>
+                                <option value="Economy">Economy</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">From (IATA)</div>
+                            <input id="bpFrom" type="text" placeholder="LHR">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">To (IATA)</div>
+                            <input id="bpTo" type="text" placeholder="ICN">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Departure</div>
+                            <input id="bpDepartAt" type="text" placeholder="2026-06-12 19:30">
+                        </div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Gate</div>
+                            <input id="bpGate" type="text" placeholder="D12">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Seat</div>
+                            <input id="bpSeat" type="text" placeholder="019A">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Terminal</div>
+                            <input id="bpTerminal" type="text" placeholder="T3">
+                        </div>
+                    </div>
+
+                    <div class="two-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">PNR / Booking Ref</div>
+                            <input id="bpPnr" type="text" placeholder="X7K9Q2">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Boarding Time</div>
+                            <input id="bpBoardAt" type="text" placeholder="16:45">
+                        </div>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Boarding Group</div>
+                            <input id="bpGroup" type="text" placeholder="A">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Sequence No</div>
+                            <input id="bpSeq" type="text" placeholder="0042">
+                        </div>
+                    </div>
+
+                    <div class="admin-actionbar" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnLoadBP">Load</button>
+                        <button class="btn-primary" type="button" id="btnDeployBP">Deploy to User</button>
+                    </div>
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">QR Boarding Pass Link</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Admin generated</div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Share Key</div>
+                                <input id="bpShareKey" type="text" readonly placeholder="Generate key">
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <div class="two-col" style="gap:8px;">
+                                    <button class="btn-secondary" type="button" id="btnGenBPKey">Generate</button>
+                                    <button class="btn-secondary" type="button" id="btnClearBPKey">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="bpShareUrl" style="margin-top:10px; color:var(--text-dim); font-weight:800; word-break:break-all;"></div>
+                        <div style="margin-top:12px;">
+                            <img id="bpQr" alt="Boarding Pass QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
+                        </div>
+                    </div>
+
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">QR E‑Ticket Link</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Admin generated</div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Share Key</div>
+                                <input id="etShareKey" type="text" readonly placeholder="Generate key">
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <div class="two-col" style="gap:8px;">
+                                    <button class="btn-secondary" type="button" id="btnGenETKey">Generate</button>
+                                    <button class="btn-secondary" type="button" id="btnClearETKey">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="etShareUrl" style="margin-top:10px; color:var(--text-dim); font-weight:800; word-break:break-all;"></div>
+                        <div style="margin-top:12px;">
+                            <img id="etQr" alt="E‑Ticket QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
+                        </div>
+                    </div>
+
+                    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">QR E‑Arrival Link</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Admin generated</div>
+                        </div>
+                        <div class="two-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Share Key</div>
+                                <input id="eaShareKey" type="text" readonly placeholder="Generate key">
+                            </div>
+                            <div style="display:grid; align-content:end;">
+                                <div class="two-col" style="gap:8px;">
+                                    <button class="btn-secondary" type="button" id="btnGenEAKey">Generate</button>
+                                    <button class="btn-secondary" type="button" id="btnClearEAKey">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="eaShareUrl" style="margin-top:10px; color:var(--text-dim); font-weight:800; word-break:break-all;"></div>
+                        <div style="margin-top:12px;">
+                            <img id="eaQr" alt="E‑Arrival QR" style="width:140px; height:140px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg); display:none;">
+                        </div>
+                    </div>
+                    <div id="bpMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px;">Preview</div>
+                        <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Realistic Boarding Pass</div>
+                    </div>
+                    <div id="bpPreview"></div>
+                </div>
+            </section>
+
+            <section id="secSubmissions" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Submissions</h2>
+                <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
+                    <table class="m-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Username</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                                <th>Signature</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subBody"></tbody>
+                    </table>
+                </div>
+                <div id="subMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+            </section>
+
+            <section id="secNotifications" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Notifications</h2>
+                <div class="card">
+                    <div class="three-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Title</div>
+                            <input id="ntTitle" type="text" placeholder="Live Flights / Live Logistics">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Tone</div>
+                            <select id="ntTone">
+                                <option value="accent">accent</option>
+                                <option value="warning">warning</option>
+                                <option value="danger">danger</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Active</div>
+                            <select id="ntActive">
+                                <option value="true">true</option>
+                                <option value="false">false</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <div class="ticket-k" style="margin-bottom:8px;">Message</div>
+                        <textarea id="ntMessage" rows="3" placeholder="Flight TRIP-118 to Amsterdam is now boarding"></textarea>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-primary" type="button" id="btnCreateNotif">Create</button>
+                        <button class="btn-secondary" type="button" id="btnReloadNotif">Reload</button>
+                    </div>
+                    <div id="ntMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px;">Live Popups (7‑Day Rotation)</div>
+                        <div id="lpStats" style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">—</div>
+                    </div>
+                    <div class="three-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Enabled</div>
+                            <select id="lpEnabled">
+                                <option value="true">true</option>
+                                <option value="false">false</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Interval (seconds)</div>
+                            <input id="lpInterval" type="text" placeholder="30">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Duration (days)</div>
+                            <input id="lpDays" type="text" placeholder="7">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <div class="ticket-k" style="margin-bottom:8px;">Pool Size (≥1000)</div>
+                        <input id="lpCount" type="text" placeholder="1200">
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnLoadLP">Load</button>
+                        <button class="btn-primary" type="button" id="btnGenLP">Generate 7‑Day Pool</button>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-secondary" type="button" id="btnSaveLP">Save Settings</button>
+                        <button class="btn-secondary" type="button" id="btnDisableLP">Disable</button>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <div class="ticket-k" style="margin-bottom:8px;">Edit Item (by index)</div>
+                        <div class="three-col">
+                            <div>
+                                <div class="ticket-k" style="margin-bottom:8px;">Index</div>
+                                <input id="lpEditIndex" type="text" placeholder="0">
+                            </div>
+                            <div style="grid-column: span 2;">
+                                <div class="ticket-k" style="margin-bottom:8px;">JSON Patch</div>
+                                <input id="lpEditJson" type="text" placeholder='{"message":"Name • LHR London → ICN Seoul","status":"EN ROUTE","tone":"ok"}'>
+                            </div>
+                        </div>
+                        <div class="two-col" style="margin-top:10px;">
+                            <button class="btn-secondary" type="button" id="btnPatchLP">Apply Patch</button>
+                            <button class="btn-secondary" type="button" id="btnDelLP">Delete Item</button>
+                        </div>
+                    </div>
+                    <div id="lpMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+                </div>
+
+                <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
+                    <table class="m-table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Message</th>
+                                <th>Tone</th>
+                                <th>Active</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ntBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="secRegistry" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">User Registry Table</h2>
+                <div class="card table-wrap table-responsive" style="padding:0; overflow:auto;">
+                    <table class="m-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>PIN</th>
+                                <th>Passenger</th>
+                                <th>Service</th>
+                                <th>Status</th>
+                                <th>Route</th>
+                                <th>Gate/Seat</th>
+                                <th>Class</th>
+                                <th>Ledger</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="registryBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="secSettings" class="admin-sec" style="display:none;">
+                <h2 style="margin:0 0 18px; letter-spacing:-1px;">Settings</h2>
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px;">Appwrite Schema</div>
+                        <div style="color:var(--text-dim); font-weight:800; font-size:0.8rem;">Server Action</div>
+                    </div>
+                    <div style="margin-top:12px; color:var(--text-dim); font-weight:700; line-height:1.35;">
+                        Ensures Database/Collection/Attributes exist and locks collection permissions for private mode.
+                    </div>
+                    <div class="two-col" style="margin-top:14px;">
+                        <button class="btn-primary" type="button" id="btnEnsureSchema">Ensure Schema Now</button>
+                        <button class="btn-secondary" type="button" id="btnSchemaStatus">Check Status</button>
+                    </div>
+                    <div class="two-col" style="margin-top:10px;">
+                        <button class="btn-primary" type="button" id="btnSchemaSync">Schema Sync (Create/Update)</button>
+                        <button class="btn-secondary" type="button" id="btnSchemaInspect">Inspect Schemas</button>
+                    </div>
+                    <div id="schemaMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
+                    <pre id="schemaOut" style="margin-top:12px; padding:12px; border:1px solid var(--border); border-radius:14px; background: var(--input-bg); color:var(--text); font-weight:800; font-size:0.75rem; overflow:auto; max-height:340px; display:none;"></pre>
+                </div>
+            </section>
+        </main>
+    </div>
+    </div> <!-- End adminAppContent -->
+
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+    <script src="appwrite.js"></script>
+    <script>
+        function makeDefaultLogistics() {
+            return ensureLogisticsShape({});
+        }
+
+        function makeOneTimeTrackingCode() {
+            const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const bytes = new Uint8Array(8);
+            if (window.crypto && window.crypto.getRandomValues) {
+                window.crypto.getRandomValues(bytes);
+            } else {
+                for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+            }
+            let out = 'TRIP-';
+            for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+            return out;
+        }
+
+        function makeOneTimeLogisticsCode() {
+            const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const bytes = new Uint8Array(8);
+            if (window.crypto && window.crypto.getRandomValues) {
+                window.crypto.getRandomValues(bytes);
+            } else {
+                for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+            }
+            let out = 'LGX-';
+            for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+            return out;
+        }
+
+        function makeEventId(prefix) {
+            const p = String(prefix || 'evt');
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') return `${p}_${window.crypto.randomUUID()}`;
+            return `${p}_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+        }
+
+        function normalizeSlugToken(s) {
+            return String(s || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '')
+                .slice(0, 18);
+        }
+
+        function genPin(digits) {
+            const n = Math.max(6, Math.min(8, parseInt(String(digits || 6), 10) || 6));
+            const max = Math.pow(10, n);
+            const v = Math.floor(Math.random() * max);
+            return String(v).padStart(n, '0');
+        }
+
+        function genPNR() {
+            const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const bytes = new Uint8Array(6);
+            if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+            let out = '';
+            for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+            return out;
+        }
+
+        function genSeq() {
+            return String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0');
+        }
+
+        function fmtHHMM(d) {
+            try {
+                return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+            } catch {
+                const h = String(d.getHours()).padStart(2, '0');
+                const m = String(d.getMinutes()).padStart(2, '0');
+                return `${h}:${m}`;
+            }
+        }
+
+        function ensureFlightDocFields(user) {
+            ensureFlightShape(user);
+            user.flight.schedule = user.flight.schedule && typeof user.flight.schedule === 'object' ? user.flight.schedule : {};
+            user.flight.boarding = user.flight.boarding && typeof user.flight.boarding === 'object' ? user.flight.boarding : {};
+
+            if (!String(user.flight.schedule.pnr || '').trim()) user.flight.schedule.pnr = genPNR();
+            if (!String(user.flight.schedule.seq || '').trim()) user.flight.schedule.seq = genSeq();
+            if (!String(user.flight.boarding.group || '').trim()) user.flight.boarding.group = String.fromCharCode(65 + Math.floor(Math.random() * 5));
+
+            const dep = String(user.flight.schedule.departAt || '').trim();
+            if (!String(user.flight.schedule.boardAt || '').trim()) {
+                const dt = dep ? new Date(dep) : null;
+                if (dt && !Number.isNaN(dt.getTime())) {
+                    user.flight.schedule.boardAt = fmtHHMM(new Date(dt.getTime() - 45 * 60 * 1000));
+                }
+            }
+            return user;
+        }
+
+        function ensureUserShape(user) {
+            const u = user || {};
+            const cat = String(u.serviceCategory || u.service_category || 'FLIGHT').toUpperCase();
+            u.serviceCategory = cat === 'LOGISTICS' ? 'LOGISTICS' : 'FLIGHT';
+            if (!u.manifest) {
+                u.manifest = { from: "LHR", to: "ICN", gate: "--", seat: "--", flightClass: "Business", status: "PENDING" };
+            }
+            if (!u.ledger) {
+                u.ledger = { balance: "0.00", currency: "£", transactions: [] };
+            }
+            if (!u.logistics) {
+                u.logistics = makeDefaultLogistics();
+            } else {
+                u.logistics = ensureLogisticsShape(u.logistics);
+            }
+            if (!u.profile) {
+                u.profile = { category: "", purpose: "", notes: "", nationality: "", passport: "", gateway: {}, additionalPassengers: [] };
+            } else {
+                if (!u.profile.gateway || typeof u.profile.gateway !== 'object') u.profile.gateway = {};
+                if (!Array.isArray(u.profile.additionalPassengers)) u.profile.additionalPassengers = [];
+            }
+            if (!u.verification || typeof u.verification !== 'object') {
+                u.verification = { stageIndex: 1, final: "", updatedAt: null };
+            } else {
+                if (typeof u.verification.stageIndex !== 'number') u.verification.stageIndex = 1;
+                if (typeof u.verification.final !== 'string') u.verification.final = "";
+            }
+            if (!u.logisticsManifest || typeof u.logisticsManifest !== 'object') {
+                u.logisticsManifest = {
+                    waybillId: "",
+                    cargoWeight: "",
+                    vehicleType: "",
+                    deliveryEstimate: "",
+                    originAddress: "",
+                    destinationAddress: "",
+                    courierId: ""
+                };
+            }
+            if (!u.form || typeof u.form !== 'object') {
+                u.form = { flightNo: "", departAt: "", notes: "", lockedByAdmin: true, signature: null, updatedAt: null };
+            } else {
+                if (typeof u.form.flightNo !== 'string') u.form.flightNo = "";
+                if (typeof u.form.departAt !== 'string') u.form.departAt = "";
+                if (typeof u.form.notes !== 'string') u.form.notes = "";
+                if (typeof u.form.lockedByAdmin !== 'boolean') u.form.lockedByAdmin = true;
+            }
+            if (!u.share) {
+                u.share = { oneTimeTracking: { code: "", createdAt: null, usedAt: null } };
+            } else {
+                if (!u.share.oneTimeTracking) u.share.oneTimeTracking = { code: "", createdAt: null, usedAt: null };
+                if (typeof u.share.oneTimeTracking !== 'object') u.share.oneTimeTracking = { code: "", createdAt: null, usedAt: null };
+            }
+            if (!u.share.oneTimeLogistics || typeof u.share.oneTimeLogistics !== 'object') {
+                u.share.oneTimeLogistics = { code: "", createdAt: null, usedAt: null };
+            }
+            return u;
+        }
+
+        async function requireAdminSession() {
+            try {
+                const out = await adminMe();
+                if (out && out.ok) {
+                    document.getElementById('adminAuthOverlay').style.display = 'none';
+                    document.getElementById('adminAppContent').style.display = 'block';
+                    requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+                    return true;
+                }
+            } catch {}
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+            return false;
+        }
+
+        function setSection(targetId) {
+            document.querySelectorAll('.admin-sec').forEach((sec) => {
+                sec.style.display = sec.id === targetId ? 'block' : 'none';
+            });
+            document.querySelectorAll('.admin-menu button').forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.target === targetId);
+            });
+            const shortcuts = document.getElementById('adminMobileShortcuts');
+            if (shortcuts) {
+                shortcuts.querySelectorAll('button').forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.target === targetId);
+                });
+            }
+            if (targetId === 'secSubmissions') {
+                renderSubmissions();
+            }
+            if (targetId === 'secNotifications') {
+                renderNotifications();
+                loadLivePopupsAdmin();
+            }
+            if (targetId === 'secBoardingPass') {
+                hydrateBoardingPass(document.getElementById('bpUser') && document.getElementById('bpUser').value);
+            }
+            if (typeof onUserChange === 'function') {
+                onUserChange();
+            }
+        }
+
+        function getUsersSorted(db) {
+            return Object.keys(db.users || {}).sort((a, b) => a.localeCompare(b));
+        }
+
+        async function refreshUserSelects() {
+            const db = await loadAllUsersFromDB();
+            const usernames = getUsersSorted(db);
+            document.querySelectorAll('.user-select').forEach((sel) => {
+                const current = sel.value;
+                sel.innerHTML = '';
+                if (usernames.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'No users provisioned';
+                    sel.appendChild(opt);
+                    sel.disabled = true;
+                    return;
+                }
+                sel.disabled = false;
+                usernames.forEach((u) => {
+                    const opt = document.createElement('option');
+                    opt.value = u;
+                    opt.textContent = u;
+                    sel.appendChild(opt);
+                });
+                if (current && usernames.includes(current)) sel.value = current;
+            });
+        }
+
+        async function renderRegistry() {
+            const db = await loadAllUsersFromDB();
+            const body = document.getElementById('registryBody');
+            body.innerHTML = '';
+            const usernames = getUsersSorted(db);
+            usernames.forEach((username) => {
+                const user = ensureUserShape(db.users[username]);
+                const route = `${user.manifest.from || '--'}-${user.manifest.to || '--'}`;
+                const gs = `${user.manifest.gate || '--'} / ${user.manifest.seat || '--'}`;
+                const cur = (user.ledger && user.ledger.currency) ? String(user.ledger.currency) : '£';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight:900;">
+                        <button type="button" class="btn-open-user" data-user="${username}" style="background:transparent; border:none; padding:0; color:var(--text); font-weight:900; cursor:pointer; text-decoration:underline; text-underline-offset:3px;">
+                            ${username}
+                        </button>
+                    </td>
+                    <td style="font-weight:900;">${user.pin}</td>
+                    <td>${user.passengerName || '--'}</td>
+                    <td style="font-weight:900; color:var(--text-dim);">${String(user.serviceCategory || 'FLIGHT').toUpperCase()}</td>
+                    <td><span class="badge-pill" style="color:${user.manifest.status === 'CONFIRMED' ? 'var(--success)' : (user.manifest.status === 'CANCELLED' ? 'var(--danger)' : 'var(--warning)')}; border-color:${user.manifest.status === 'CONFIRMED' ? 'var(--success)' : (user.manifest.status === 'CANCELLED' ? 'var(--danger)' : 'var(--warning)')};">${user.manifest.status}</span></td>
+                    <td>${route}</td>
+                    <td>${gs}</td>
+                    <td style="color:var(--text-dim); font-weight:900;">${String(user.manifest.flightClass || '').toUpperCase()}</td>
+                    <td style="font-weight:900;">${cur}${user.ledger.balance}</td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn-secondary btn-mini btn-open-user" type="button" data-user="${username}" data-open="secManifest">Open</button>
+                        <button class="btn-secondary btn-mini btn-open-user" type="button" data-user="${username}" data-open="secFinancial">Finance</button>
+                        <button class="btn-secondary btn-mini btn-delete-user" type="button" data-user="${username}" style="border-color: rgba(239,68,68,0.35); color: var(--danger);">Delete</button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+
+            const openUser = async (u, target) => {
+                const username = String(u || '').trim();
+                if (!username) return;
+                document.querySelectorAll('.user-select').forEach((sel) => { sel.value = username; });
+                if (typeof onUserChange === 'function') onUserChange();
+                if (target) setSection(String(target));
+                else setSection('secManifest');
+                try { toast(`Loaded: ${username}`, 'ok'); } catch {}
+                try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
+            };
+
+            document.querySelectorAll('.btn-open-user').forEach((btn) => {
+                btn.addEventListener('click', async (e) => {
+                    const u = e.currentTarget.getAttribute('data-user');
+                    const target = e.currentTarget.getAttribute('data-open');
+                    await openUser(u, target);
+                });
+            });
+
+            // Attach delete listeners
+            document.querySelectorAll('.btn-delete-user').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const u = e.target.getAttribute('data-user');
+                    if (confirm(`Delete user ${u}? This will permanently remove the profile from Appwrite (and local fallback if present).`)) {
+                        try {
+                            const out = await tripApi(`/api/admin/users/${encodeURIComponent(u)}`, { method: 'DELETE' });
+                            if (!out || out.ok !== true) {
+                                try { toast('Delete failed. Re-run Schema Ensure and try again.', 'bad'); } catch {}
+                                return;
+                            }
+                        } catch (err) {
+                            try { toast((err && err.payload && err.payload.error) ? err.payload.error : 'Delete failed.', 'bad'); } catch {}
+                            return;
+                        }
+
+                        try {
+                            const localDb = loadFromLocal();
+                            const key = Object.keys(localDb.users || {}).find((k) => String(k).toLowerCase() === String(u).toLowerCase());
+                            if (key) delete localDb.users[key];
+                            localStorage.setItem('trip_users_db', JSON.stringify(localDb));
+                        } catch {}
+                        
+                        await refreshUserSelects();
+                        await renderRegistry();
+                        try { toast(`Deleted: ${u}`, 'ok'); } catch {}
+                    }
+                });
+            });
+
+            setTimeout(async () => {
+                const missing = [];
+                usernames.forEach((username) => {
+                    const user = ensureUserShape(db.users[username]);
+                    const share = user.share && typeof user.share === 'object' ? user.share : {};
+                    const tA = share.oneTimeTracking && share.oneTimeTracking.code ? String(share.oneTimeTracking.code) : '';
+                    const tB = share.oneTimeLogistics && share.oneTimeLogistics.code ? String(share.oneTimeLogistics.code) : '';
+                    if (!tA || !tB) missing.push(username);
+                });
+                if (!missing.length) return;
+
+                const createdAt = new Date().toISOString();
+                const limit = 3;
+                let idx = 0;
+                const runOne = async () => {
+                    const username = missing[idx++];
+                    if (!username) return;
+                    const user = ensureUserShape(db.users[username]);
+                    user.share = user.share && typeof user.share === 'object' ? user.share : {};
+                    const share = user.share;
+                    if (!share.oneTimeTracking || !share.oneTimeTracking.code) {
+                        share.oneTimeTracking = {
+                            code: makeOneTimeTrackingCode(),
+                            createdAt,
+                            usedAt: null
+                        };
+                    }
+                    if (!share.oneTimeLogistics || !share.oneTimeLogistics.code) {
+                        share.oneTimeLogistics = {
+                            code: makeOneTimeLogisticsCode(),
+                            createdAt,
+                            usedAt: null
+                        };
+                    }
+                    try {
+                        await tripApi(`/api/admin/users/${encodeURIComponent(username)}`, { method: 'PATCH', body: { userData: user } });
+                        try {
+                            const localDb = loadFromLocal();
+                            localDb.users = localDb.users && typeof localDb.users === 'object' ? localDb.users : {};
+                            localDb.users[username] = user;
+                            localStorage.setItem('trip_users_db', JSON.stringify(localDb));
+                        } catch {}
+                    } catch {}
+                };
+                const workers = [];
+                for (let i = 0; i < Math.min(limit, missing.length); i++) {
+                    workers.push((async function loop() { while (idx < missing.length) await runOne(); })());
+                }
+                await Promise.all(workers);
+            }, 0);
+        }
+
+        async function renderSubmissions() {
+            const body = document.getElementById('subBody');
+            const msg = document.getElementById('subMsg');
+            if (!body) return;
+            body.innerHTML = '';
+            if (msg) msg.textContent = 'Loading submissions...';
+
+            let out = null;
+            try {
+                out = await tripApi('/api/admin/submissions', { method: 'GET' });
+            } catch (e) {
+                if (msg) msg.textContent = 'Unable to load submissions.';
+                return;
+            }
+
+            const items = out && Array.isArray(out.items) ? out.items : [];
+            const badge = (status) => {
+                const st = String(status || 'PENDING').toUpperCase();
+                const c = st === 'APPROVED' ? 'var(--success)' : (st === 'REJECTED' ? 'var(--danger)' : 'var(--warning)');
+                const bg = st === 'APPROVED' ? 'rgba(16,185,129,0.10)' : (st === 'REJECTED' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)');
+                return `<span class="badge-pill" style="color:${c}; border-color:${c}; background:${bg};">${st}</span>`;
+            };
+
+            items.forEach((it) => {
+                const tr = document.createElement('tr');
+                const when = it.submittedAt ? new Date(it.submittedAt).toLocaleString() : '—';
+                const sigBtn = it.signature && it.signature.dataUrl ? `<button class="btn-secondary btn-view-sig" type="button" data-url="${it.signature.dataUrl}">View</button>` : '—';
+                tr.innerHTML = `
+                    <td style="font-weight:900;">${String(it.type || '').toUpperCase()}</td>
+                    <td style="font-weight:900;">${it.username}</td>
+                    <td>${it.title || '—'}</td>
+                    <td>${badge(it.status)}</td>
+                    <td style="color:var(--text-dim); font-weight:800;">${when}</td>
+                    <td>${sigBtn}</td>
+                    <td>
+                        <button class="btn-secondary btn-sub-status" type="button" data-u="${it.username}" data-t="${it.type}" data-id="${it.id}" data-s="APPROVED">Approve</button>
+                        <button class="btn-secondary btn-sub-status" type="button" data-u="${it.username}" data-t="${it.type}" data-id="${it.id}" data-s="REJECTED">Reject</button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+
+            if (!items.length) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="7" style="color:var(--text-dim); font-weight:800; padding:14px;">No submissions.</td>`;
+                body.appendChild(tr);
+            }
+
+            document.querySelectorAll('.btn-view-sig').forEach((b) => {
+                b.addEventListener('click', (e) => {
+                    const url = e.currentTarget.getAttribute('data-url');
+                    const w = window.open('', '_blank');
+                    if (!w) return;
+                    w.document.write(`<img src="${url}" style="max-width:100%; height:auto;">`);
+                    w.document.close();
+                });
+            });
+
+            document.querySelectorAll('.btn-sub-status').forEach((b) => {
+                b.addEventListener('click', async (e) => {
+                    const u = e.currentTarget.getAttribute('data-u');
+                    const t = e.currentTarget.getAttribute('data-t');
+                    const id = e.currentTarget.getAttribute('data-id');
+                    const s = e.currentTarget.getAttribute('data-s');
+                    if (msg) msg.textContent = 'Updating...';
+                    try {
+                        await tripApi('/api/admin/submissions', { method: 'PATCH', body: { username: u, type: t, id, status: s } });
+                        if (msg) msg.textContent = 'Updated.';
+                        renderSubmissions();
+                    } catch {
+                        if (msg) msg.textContent = 'Update failed.';
+                    }
+                });
+            });
+
+            if (msg) msg.textContent = '';
+        }
+
+        async function renderNotifications() {
+            const body = document.getElementById('ntBody');
+            const msg = document.getElementById('ntMsg');
+            if (!body) return;
+            body.innerHTML = '';
+            if (msg) msg.textContent = 'Loading notifications...';
+
+            let out = null;
+            try {
+                out = await tripApi('/api/admin/notifications', { method: 'GET' });
+            } catch {
+                if (msg) msg.textContent = 'Unable to load notifications.';
+                return;
+            }
+
+            const items = out && Array.isArray(out.items) ? out.items : [];
+            items.forEach((it) => {
+                const tr = document.createElement('tr');
+                const created = it.createdAt ? new Date(it.createdAt).toLocaleString() : '—';
+                tr.innerHTML = `
+                    <td style="font-weight:900;">${it.title || '—'}</td>
+                    <td>${it.message || '—'}</td>
+                    <td style="font-weight:900; color:var(--text-dim);">${it.tone || 'accent'}</td>
+                    <td style="font-weight:900;">${it.active ? 'true' : 'false'}</td>
+                    <td style="color:var(--text-dim); font-weight:800;">${created}</td>
+                    <td>
+                        <button class="btn-secondary btn-nt-toggle" type="button" data-id="${it.id}" data-active="${it.active ? 'true' : 'false'}">${it.active ? 'Disable' : 'Enable'}</button>
+                        <button class="btn-secondary btn-nt-del" type="button" data-id="${it.id}">Delete</button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+
+            if (!items.length) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="6" style="color:var(--text-dim); font-weight:800; padding:14px;">No notifications.</td>`;
+                body.appendChild(tr);
+            }
+
+            document.querySelectorAll('.btn-nt-toggle').forEach((b) => {
+                b.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    const active = e.currentTarget.getAttribute('data-active') !== 'true';
+                    if (msg) msg.textContent = 'Updating...';
+                    try {
+                        await tripApi('/api/admin/notifications', { method: 'PATCH', body: { id, active } });
+                        if (msg) msg.textContent = '';
+                        renderNotifications();
+                    } catch {
+                        if (msg) msg.textContent = 'Update failed.';
+                    }
+                });
+            });
+
+            document.querySelectorAll('.btn-nt-del').forEach((b) => {
+                b.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    if (!confirm('Delete this notification?')) return;
+                    if (msg) msg.textContent = 'Deleting...';
+                    try {
+                        await tripApi(`/api/admin/notifications/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                        if (msg) msg.textContent = '';
+                        renderNotifications();
+                    } catch {
+                        if (msg) msg.textContent = 'Delete failed.';
+                    }
+                });
+            });
+
+            if (msg) msg.textContent = '';
+        }
+
+        function safeJsonParse(s) {
+            try { return JSON.parse(String(s || '')); } catch { return null; }
+        }
+
+        function setLPStats(pool) {
+            const el = document.getElementById('lpStats');
+            if (!el) return;
+            const items = pool && Array.isArray(pool.items) ? pool.items.length : 0;
+            const interval = pool && pool.intervalSeconds ? pool.intervalSeconds : '—';
+            const enabled = pool && pool.enabled !== false;
+            el.textContent = `${enabled ? 'Enabled' : 'Disabled'} • ${items} items • ${interval}s`;
+        }
+
+        async function loadLivePopupsAdmin() {
+            const msg = document.getElementById('lpMsg');
+            if (msg) msg.textContent = 'Loading...';
+            try {
+                const out = await tripApi('/api/admin/live-popups', { method: 'GET' });
+                document.getElementById('lpEnabled').value = out && out.enabled === false ? 'false' : 'true';
+                document.getElementById('lpInterval').value = String((out && out.intervalSeconds) ? out.intervalSeconds : 30);
+                document.getElementById('lpCount').value = String((out && out.items && out.items.length) ? out.items.length : 1200);
+                const startAt = out && out.startAt ? new Date(out.startAt) : null;
+                const validUntil = out && out.validUntil ? new Date(out.validUntil) : null;
+                const days = (startAt && validUntil && !Number.isNaN(startAt.getTime()) && !Number.isNaN(validUntil.getTime()))
+                    ? Math.max(1, Math.round((validUntil.getTime() - startAt.getTime()) / 86400000))
+                    : 7;
+                document.getElementById('lpDays').value = String(days);
+                setLPStats(out);
+                if (msg) msg.textContent = '';
+            } catch {
+                if (msg) msg.textContent = 'Unable to load live popups.';
+            }
+        }
+
+        async function generateLivePopupsAdmin() {
+            const msg = document.getElementById('lpMsg');
+            if (msg) msg.textContent = 'Generating...';
+            const count = parseInt(document.getElementById('lpCount').value, 10) || 1200;
+            const intervalSeconds = parseInt(document.getElementById('lpInterval').value, 10) || 30;
+            const days = parseInt(document.getElementById('lpDays').value, 10) || 7;
+            try {
+                await tripApi('/api/admin/live-popups', { method: 'POST', body: { count, days, intervalSeconds } });
+                if (msg) msg.textContent = 'Generated.';
+                await loadLivePopupsAdmin();
+            } catch {
+                if (msg) msg.textContent = 'Generate failed.';
+            }
+        }
+
+        async function saveLivePopupsSettingsAdmin(enabledOverride) {
+            const msg = document.getElementById('lpMsg');
+            if (msg) msg.textContent = 'Saving...';
+            const enabled = enabledOverride !== undefined ? Boolean(enabledOverride) : (document.getElementById('lpEnabled').value === 'true');
+            const intervalSeconds = parseInt(document.getElementById('lpInterval').value, 10) || 30;
+            try {
+                await tripApi('/api/admin/live-popups', { method: 'PATCH', body: { enabled, intervalSeconds } });
+                if (msg) msg.textContent = 'Saved.';
+                await loadLivePopupsAdmin();
+            } catch {
+                if (msg) msg.textContent = 'Save failed.';
+            }
+        }
+
+        async function patchLivePopupItemAdmin(isDelete) {
+            const msg = document.getElementById('lpMsg');
+            if (msg) msg.textContent = isDelete ? 'Deleting...' : 'Updating...';
+            const index = parseInt(document.getElementById('lpEditIndex').value, 10);
+            if (!Number.isFinite(index)) {
+                if (msg) msg.textContent = 'Enter a valid index.';
+                return;
+            }
+            if (isDelete) {
+                try {
+                    await tripApi('/api/admin/live-popups', { method: 'PATCH', body: { deleteIndex: index } });
+                    if (msg) msg.textContent = 'Deleted.';
+                    await loadLivePopupsAdmin();
+                } catch {
+                    if (msg) msg.textContent = 'Delete failed.';
+                }
+                return;
+            }
+            const patch = safeJsonParse(document.getElementById('lpEditJson').value);
+            if (!patch || typeof patch !== 'object') {
+                if (msg) msg.textContent = 'Invalid JSON patch.';
+                return;
+            }
+            try {
+                await tripApi('/api/admin/live-popups', { method: 'PATCH', body: { index, item: patch } });
+                if (msg) msg.textContent = 'Updated.';
+                await loadLivePopupsAdmin();
+            } catch {
+                if (msg) msg.textContent = 'Update failed.';
+            }
+        }
+
+        async function hydrateManifest(username) {
+            const db = await loadAllUsersFromDB();
+            if (!username || !db.users[username]) return;
+            const user = ensureUserShape(db.users[username]);
+            ensureFlightShape(user);
+            const f = user.flight || {};
+            const r = f.route || {};
+            const b = f.boarding || {};
+            document.getElementById('manStatus').value = f.status || 'PENDING';
+            document.getElementById('manFrom').value = r.from || 'LHR';
+            document.getElementById('manTo').value = r.to || 'ICN';
+            document.getElementById('manGate').value = b.gate || '--';
+            document.getElementById('manSeat').value = b.seat || '--';
+            document.getElementById('manClass').value = b.cabin ? String(b.cabin).toUpperCase() : 'Business';
+            document.getElementById('detCategory').value = user.profile.category || '';
+            document.getElementById('detPurpose').value = user.profile.purpose || '';
+            document.getElementById('detNationality').value = user.profile.nationality || '';
+            document.getElementById('detPassport').value = user.profile.passport || '';
+            document.getElementById('detNotes').value = user.profile.notes || '';
+            document.getElementById('gwTerminal').value = user.profile.gateway.terminal || '';
+            document.getElementById('gwCheckin').value = user.profile.gateway.checkin || '';
+            document.getElementById('gwBaggage').value = user.profile.gateway.baggage || '';
+            document.getElementById('gwAssist').value = user.profile.gateway.assistance || '';
+            extraPassengers = Array.isArray(user.profile.additionalPassengers) ? user.profile.additionalPassengers.slice() : [];
+            renderExtraPassengers();
+        }
+
+        async function hydrateFlightForm(username) {
+            const db = await loadAllUsersFromDB();
+            if (!username || !db.users[username]) return;
+            const user = ensureUserShape(db.users[username]);
+            const f = user.form || {};
+            document.getElementById('ffLocked').value = f.lockedByAdmin === false ? 'DRAFT' : 'LOCKED';
+            document.getElementById('ffFlightNo').value = f.flightNo || '';
+            document.getElementById('ffDepartAt').value = f.departAt || '';
+            document.getElementById('ffNotes').value = f.notes || '';
+
+            const preview = document.getElementById('flightFormSigPreview');
+            preview.innerHTML = '';
+            if (f.signature && f.signature.dataUrl) {
+                const when = f.signature.signedAt ? new Date(f.signature.signedAt).toLocaleString() : '—';
+                preview.innerHTML = `
+                    <div style="font-weight:900; margin-bottom:8px;">Current Signature</div>
+                    <div style="display:grid; gap:8px;">
+                        <div style="color:var(--text-dim); font-weight:800;">${f.signature.name || '—'} • ${when}</div>
+                        <img src="${f.signature.dataUrl}" alt="Signature" style="width:100%; max-width:520px; border-radius:14px; border:1px solid var(--border); background: var(--input-bg);">
+                    </div>
+                `;
+            } else {
+                preview.innerHTML = `<div style="color:var(--text-dim); font-weight:800;">No signature submitted.</div>`;
+            }
+        }
+
+        function renderBoardingPassPreview(model) {
+            const el = document.getElementById('bpPreview');
+            if (!el) return;
+            const m = model || {};
+            const dep = String(m.from || 'LHR').toUpperCase();
+            const arr = String(m.to || 'ICN').toUpperCase();
+            const route = `${dep}-${arr}`;
+            const cls = String(m.flightClass || 'Business');
+            const st = String(m.status || 'PENDING').toUpperCase();
+            const gate = String(m.gate || '—');
+            const seat = String(m.seat || '—');
+            const name = String(m.passengerName || '—');
+            const uname = String(m.username || '—');
+            const flightNo = String(m.flightNo || route);
+            const departAt = String(m.departAt || '—');
+            const terminal = String(m.terminal || '—');
+            const pnr = String(m.pnr || '—');
+            const boardAt = String(m.boardAt || '—');
+            const group = String(m.group || '—');
+            const seq = String(m.seq || '—');
+
+            el.innerHTML = `
+                <div class="ticket-8k ticket-surface boarding-pass" style="max-width: 980px; margin: 0 auto;">
+                    <div class="ticket-8k__main">
+                        <div class="ticket-8k__top">
+                            <div>
+                                <div class="ticket-8k__brandline">TRIP Airways</div>
+                                <div class="ticket-8k__sub">BOARDING PASS</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <span class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">${st}</span>
+                                <div style="margin-top:10px; color:var(--ticket-dim); font-weight:800; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase;">${flightNo}</div>
+                            </div>
+                        </div>
+                        <div class="ticket-8k__route">
+                            <div class="route-side">
+                                <div class="route-label">Departure</div>
+                                <div class="route-code dep">${dep}</div>
+                            </div>
+                            <div class="route-mid">
+                                <div class="route-line"></div>
+                                <div class="route-txt">${route}</div>
+                            </div>
+                            <div class="route-side" style="text-align:right;">
+                                <div class="route-label">Arrival</div>
+                                <div class="route-code arr">${arr}</div>
+                            </div>
+                        </div>
+                        <div class="ticket-8k__grid">
+                            <div>
+                                <div class="ticket-k">Passenger</div>
+                                <div class="ticket-passenger">${name}</div>
+                                <div class="ticket-small">Passenger ID: <span>${uname}</span></div>
+                            </div>
+                            <div class="ticket-grid-mini">
+                                <div><div class="ticket-k">Gate</div><div class="ticket-v">${gate}</div></div>
+                                <div><div class="ticket-k">Seat</div><div class="ticket-v">${seat}</div></div>
+                                <div><div class="ticket-k">Class</div><div class="ticket-v">${cls}</div></div>
+                                <div><div class="ticket-k">Terminal</div><div class="ticket-v">${terminal}</div></div>
+                            </div>
+                        </div>
+                        <div class="ticket-grid-mini" style="margin-top:12px;">
+                            <div><div class="ticket-k">PNR</div><div class="ticket-v">${pnr}</div></div>
+                            <div><div class="ticket-k">Board</div><div class="ticket-v">${boardAt}</div></div>
+                            <div><div class="ticket-k">Group</div><div class="ticket-v">${group}</div></div>
+                            <div><div class="ticket-k">Seq</div><div class="ticket-v">${seq}</div></div>
+                        </div>
+                        <div style="margin-top:14px; border-top:1px dashed rgba(11, 18, 32, 0.18); padding-top:12px; display:flex; justify-content:space-between; gap:12px; align-items:end;">
+                            <div style="flex:1;">
+                                <div class="ticket-k">Issued</div>
+                                <div class="ticket-v" style="font-weight:900;">${departAt}</div>
+                            </div>
+                            <div style="width: 220px; height: 48px; border-radius: 12px; border:1px solid rgba(11, 18, 32, 0.18); background: repeating-linear-gradient(90deg, rgba(11,18,32,0.85) 0, rgba(11,18,32,0.85) 2px, transparent 2px, transparent 6px);"></div>
+                        </div>
+                    </div>
+                    <div class="ticket-8k__stub">
+                        <div class="stub-meta">
+                            <div>
+                                <div class="ticket-k">Departure</div>
+                                <div class="stub-id">${departAt}</div>
+                            </div>
+                            <div>
+                                <div class="ticket-k">Status</div>
+                                <div class="stub-id">${st}</div>
+                            </div>
+                            <div>
+                                <div class="ticket-k">PNR</div>
+                                <div class="stub-id">${pnr}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function hydrateBoardingPass(username) {
+            if (!username) return;
+            const db = await loadAllUsersFromDB();
+            if (!db.users[username]) return;
+            const user = ensureUserShape(db.users[username]);
+            ensureFlightShape(user);
+            ensureFlightDocFields(user);
+            const f = user.flight || {};
+            const route = f.route || {};
+            const sch = f.schedule || {};
+            const bd = f.boarding || {};
+            document.getElementById('bpStatus').value = f.status || 'PENDING';
+            document.getElementById('bpName').value = user.passengerName || '';
+            document.getElementById('bpFlightNo').value = sch.flightNo || '';
+            document.getElementById('bpClass').value = bd.cabin ? String(bd.cabin).toUpperCase() : 'Business';
+            document.getElementById('bpFrom').value = route.from || 'LHR';
+            document.getElementById('bpTo').value = route.to || 'ICN';
+            document.getElementById('bpDepartAt').value = sch.departAt || '';
+            document.getElementById('bpGate').value = bd.gate || '';
+            document.getElementById('bpSeat').value = bd.seat || '';
+            document.getElementById('bpTerminal').value = bd.terminal || '';
+            document.getElementById('bpPnr').value = sch.pnr || '';
+            document.getElementById('bpBoardAt').value = sch.boardAt || '';
+            document.getElementById('bpGroup').value = bd.group || '';
+            document.getElementById('bpSeq').value = sch.seq || '';
+
+            const shareKey = f.share && f.share.boardingPassKey ? String(f.share.boardingPassKey) : '';
+            const keyInput = document.getElementById('bpShareKey');
+            const shareUrl = document.getElementById('bpShareUrl');
+            const qrImg = document.getElementById('bpQr');
+            if (keyInput) keyInput.value = shareKey;
+            if (shareKey) {
+                const base = window.location.origin;
+                const url = `${base}/flight/boarding-pass.html?u=${encodeURIComponent(username)}&k=${encodeURIComponent(shareKey)}`;
+                if (shareUrl) shareUrl.textContent = url;
+                if (qrImg) {
+                    qrImg.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                    qrImg.style.display = 'block';
+                }
+            } else {
+                if (shareUrl) shareUrl.textContent = '';
+                if (qrImg) qrImg.style.display = 'none';
+            }
+
+            const etKey = f.share && f.share.eticketKey ? String(f.share.eticketKey) : '';
+            const etInput = document.getElementById('etShareKey');
+            const etUrl = document.getElementById('etShareUrl');
+            const etQr = document.getElementById('etQr');
+            if (etInput) etInput.value = etKey;
+            if (etKey) {
+                const base = window.location.origin;
+                const url = `${base}/flight/e-ticket.html?u=${encodeURIComponent(username)}&k=${encodeURIComponent(etKey)}`;
+                if (etUrl) etUrl.textContent = url;
+                if (etQr) {
+                    etQr.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                    etQr.style.display = 'block';
+                }
+            } else {
+                if (etUrl) etUrl.textContent = '';
+                if (etQr) etQr.style.display = 'none';
+            }
+
+            const eaKey = f.share && f.share.earrivalKey ? String(f.share.earrivalKey) : '';
+            const eaInput = document.getElementById('eaShareKey');
+            const eaUrl = document.getElementById('eaShareUrl');
+            const eaQr = document.getElementById('eaQr');
+            if (eaInput) eaInput.value = eaKey;
+            if (eaKey) {
+                const base = window.location.origin;
+                const url = `${base}/flight/e-arrival.html?u=${encodeURIComponent(username)}&k=${encodeURIComponent(eaKey)}`;
+                if (eaUrl) eaUrl.textContent = url;
+                if (eaQr) {
+                    eaQr.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                    eaQr.style.display = 'block';
+                }
+            } else {
+                if (eaUrl) eaUrl.textContent = '';
+                if (eaQr) eaQr.style.display = 'none';
+            }
+
+            renderBoardingPassPreview({
+                username,
+                status: document.getElementById('bpStatus').value,
+                passengerName: document.getElementById('bpName').value,
+                flightNo: document.getElementById('bpFlightNo').value,
+                flightClass: document.getElementById('bpClass').value,
+                from: document.getElementById('bpFrom').value,
+                to: document.getElementById('bpTo').value,
+                departAt: document.getElementById('bpDepartAt').value,
+                gate: document.getElementById('bpGate').value,
+                seat: document.getElementById('bpSeat').value,
+                terminal: document.getElementById('bpTerminal').value,
+                pnr: document.getElementById('bpPnr').value,
+                boardAt: document.getElementById('bpBoardAt').value,
+                group: document.getElementById('bpGroup').value,
+                seq: document.getElementById('bpSeq').value,
+            });
+        }
+
+        async function hydrateLedger(username) {
+            const db = await loadAllUsersFromDB();
+            if (!username || !db.users[username]) return;
+            const user = ensureUserShape(db.users[username]);
+            document.getElementById('finBalance').value = user.ledger.balance || '0.00';
+            const table = document.getElementById('txTable');
+            table.innerHTML = '';
+            const txs = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+            txs.slice().reverse().forEach((tx, i) => {
+                const originalIndex = (txs.length - 1) - i;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td data-label="Date">${tx.date || '--'}</td>
+                    <td data-label="Description">${tx.desc || '--'}</td>
+                    <td data-label="Amount" style="font-weight:900;">${tx.amount || '--'}</td>
+                    <td data-label="Action" style="white-space:nowrap;">
+                        <button class="btn-secondary btn-mini" type="button" data-txedit="${originalIndex}">Edit</button>
+                        <button class="btn-secondary btn-mini" type="button" data-txdel="${originalIndex}">Delete</button>
+                    </td>
+                `;
+                table.appendChild(tr);
+            });
+
+            table.querySelectorAll('button[data-txedit]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.getAttribute('data-txedit'), 10);
+                    if (!Number.isFinite(idx)) return;
+                    const item = txs[idx];
+                    if (!item) return;
+                    document.getElementById('txEditIndex').value = String(idx);
+                    document.getElementById('txDate').value = String(item.date || '');
+                    document.getElementById('txDesc').value = String(item.desc || '');
+                    document.getElementById('txAmt').value = String(item.amount || '');
+                });
+            });
+            table.querySelectorAll('button[data-txdel]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const idx = parseInt(btn.getAttribute('data-txdel'), 10);
+                    if (!Number.isFinite(idx)) return;
+                    const currentUser = document.getElementById('finUser').value;
+                    if (!currentUser) return;
+                    const db2 = await loadAllUsersFromDB();
+                    if (!db2.users[currentUser]) return;
+                    const u2 = ensureUserShape(db2.users[currentUser]);
+                    u2.ledger.transactions = Array.isArray(u2.ledger.transactions) ? u2.ledger.transactions : [];
+                    u2.ledger.transactions.splice(idx, 1);
+                    await saveUserToDB(currentUser, u2);
+                    document.getElementById('txEditIndex').value = '';
+                    await hydrateLedger(currentUser);
+                });
+            });
+        }
+
+        async function renderStepsEditor(username) {
+            const db = await loadAllUsersFromDB();
+            if (!username || !db.users[username]) return;
+            const user = ensureUserShape(db.users[username]);
+            user.logistics = ensureLogisticsShape(user.logistics);
+            const logSel = document.getElementById('logCurrent');
+            logSel.value = String(user.logistics.currentStep || (user.logistics.currentStepIndex + 1));
+            if (logSel.dataset) logSel.dataset.prevIndex = String(user.logistics.currentStepIndex);
+            const otc = user.share.oneTimeTracking || { code: "", createdAt: null, usedAt: null };
+            document.getElementById('otcCode').value = otc.code || '';
+            document.getElementById('otcUsedAt').value = otc.usedAt ? new Date(otc.usedAt).toLocaleString() : '';
+            document.getElementById('otcStatus').textContent = otc.code ? (otc.usedAt ? 'Used' : 'Active') : 'None';
+
+            const lgx = user.share.oneTimeLogistics || { code: "", createdAt: null, usedAt: null };
+            document.getElementById('lgxCode').value = lgx.code || '';
+            document.getElementById('lgxUsedAt').value = lgx.usedAt ? new Date(lgx.usedAt).toLocaleString() : '';
+            document.getElementById('lgxStatus').textContent = lgx.code ? (lgx.usedAt ? 'Used' : 'Active') : 'None';
+            const shareUrl = document.getElementById('lgxShareUrl');
+            const qrImg = document.getElementById('lgxQr');
+            if (lgx.code && !lgx.usedAt) {
+                const base = window.location.origin;
+                const url = `${base}/logistics/waybill.html?u=${encodeURIComponent(username)}&tc=${encodeURIComponent(lgx.code)}`;
+                shareUrl.textContent = url;
+                const qr = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(url)}`;
+                qrImg.src = qr;
+                qrImg.style.display = 'block';
+            } else {
+                shareUrl.textContent = '';
+                qrImg.style.display = 'none';
+            }
+
+            const wrap = document.getElementById('stepsEditor');
+            wrap.innerHTML = '';
+            const esc = (v) => String(v ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            user.logistics.steps.forEach((s, idx) => {
+                const stepNum = idx + 1;
+                const box = document.createElement('div');
+                box.className = 'card';
+                box.style.marginBottom = '0';
+                box.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+                        <div style="font-weight:900; letter-spacing:-0.4px;">Step ${stepNum}</div>
+                        <div style="color:var(--text-dim); font-weight:800; font-size:0.75rem;">Tracker Line</div>
+                    </div>
+                    <div class="three-col">
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Title</div>
+                            <input data-step="${idx}" data-field="title" type="text" value="${esc(s.title)}">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Location</div>
+                            <input data-step="${idx}" data-field="location" type="text" value="${esc(s.location)}">
+                        </div>
+                        <div>
+                            <div class="ticket-k" style="margin-bottom:8px;">Date/Marker</div>
+                            <input data-step="${idx}" data-field="date" type="text" value="${esc(s.date)}">
+                        </div>
+                    </div>
+                `;
+                wrap.appendChild(box);
+            });
+        }
+
+        let extraPassengers = [];
+
+        function renderExtraPassengers() {
+            const list = document.getElementById('extraPassengersList');
+            const count = document.getElementById('extraCount');
+            if (!list || !count) return;
+            count.textContent = String(extraPassengers.length);
+            list.innerHTML = '';
+            extraPassengers.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.className = 'card';
+                row.style.marginBottom = '0';
+                row.style.padding = '14px';
+                row.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                        <div style="min-width:0;">
+                            <div style="font-weight:900; letter-spacing:-0.4px;">${p.name || '—'}</div>
+                            <div style="color:var(--text-dim); font-weight:800; font-size:0.85rem; margin-top:6px;">${p.role || 'Passenger'} • ${(p.flightClass || '—').toUpperCase()} • ${p.status || 'PENDING'}</div>
+                        </div>
+                        <button type="button" class="btn-secondary btn-remove-extra" data-idx="${idx}" style="width:auto; padding:10px 12px;">Remove</button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+            list.querySelectorAll('.btn-remove-extra').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.getAttribute('data-idx'), 10);
+                    if (!Number.isFinite(idx)) return;
+                    extraPassengers.splice(idx, 1);
+                    renderExtraPassengers();
+                });
+            });
+        }
+
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        async function runAutoUserStatusUpdateIfDue() {
+            const now = Date.now();
+            const raw = localStorage.getItem('trip_users_autoupdate_next');
+            const nextAt = raw ? parseInt(raw, 10) : 0;
+            if (nextAt && now < nextAt) return;
+
+            const db = await loadAllUsersFromDB();
+            const keys = Object.keys(db.users || {});
+            const stages = ['ON-HOLD', 'PENDING', 'VERIFYING', 'VERIFIED'];
+            const finals = ['CONFIRMED', 'SUSPENDED', 'REJECTED', 'DECLINED'];
+
+            for (const username of keys) {
+                const user = ensureUserShape(db.users[username]);
+                const n = String(user.passengerName || '').toLowerCase();
+                if (n.includes('clare bland')) continue;
+                const currentStatus = String(user.manifest && user.manifest.status ? user.manifest.status : '').toUpperCase();
+                const locked = ['VERIFIED', 'CONFIRMED', 'SUSPENDED', 'REJECTED', 'DECLINED', 'CANCELLED'];
+                if (locked.includes(currentStatus)) {
+                    await saveUserToDB(username, user);
+                    continue;
+                }
+                const vf = user.verification || { stageIndex: 1, final: '', updatedAt: null };
+                if (vf.final) {
+                    user.manifest.status = vf.final;
+                    await saveUserToDB(username, user);
+                    continue;
+                }
+
+                const stepChance = Math.random();
+                if (vf.stageIndex < stages.length - 1) {
+                    if (stepChance < 0.75) vf.stageIndex = Math.min(stages.length - 1, vf.stageIndex + 1);
+                    vf.updatedAt = new Date().toISOString();
+                    user.verification = vf;
+                    user.manifest.status = stages[vf.stageIndex] || 'PENDING';
+                } else {
+                    const roll = Math.random();
+                    let out = 'CONFIRMED';
+                    if (roll >= 0.70 && roll < 0.82) out = 'SUSPENDED';
+                    if (roll >= 0.82 && roll < 0.92) out = 'REJECTED';
+                    if (roll >= 0.92) out = 'DECLINED';
+                    vf.final = out;
+                    vf.updatedAt = new Date().toISOString();
+                    user.verification = vf;
+                    user.manifest.status = out;
+                }
+                await saveUserToDB(username, user);
+            }
+
+            const next = now + randInt(10, 15) * 60 * 1000;
+            localStorage.setItem('trip_users_autoupdate_next', String(next));
+        }
+
+        let onUserChange = () => {};
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try { initThemeToggle('adminThemeToggle'); } catch {}
+            const ok = await requireAdminSession();
+            const adminSessionPill = document.getElementById('adminSessionPill');
+            const setAdminPill = (label, type) => {
+                if (!adminSessionPill) return;
+                adminSessionPill.textContent = label;
+                let color = 'var(--warning)';
+                let bg = 'rgba(245,158,11,0.10)';
+                if (type === 'ok') { color = 'var(--success)'; bg = 'rgba(16,185,129,0.10)'; }
+                if (type === 'bad') { color = 'var(--danger)'; bg = 'rgba(239,68,68,0.10)'; }
+                adminSessionPill.style.color = color;
+                adminSessionPill.style.borderColor = color;
+                adminSessionPill.style.background = bg;
+            };
+            setAdminPill(ok ? 'SERVER ACTIVE' : 'EXPIRED', ok ? 'ok' : 'bad');
+            if (!ok) {
+                document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const pass = document.getElementById('adminPassInput').value.trim();
+                    document.getElementById('adminLoginMsg').textContent = '';
+                    try {
+                        const out = await adminLogin(pass);
+                        if (out && out.ok) {
+                            document.getElementById('adminAuthOverlay').style.display = 'none';
+                            document.getElementById('adminAppContent').style.display = 'block';
+                            setAdminPill('SERVER ACTIVE', 'ok');
+                            await refreshUserSelects();
+                            await renderRegistry();
+                            runAutoUserStatusUpdateIfDue();
+                            setInterval(runAutoUserStatusUpdateIfDue, 30 * 1000);
+                        } else {
+                            document.getElementById('adminLoginMsg').textContent = (out && out.error) ? out.error : 'Invalid passcode.';
+                        }
+                    } catch (e) {
+                        if (e && e.status === 401) {
+                            const payloadMsg = (e.payload && e.payload.error) ? e.payload.error : null;
+                            const hint = (e.payload && typeof e.payload.configured === 'boolean')
+                                ? (e.payload.configured ? '' : ' (passcode not set in Vercel env, using default)')
+                                : '';
+                            const flags = (e.payload && typeof e.payload.configured === 'boolean')
+                                ? ` [configured:${e.payload.configured ? 'yes' : 'no'}]`
+                                : '';
+                            document.getElementById('adminLoginMsg').textContent = (payloadMsg || 'Invalid passcode.') + hint + flags;
+                        } else if (e && e.payload && e.payload.hint) {
+                            document.getElementById('adminLoginMsg').textContent = e.payload.hint;
+                        } else {
+                            document.getElementById('adminLoginMsg').textContent = 'Admin access failed.';
+                        }
+                    }
+                });
+            }
+
+            const pvForm = document.getElementById('pvForm');
+            if (pvForm) {
+                pvForm.addEventListener('submit', (e) => e.preventDefault());
+            }
+
+            document.getElementById('adminSignOutBtn').addEventListener('click', async () => {
+                try { await adminLogout(); } catch {}
+                window.location.reload();
+            });
+
+            document.querySelectorAll('.admin-menu button').forEach((btn) => {
+                btn.addEventListener('click', () => setSection(btn.dataset.target));
+            });
+
+            if (ok) {
+                refreshUserSelects();
+                renderRegistry();
+                runAutoUserStatusUpdateIfDue();
+                setInterval(runAutoUserStatusUpdateIfDue, 30 * 1000);
+            }
+
+            // Build mobile menu from sidebar buttons
+            (function initMobileMenu() {
+                const toggleBtn = document.getElementById('adminMobileToggle');
+                const menu = document.getElementById('adminMobileMenu');
+                const grid = document.getElementById('adminMobileGrid');
+                const shortcuts = document.getElementById('adminMobileShortcuts');
+                const srcButtons = Array.from(document.querySelectorAll('.admin-menu button'));
+                grid.innerHTML = '';
+                if (shortcuts) shortcuts.innerHTML = '';
+                srcButtons.forEach((b) => {
+                    const mb = document.createElement('button');
+                    mb.textContent = b.textContent;
+                    mb.dataset.target = b.dataset.target;
+                    mb.addEventListener('click', () => {
+                        setSection(mb.dataset.target);
+                        menu.classList.remove('open');
+                        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+                    });
+                    grid.appendChild(mb);
+
+                    if (shortcuts) {
+                        const sb = document.createElement('button');
+                        sb.type = 'button';
+                        sb.textContent = b.textContent;
+                        sb.dataset.target = b.dataset.target;
+                        sb.addEventListener('click', () => setSection(sb.dataset.target));
+                        shortcuts.appendChild(sb);
+                    }
+                });
+                function toggleMenu() {
+                    const open = !menu.classList.contains('open');
+                    menu.classList.toggle('open', open);
+                    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(open));
+                }
+                if (toggleBtn) toggleBtn.addEventListener('click', toggleMenu);
+                document.addEventListener('click', (e) => {
+                    if (!menu.classList.contains('open')) return;
+                    const within = menu.contains(e.target) || (toggleBtn && toggleBtn.contains(e.target));
+                    if (!within) menu.classList.remove('open');
+                });
+            })();
+
+            document.getElementById('btnResetForm').addEventListener('click', () => {
+                document.getElementById('pvUsername').value = '';
+                document.getElementById('pvPin').value = '';
+                document.getElementById('pvPassenger').value = '';
+                document.getElementById('pvService').value = 'FLIGHT';
+                const pvCredPreview = document.getElementById('pvCredPreview');
+                if (pvCredPreview) pvCredPreview.value = '';
+                document.getElementById('pvSeat').value = '';
+                document.getElementById('pvGate').value = '';
+                document.getElementById('pvClass').value = 'Business';
+                const depCountry = document.getElementById('pvDepCountry');
+                const depState = document.getElementById('pvDepState');
+                const destCountry = document.getElementById('pvDestCountry');
+                const destState = document.getElementById('pvDestState');
+                if (depCountry) depCountry.value = '';
+                if (depState) depState.value = '';
+                if (destCountry) destCountry.value = '';
+                if (destState) destState.value = '';
+                document.getElementById('pvWaybill').value = '';
+                document.getElementById('pvWeight').value = '';
+                document.getElementById('pvVehicle').value = '';
+                document.getElementById('pvEta').value = '';
+                document.getElementById('pvOrigin').value = '';
+                document.getElementById('pvDest').value = '';
+                document.getElementById('pvCourier').value = '';
+                const pvBalance = document.getElementById('pvBalance');
+                const pvCurrency = document.getElementById('pvCurrency');
+                if (pvBalance) pvBalance.value = '0.00';
+                if (pvCurrency) pvCurrency.value = '$';
+                document.getElementById('provisionMsg').textContent = '';
+            });
+
+            function toast(message, variant) {
+                const v = String(variant || 'ok').toLowerCase();
+                let stack = document.getElementById('tripToastStack');
+                if (!stack) {
+                    stack = document.createElement('div');
+                    stack.id = 'tripToastStack';
+                    stack.className = 'trip-toast-stack';
+                    document.body.appendChild(stack);
+                }
+                const el = document.createElement('div');
+                el.className = `trip-toast ${v === 'bad' ? 'trip-toast--bad' : 'trip-toast--ok'}`;
+                el.textContent = String(message || '');
+                stack.appendChild(el);
+                requestAnimationFrame(() => el.classList.add('show'));
+                setTimeout(() => {
+                    el.classList.remove('show');
+                    setTimeout(() => { try { el.remove(); } catch {} }, 220);
+                }, 2200);
+            }
+
+            async function copyText(text) {
+                const t = String(text || '');
+                if (!t) return false;
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(t);
+                        return true;
+                    }
+                } catch {}
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = t;
+                    ta.setAttribute('readonly', 'true');
+                    ta.style.position = 'fixed';
+                    ta.style.top = '-1000px';
+                    ta.style.left = '-1000px';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    const ok = document.execCommand('copy');
+                    ta.remove();
+                    return Boolean(ok);
+                } catch {
+                    return false;
+                }
+            }
+
+            document.getElementById('btnCopyFlightLogin').addEventListener('click', async () => {
+                const url = `${window.location.origin}/auth/flight.html`;
+                const ok = await copyText(url);
+                toast(ok ? 'Flight Login URL copied' : 'Copy failed', ok ? 'ok' : 'bad');
+            });
+
+            document.getElementById('btnCopyCourierLogin').addEventListener('click', async () => {
+                const url = `${window.location.origin}/auth/courier.html`;
+                const ok = await copyText(url);
+                toast(ok ? 'Courier Login URL copied' : 'Copy failed', ok ? 'ok' : 'bad');
+            });
+
+            document.getElementById('btnCopyAccessPortal').addEventListener('click', async () => {
+                const url = `${window.location.origin}/access.html`;
+                const ok = await copyText(url);
+                toast(ok ? 'Access Portal URL copied' : 'Copy failed', ok ? 'ok' : 'bad');
+            });
+
+            document.getElementById('btnCopyUserAccessLink').addEventListener('click', async () => {
+                const btn = document.getElementById('btnCopyUserAccessLink');
+                const url = btn && btn.dataset && btn.dataset.url ? String(btn.dataset.url) : '';
+                if (!url) return;
+                const ok = await copyText(url);
+                toast(ok ? 'User Access Link copied' : 'Copy failed', ok ? 'ok' : 'bad');
+            });
+
+            document.getElementById('btnAutoCred').addEventListener('click', async () => {
+                const msg = document.getElementById('provisionMsg');
+                if (msg) msg.textContent = '';
+
+                const passengerName = document.getElementById('pvPassenger').value.trim();
+                const db = await loadAllUsersFromDB();
+                const existing = new Set(Object.keys(db.users || {}).map((k) => String(k).toLowerCase()));
+
+                let username = '';
+                for (let i = 0; i < 200; i++) {
+                    const suffix = String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0');
+                    const cand = `Trip_user${suffix}`;
+                    if (!existing.has(cand.toLowerCase())) {
+                        username = cand;
+                        break;
+                    }
+                }
+                if (!username) {
+                    if (msg) msg.textContent = 'Unable to generate a unique username. Try again.';
+                    return;
+                }
+
+                const pin = genPin(6);
+                document.getElementById('pvUsername').value = username;
+                document.getElementById('pvPin').value = pin;
+                const pvCredPreview = document.getElementById('pvCredPreview');
+                if (pvCredPreview) pvCredPreview.value = `${username} / ${pin}`;
+                if (msg) msg.textContent = `Generated credentials: ${username} / ${pin}`;
+            });
+
+            function syncProvisionFields() {
+                const v = document.getElementById('pvService').value;
+                const isLog = v === 'LOGISTICS';
+                document.getElementById('pvFlightFields').style.display = isLog ? 'none' : 'grid';
+                const geo = document.getElementById('pvFlightGeo');
+                if (geo) geo.style.display = isLog ? 'none' : 'grid';
+                document.getElementById('pvLogisticsFields').style.display = isLog ? 'grid' : 'none';
+                document.getElementById('pvLogisticsFields2').style.display = isLog ? 'grid' : 'none';
+                document.getElementById('pvLogisticsFields3').style.display = isLog ? 'grid' : 'none';
+            }
+            document.getElementById('pvService').addEventListener('change', syncProvisionFields);
+            syncProvisionFields();
+
+            document.getElementById('btnCreateUser').addEventListener('click', async () => {
+                const msg = document.getElementById('provisionMsg');
+                msg.textContent = '';
+
+                const passengerName = document.getElementById('pvPassenger').value.trim();
+                const serviceCategory = document.getElementById('pvService').value;
+
+                if (!passengerName) {
+                    msg.textContent = 'Provide Passenger Name.';
+                    return;
+                }
+
+                const db = await loadAllUsersFromDB();
+
+                let username = document.getElementById('pvUsername').value.trim();
+                let pin = document.getElementById('pvPin').value.trim();
+                if (!username || !pin) {
+                    document.getElementById('btnAutoCred').click();
+                    username = document.getElementById('pvUsername').value.trim();
+                    pin = document.getElementById('pvPin').value.trim();
+                }
+                if (!username || !pin) {
+                    msg.textContent = 'Unable to generate credentials. Try again.';
+                    return;
+                }
+
+                const existingKey = Object.keys(db.users || {}).find(k => String(k).toLowerCase() === String(username).toLowerCase());
+                if (existingKey) {
+                    document.getElementById('pvUsername').value = '';
+                    document.getElementById('pvPin').value = '';
+                    document.getElementById('btnAutoCred').click();
+                    username = document.getElementById('pvUsername').value.trim();
+                    pin = document.getElementById('pvPin').value.trim();
+                    if (!username || !pin) {
+                        msg.textContent = 'Unable to generate unique credentials. Try again.';
+                        return;
+                    }
+                }
+
+                const newUser = ensureUserShape({
+                    username,
+                    pin,
+                    passengerName,
+                    serviceCategory,
+                    manifest: { from: "LHR", to: "ICN", gate: "--", seat: "--", flightClass: "Business", status: "PENDING" },
+                    ledger: { balance: "186.00", currency: "£", transactions: [] },
+                    logistics: makeDefaultLogistics(),
+                    logisticsManifest: {
+                        waybillId: "",
+                        cargoWeight: "",
+                        vehicleType: "",
+                        deliveryEstimate: "",
+                        originAddress: "",
+                        destinationAddress: "",
+                        courierId: ""
+                    }
+                });
+                try {
+                    const balRaw = document.getElementById('pvBalance') ? document.getElementById('pvBalance').value.trim() : '';
+                    const cur = document.getElementById('pvCurrency') ? document.getElementById('pvCurrency').value : '£';
+                    const bal = fmtMoney(parseMoney(balRaw || '186.00'));
+                    newUser.ledger = newUser.ledger && typeof newUser.ledger === 'object' ? newUser.ledger : {};
+                    newUser.ledger.balance = bal || '0.00';
+                    newUser.ledger.currency = cur || '£';
+                    if (!Array.isArray(newUser.ledger.transactions)) newUser.ledger.transactions = [];
+                } catch {}
+
+                try {
+                    const createdAt = new Date().toISOString();
+                    newUser.share = newUser.share && typeof newUser.share === 'object' ? newUser.share : {};
+                    newUser.share.oneTimeTracking = {
+                        code: makeOneTimeTrackingCode(),
+                        createdAt,
+                        usedAt: null
+                    };
+                    newUser.share.oneTimeLogistics = {
+                        code: makeOneTimeLogisticsCode(),
+                        createdAt,
+                        usedAt: null
+                    };
+                } catch {}
+
+                if (serviceCategory === 'FLIGHT') {
+                    newUser.manifest.seat = document.getElementById('pvSeat').value.trim() || '--';
+                    newUser.manifest.gate = document.getElementById('pvGate').value.trim() || '--';
+                    newUser.manifest.flightClass = document.getElementById('pvClass').value;
+                    newUser.profile = newUser.profile && typeof newUser.profile === 'object' ? newUser.profile : {};
+                    newUser.profile.travel = {
+                        departure: {
+                            country: document.getElementById('pvDepCountry').value.trim(),
+                            state: document.getElementById('pvDepState').value.trim(),
+                        },
+                        destination: {
+                            country: document.getElementById('pvDestCountry').value.trim(),
+                            state: document.getElementById('pvDestState').value.trim(),
+                        }
+                    };
+
+                    const now = new Date();
+                    const departAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                    const fmt2 = (n) => String(n).padStart(2, '0');
+                    const fmtDateTime = (d) => `${d.getFullYear()}-${fmt2(d.getMonth() + 1)}-${fmt2(d.getDate())} ${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`;
+                    const fmtHHMM = (d) => `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`;
+                    const boardAt = new Date(departAt.getTime() - 45 * 60 * 1000);
+                    const flightNo = `TRIP-${String(Math.floor(100 + Math.random() * 900))}`;
+                    const pnr = `${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+                    const seq = String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0');
+                    const group = String.fromCharCode(65 + Math.floor(Math.random() * 5));
+
+                    newUser.flight = {
+                        status: (newUser.manifest.status || 'PENDING'),
+                        route: { from: String(newUser.manifest.from || 'LHR').toUpperCase(), to: String(newUser.manifest.to || 'ICN').toUpperCase() },
+                        boarding: {
+                            gate: newUser.manifest.gate || '--',
+                            seat: newUser.manifest.seat || '--',
+                            cabin: String(newUser.manifest.flightClass || 'Business').toUpperCase(),
+                            terminal: 'T1',
+                            group
+                        },
+                        schedule: {
+                            flightNo,
+                            pnr,
+                            seq,
+                            departAt: fmtDateTime(departAt),
+                            boardAt: fmtHHMM(boardAt),
+                        }
+                    };
+                } else {
+                    newUser.logisticsManifest.waybillId = document.getElementById('pvWaybill').value.trim();
+                    newUser.logisticsManifest.cargoWeight = document.getElementById('pvWeight').value.trim();
+                    newUser.logisticsManifest.vehicleType = document.getElementById('pvVehicle').value.trim();
+                    newUser.logisticsManifest.deliveryEstimate = document.getElementById('pvEta').value.trim();
+                    newUser.logisticsManifest.originAddress = document.getElementById('pvOrigin').value.trim();
+                    newUser.logisticsManifest.destinationAddress = document.getElementById('pvDest').value.trim();
+                    newUser.logisticsManifest.courierId = document.getElementById('pvCourier').value.trim();
+                }
+                
+                let saveRes = null;
+                try { saveRes = await saveUserToDB(username, newUser); } catch (e) {
+                    msg.textContent = (e && e.payload && e.payload.error) ? e.payload.error : 'Provisioning failed.';
+                    return;
+                }
+                if (saveRes && saveRes.storedIn === 'dev') {
+                    msg.textContent = `User provisioned in DEV only (not persistent). Configure Appwrite and run Schema Ensure: ${username}`;
+                    return;
+                }
+                if (saveRes && saveRes.storedIn !== 'appwrite') {
+                    msg.textContent = `User provisioned with warnings. Re-run Schema Ensure and try again: ${username}`;
+                    return;
+                }
+
+                msg.textContent = `User provisioned in Appwrite: ${username}`;
+                const sys = serviceCategory === 'LOGISTICS' ? 'logistics' : 'flights';
+                const accessUrl = `${window.location.origin}/access.html?sys=${encodeURIComponent(sys)}&u=${encodeURIComponent(username)}`;
+                const btnUserLink = document.getElementById('btnCopyUserAccessLink');
+                if (btnUserLink) {
+                    btnUserLink.disabled = false;
+                    btnUserLink.dataset.url = accessUrl;
+                }
+                const copied = await copyText(accessUrl);
+                toast(copied ? 'User Access Link copied' : 'User created (copy failed)', copied ? 'ok' : 'bad');
+                msg.textContent = copied ? `User provisioned: ${username} • Access Link copied` : `User provisioned: ${username}`;
+                await refreshUserSelects();
+                await renderRegistry();
+            });
+
+            onUserChange = () => {
+                const u1 = document.getElementById('manUser').value;
+                const u2 = document.getElementById('finUser').value;
+                const u3 = document.getElementById('logUser').value;
+                const u4 = document.getElementById('ffUser').value;
+                if (u1 && document.getElementById('secManifest').style.display !== 'none') hydrateManifest(u1);
+                if (u2 && document.getElementById('secFinancial').style.display !== 'none') hydrateLedger(u2);
+                if (u3 && document.getElementById('secLogistics').style.display !== 'none') renderStepsEditor(u3);
+                if (u4 && document.getElementById('secFlightForm').style.display !== 'none') hydrateFlightForm(u4);
+            };
+
+            document.querySelectorAll('.user-select').forEach((sel) => {
+                sel.addEventListener('change', () => {
+                    const username = sel.value;
+                    document.querySelectorAll('.user-select').forEach((s) => { s.value = username; });
+                    onUserChange();
+                });
+            });
+
+            document.getElementById('btnAddExtra').addEventListener('click', () => {
+                const name = document.getElementById('exName').value.trim();
+                const role = document.getElementById('exRole').value.trim();
+                const flightClass = document.getElementById('exClass').value;
+                const status = document.getElementById('exStatus').value;
+                if (!name) return;
+                extraPassengers.push({ name, role, flightClass, status });
+                document.getElementById('exName').value = '';
+                document.getElementById('exRole').value = '';
+                document.getElementById('exStatus').value = 'PENDING';
+                renderExtraPassengers();
+            });
+
+            document.getElementById('btnLoadManifest').addEventListener('click', () => hydrateManifest(document.getElementById('manUser').value));
+            document.getElementById('btnSaveManifest').addEventListener('click', async () => {
+                const msg = document.getElementById('manifestMsg');
+                msg.textContent = '';
+                const username = document.getElementById('manUser').value;
+                if (!username) return;
+
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.status = String(document.getElementById('manStatus').value || user.flight.status || 'PENDING').toUpperCase();
+                user.flight.route = user.flight.route && typeof user.flight.route === 'object' ? user.flight.route : {};
+                user.flight.route.from = (document.getElementById('manFrom').value.trim() || 'LHR').toUpperCase();
+                user.flight.route.to = (document.getElementById('manTo').value.trim() || 'ICN').toUpperCase();
+                user.flight.boarding = user.flight.boarding && typeof user.flight.boarding === 'object' ? user.flight.boarding : {};
+                user.flight.boarding.gate = document.getElementById('manGate').value.trim() || '--';
+                user.flight.boarding.seat = document.getElementById('manSeat').value.trim() || '--';
+                user.flight.boarding.cabin = String(document.getElementById('manClass').value || user.flight.boarding.cabin || 'Business').toUpperCase();
+                ensureFlightShape(user);
+                user.profile.category = document.getElementById('detCategory').value;
+                user.profile.purpose = document.getElementById('detPurpose').value.trim();
+                user.profile.nationality = document.getElementById('detNationality').value.trim();
+                user.profile.passport = document.getElementById('detPassport').value.trim();
+                user.profile.notes = document.getElementById('detNotes').value.trim();
+                user.profile.gateway = {
+                    terminal: document.getElementById('gwTerminal').value.trim(),
+                    checkin: document.getElementById('gwCheckin').value.trim(),
+                    baggage: document.getElementById('gwBaggage').value.trim(),
+                    assistance: document.getElementById('gwAssist').value.trim()
+                };
+                user.profile.additionalPassengers = extraPassengers.slice();
+                
+                await saveUserToDB(username, user);
+                msg.textContent = 'Manifest saved.';
+                await renderRegistry();
+            });
+
+            document.getElementById('btnSaveBalance').addEventListener('click', async () => {
+                const msg = document.getElementById('finMsg');
+                msg.textContent = '';
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const bal = document.getElementById('finBalance').value.trim();
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.balance = bal || '0.00';
+                
+                await saveUserToDB(username, user);
+                msg.textContent = 'Balance saved.';
+                await renderRegistry();
+            });
+
+            function parseMoney(v) {
+                const s = String(v || '').replace(/[^0-9.\-]/g, '');
+                const n = Number(s);
+                return Number.isFinite(n) ? n : 0;
+            }
+
+            function fmtMoney(n) {
+                const v = Number(n);
+                return (Number.isFinite(v) ? v : 0).toFixed(2);
+            }
+
+            async function applyLedgerDelta(sign) {
+                const msg = document.getElementById('finMsg');
+                msg.textContent = '';
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const deltaRaw = document.getElementById('finDelta').value.trim();
+                const delta = Math.abs(parseMoney(deltaRaw));
+                if (!delta) {
+                    msg.textContent = 'Enter an amount to adjust.';
+                    return;
+                }
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                const current = parseMoney(user.ledger.balance);
+                const next = current + (sign * delta);
+                user.ledger.balance = fmtMoney(next);
+                user.ledger.transactions = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+                const date = new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+                const amt = `${sign > 0 ? '+' : '-'}£${fmtMoney(delta)}`;
+                user.ledger.transactions.push({ date, desc: sign > 0 ? 'Admin Credit' : 'Admin Debit', amount: amt });
+                await saveUserToDB(username, user);
+                document.getElementById('finBalance').value = user.ledger.balance;
+                document.getElementById('finDelta').value = '';
+                msg.textContent = sign > 0 ? 'Funds added.' : 'Funds subtracted.';
+                await hydrateLedger(username);
+                await renderRegistry();
+            }
+
+            const btnAddFunds = document.getElementById('btnAddFunds');
+            const btnSubFunds = document.getElementById('btnSubFunds');
+            if (btnAddFunds) btnAddFunds.addEventListener('click', () => applyLedgerDelta(1));
+            if (btnSubFunds) btnSubFunds.addEventListener('click', () => applyLedgerDelta(-1));
+
+            document.getElementById('btnAddTx').addEventListener('click', async () => {
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const date = document.getElementById('txDate').value.trim() || '—';
+                const desc = document.getElementById('txDesc').value.trim() || '—';
+                const amount = document.getElementById('txAmt').value.trim() || '—';
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.transactions = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+                user.ledger.transactions.push({ date, desc, amount });
+                
+                await saveUserToDB(username, user);
+                document.getElementById('txDate').value = '';
+                document.getElementById('txDesc').value = '';
+                document.getElementById('txAmt').value = '';
+                document.getElementById('txEditIndex').value = '';
+                await hydrateLedger(username);
+            });
+
+            document.getElementById('btnUpdateTx').addEventListener('click', async () => {
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const idx = parseInt(document.getElementById('txEditIndex').value || '', 10);
+                if (!Number.isFinite(idx)) return;
+                const date = document.getElementById('txDate').value.trim() || '—';
+                const desc = document.getElementById('txDesc').value.trim() || '—';
+                const amount = document.getElementById('txAmt').value.trim() || '—';
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.transactions = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+                if (!user.ledger.transactions[idx]) return;
+                user.ledger.transactions[idx] = { date, desc, amount };
+                await saveUserToDB(username, user);
+                document.getElementById('txDate').value = '';
+                document.getElementById('txDesc').value = '';
+                document.getElementById('txAmt').value = '';
+                document.getElementById('txEditIndex').value = '';
+                await hydrateLedger(username);
+            });
+
+            document.getElementById('btnDeleteTx').addEventListener('click', async () => {
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const idx = parseInt(document.getElementById('txEditIndex').value || '', 10);
+                if (!Number.isFinite(idx)) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.transactions = Array.isArray(user.ledger.transactions) ? user.ledger.transactions : [];
+                user.ledger.transactions.splice(idx, 1);
+                await saveUserToDB(username, user);
+                document.getElementById('txDate').value = '';
+                document.getElementById('txDesc').value = '';
+                document.getElementById('txAmt').value = '';
+                document.getElementById('txEditIndex').value = '';
+                await hydrateLedger(username);
+            });
+
+            document.getElementById('btnClearTx').addEventListener('click', async () => {
+                const username = document.getElementById('finUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.ledger.transactions = [];
+                
+                await saveUserToDB(username, user);
+                await hydrateLedger(username);
+            });
+
+            document.getElementById('btnGenOTC').addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.share.oneTimeTracking = {
+                    code: makeOneTimeTrackingCode(),
+                    createdAt: new Date().toISOString(),
+                    usedAt: null
+                };
+                await saveUserToDB(username, user);
+                await renderStepsEditor(username);
+            });
+
+            document.getElementById('btnClearOTC').addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.share.oneTimeTracking = { code: "", createdAt: null, usedAt: null };
+                await saveUserToDB(username, user);
+                await renderStepsEditor(username);
+            });
+
+            document.getElementById('btnGenLGX').addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.share.oneTimeLogistics = {
+                    code: makeOneTimeLogisticsCode(),
+                    createdAt: new Date().toISOString(),
+                    usedAt: null
+                };
+                await saveUserToDB(username, user);
+                await renderStepsEditor(username);
+            });
+
+            document.getElementById('btnClearLGX').addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.share.oneTimeLogistics = { code: "", createdAt: null, usedAt: null };
+                await saveUserToDB(username, user);
+                await renderStepsEditor(username);
+            });
+
+            const schemaMsg = document.getElementById('schemaMsg');
+            async function runSchemaEnsure() {
+                if (!schemaMsg) return;
+                schemaMsg.textContent = 'Running schema ensure...';
+                if (schemaOut) schemaOut.style.display = 'none';
+                try {
+                    const res = await fetch('/api/admin/schema/ensure', { method: 'POST', credentials: 'include' });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        schemaMsg.textContent = (data && data.error) ? data.error : 'Schema ensure failed.';
+                        if (schemaOut) {
+                            schemaOut.textContent = JSON.stringify(data, null, 2);
+                            schemaOut.style.display = 'block';
+                        }
+                        return;
+                    }
+                    schemaMsg.textContent = 'Schema ensured and locked.';
+                    if (schemaOut) {
+                        schemaOut.textContent = JSON.stringify(data, null, 2);
+                        schemaOut.style.display = 'block';
+                    }
+                } catch {
+                    schemaMsg.textContent = 'Schema ensure failed.';
+                }
+            }
+
+            async function checkSchemaStatus() {
+                if (!schemaMsg) return;
+                schemaMsg.textContent = 'Checking status...';
+                if (schemaOut) schemaOut.style.display = 'none';
+                try {
+                    const res = await fetch('/api/admin/schema/ensure', { method: 'GET', credentials: 'include' });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        schemaMsg.textContent = (data && data.error) ? data.error : 'Status check failed.';
+                        if (schemaOut) {
+                            schemaOut.textContent = JSON.stringify(data, null, 2);
+                            schemaOut.style.display = 'block';
+                        }
+                        return;
+                    }
+                    schemaMsg.textContent = data && data.status ? data.status : 'Status OK.';
+                    if (schemaOut) {
+                        schemaOut.textContent = JSON.stringify(data, null, 2);
+                        schemaOut.style.display = 'block';
+                    }
+                } catch {
+                    schemaMsg.textContent = 'Status check failed.';
+                }
+            }
+
+            const schemaOut = document.getElementById('schemaOut');
+            async function runSchemaSync() {
+                if (!schemaMsg) return;
+                schemaMsg.textContent = 'Running schema sync...';
+                if (schemaOut) schemaOut.style.display = 'none';
+                try {
+                    const res = await fetch('/api/admin/schema/sync', { method: 'POST', credentials: 'include' });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        schemaMsg.textContent = (data && data.error) ? data.error : 'Schema sync failed.';
+                        if (schemaOut) {
+                            schemaOut.textContent = JSON.stringify(data, null, 2);
+                            schemaOut.style.display = 'block';
+                        }
+                        return;
+                    }
+                    schemaMsg.textContent = 'Schema sync completed.';
+                    if (schemaOut) {
+                        schemaOut.textContent = JSON.stringify(data, null, 2);
+                        schemaOut.style.display = 'block';
+                    }
+                } catch {
+                    schemaMsg.textContent = 'Schema sync failed.';
+                }
+            }
+
+            async function runSchemaInspect() {
+                if (!schemaMsg) return;
+                schemaMsg.textContent = 'Inspecting schemas...';
+                if (schemaOut) schemaOut.style.display = 'none';
+                try {
+                    const res = await fetch('/api/admin/schema/inspect', { method: 'GET', credentials: 'include' });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        schemaMsg.textContent = (data && data.error) ? data.error : 'Schema inspect failed.';
+                        return;
+                    }
+                    schemaMsg.textContent = 'Schema inspect completed.';
+                    if (schemaOut) {
+                        schemaOut.textContent = JSON.stringify(data, null, 2);
+                        schemaOut.style.display = 'block';
+                    }
+                } catch {
+                    schemaMsg.textContent = 'Schema inspect failed.';
+                }
+            }
+
+            const btnEnsureSchema = document.getElementById('btnEnsureSchema');
+            const btnSchemaStatus = document.getElementById('btnSchemaStatus');
+            if (btnEnsureSchema) btnEnsureSchema.addEventListener('click', runSchemaEnsure);
+            if (btnSchemaStatus) btnSchemaStatus.addEventListener('click', checkSchemaStatus);
+            const btnSchemaSync = document.getElementById('btnSchemaSync');
+            const btnSchemaInspect = document.getElementById('btnSchemaInspect');
+            if (btnSchemaSync) btnSchemaSync.addEventListener('click', runSchemaSync);
+            if (btnSchemaInspect) btnSchemaInspect.addEventListener('click', runSchemaInspect);
+
+            document.getElementById('btnLoadLogistics').addEventListener('click', () => renderStepsEditor(document.getElementById('logUser').value));
+            const btnCustomMove = document.getElementById('btnCustomMove');
+            if (btnCustomMove) btnCustomMove.addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                const msg = document.getElementById('logMsg');
+                if (msg) msg.textContent = '';
+                if (!username) return;
+
+                const title = (document.getElementById('cmTitle').value || '').trim();
+                const location = (document.getElementById('cmLocation').value || '').trim();
+                const marker = (document.getElementById('cmMarker').value || '').trim();
+                if (!title && !location && !marker) {
+                    if (msg) msg.textContent = 'Enter at least one field to apply.';
+                    return;
+                }
+
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+
+                let stepSel = (document.getElementById('cmStep') && document.getElementById('cmStep').value) || 'current';
+                let idx = -1;
+                if (stepSel === 'current') {
+                    const cur = parseInt(document.getElementById('logCurrent').value, 10);
+                    idx = Number.isFinite(cur) ? (cur - 1) : 0;
+                } else {
+                    const v = parseInt(stepSel, 10);
+                    idx = Number.isFinite(v) ? (v - 1) : 0;
+                }
+                idx = Math.max(0, Math.min(7, idx));
+
+                user.logistics = ensureLogisticsShape(user.logistics);
+                user.logistics.events = Array.isArray(user.logistics.events) ? user.logistics.events : [];
+                user.logistics.events.push({
+                    id: makeEventId('evt'),
+                    type: 'CUSTOM_MOVEMENT',
+                    stepIndex: idx,
+                    title: title || '',
+                    locationText: location || '',
+                    markerText: marker || '',
+                    createdAt: new Date().toISOString(),
+                    createdBy: { role: 'ADMIN' }
+                });
+                user.logistics.lastUpdatedAt = new Date().toISOString();
+
+                if (msg) msg.textContent = 'Applying movement...';
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'Custom movement applied.';
+                await renderStepsEditor(username);
+                await renderRegistry();
+                document.getElementById('cmTitle').value = '';
+                document.getElementById('cmLocation').value = '';
+                document.getElementById('cmMarker').value = '';
+            });
+            document.getElementById('btnSaveLogistics').addEventListener('click', async () => {
+                const username = document.getElementById('logUser').value;
+                const msg = document.getElementById('logMsg');
+                msg.textContent = '';
+                if (!username) return;
+
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.logistics = ensureLogisticsShape(user.logistics);
+                const currentStep = parseInt(document.getElementById('logCurrent').value, 10);
+                const nextStep = Number.isFinite(currentStep) ? currentStep : (user.logistics.currentStep || 2);
+                const nextIndex = Math.max(0, Math.min(7, nextStep - 1));
+                const sel = document.getElementById('logCurrent');
+                const prevIndex = sel && sel.dataset && sel.dataset.prevIndex !== undefined
+                    ? Math.max(0, Math.min(7, parseInt(String(sel.dataset.prevIndex), 10)))
+                    : user.logistics.currentStepIndex;
+                if (prevIndex !== nextIndex) {
+                    user.logistics.events = Array.isArray(user.logistics.events) ? user.logistics.events : [];
+                    user.logistics.events.push({
+                        id: makeEventId('evt'),
+                        type: 'SYSTEM_AUTO',
+                        fromStepIndex: prevIndex,
+                        toStepIndex: nextIndex,
+                        createdAt: new Date().toISOString(),
+                        createdBy: { role: 'ADMIN' }
+                    });
+                }
+                user.logistics.currentStepIndex = nextIndex;
+                user.logistics.currentStep = nextIndex + 1;
+
+                const steps = user.logistics.steps.slice();
+                document.querySelectorAll('#stepsEditor input[data-step]').forEach((inp) => {
+                    const idx = parseInt(inp.dataset.step, 10);
+                    const field = inp.dataset.field;
+                    if (!Number.isFinite(idx) || idx < 0 || idx > 7) return;
+                    steps[idx] = steps[idx] || { title: '', location: '', date: '' };
+                    steps[idx][field] = inp.value.trim();
+                });
+                user.logistics.steps = steps;
+                user.logistics.lastUpdatedAt = new Date().toISOString();
+                user.logistics = ensureLogisticsShape(user.logistics);
+                
+                await saveUserToDB(username, user);
+                msg.textContent = 'Tracker saved.';
+                if (sel && sel.dataset) sel.dataset.prevIndex = String(nextIndex);
+            });
+
+            document.getElementById('btnLoadFlightForm').addEventListener('click', () => hydrateFlightForm(document.getElementById('ffUser').value));
+            document.getElementById('btnSaveFlightForm').addEventListener('click', async () => {
+                const msg = document.getElementById('flightFormMsg');
+                msg.textContent = '';
+                const username = document.getElementById('ffUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.form.flightNo = document.getElementById('ffFlightNo').value.trim();
+                user.form.departAt = document.getElementById('ffDepartAt').value.trim();
+                user.form.notes = document.getElementById('ffNotes').value.trim();
+                user.form.lockedByAdmin = document.getElementById('ffLocked').value === 'LOCKED';
+                user.form.updatedAt = new Date().toISOString();
+                await saveUserToDB(username, user);
+                msg.textContent = 'Flight form saved.';
+                hydrateFlightForm(username);
+            });
+
+            document.getElementById('btnClearFormSig').addEventListener('click', async () => {
+                const msg = document.getElementById('flightFormMsg');
+                msg.textContent = '';
+                const username = document.getElementById('ffUser').value;
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                user.form.signature = null;
+                user.form.updatedAt = new Date().toISOString();
+                await saveUserToDB(username, user);
+                msg.textContent = 'Signature cleared.';
+                hydrateFlightForm(username);
+            });
+
+            function getBoardingPassDraft() {
+                return {
+                    username: (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '',
+                    status: document.getElementById('bpStatus').value,
+                    passengerName: document.getElementById('bpName').value.trim(),
+                    flightNo: document.getElementById('bpFlightNo').value.trim(),
+                    flightClass: document.getElementById('bpClass').value,
+                    from: document.getElementById('bpFrom').value.trim().toUpperCase(),
+                    to: document.getElementById('bpTo').value.trim().toUpperCase(),
+                    departAt: document.getElementById('bpDepartAt').value.trim(),
+                    gate: document.getElementById('bpGate').value.trim(),
+                    seat: document.getElementById('bpSeat').value.trim(),
+                    terminal: document.getElementById('bpTerminal').value.trim(),
+                    pnr: document.getElementById('bpPnr').value.trim(),
+                    boardAt: document.getElementById('bpBoardAt').value.trim(),
+                    group: document.getElementById('bpGroup').value.trim(),
+                    seq: document.getElementById('bpSeq').value.trim(),
+                };
+            }
+
+            const bpUserSel = document.getElementById('bpUser');
+            if (bpUserSel) bpUserSel.addEventListener('change', () => hydrateBoardingPass(bpUserSel.value));
+            const bpInputs = ['bpStatus','bpName','bpFlightNo','bpClass','bpFrom','bpTo','bpDepartAt','bpGate','bpSeat','bpTerminal','bpPnr','bpBoardAt','bpGroup','bpSeq']
+                .map((id) => document.getElementById(id))
+                .filter(Boolean);
+
+            function randPick(arr) {
+                return arr[Math.floor(Math.random() * arr.length)];
+            }
+            function randGate() {
+                const letters = ['A','B','C','D','E'];
+                return `${randPick(letters)}${String(Math.floor(1 + Math.random() * 30)).padStart(2, '0')}`;
+            }
+            function randTerminal() {
+                return `T${String(Math.floor(1 + Math.random() * 5))}`;
+            }
+            function randSeat() {
+                const row = String(Math.floor(1 + Math.random() * 40)).padStart(2, '0');
+                const letters = ['A','B','C','D','E','F'];
+                return `${parseInt(row, 10)}${randPick(letters)}`;
+            }
+            function randFlightNo() {
+                return `TRIP-${String(Math.floor(100 + Math.random() * 900))}`;
+            }
+
+            function autofillBoardingPassInputs() {
+                const nameEl = document.getElementById('bpName');
+                const fromEl = document.getElementById('bpFrom');
+                const toEl = document.getElementById('bpTo');
+                const departEl = document.getElementById('bpDepartAt');
+                if (!nameEl || !fromEl || !toEl || !departEl) return;
+                const coreOk = Boolean(nameEl.value.trim() && fromEl.value.trim() && toEl.value.trim() && departEl.value.trim());
+                if (!coreOk) return;
+
+                const flightNoEl = document.getElementById('bpFlightNo');
+                const gateEl = document.getElementById('bpGate');
+                const seatEl = document.getElementById('bpSeat');
+                const termEl = document.getElementById('bpTerminal');
+                const pnrEl = document.getElementById('bpPnr');
+                const boardAtEl = document.getElementById('bpBoardAt');
+                const groupEl = document.getElementById('bpGroup');
+                const seqEl = document.getElementById('bpSeq');
+
+                if (flightNoEl && !flightNoEl.value.trim()) flightNoEl.value = randFlightNo();
+                if (gateEl && !gateEl.value.trim()) gateEl.value = randGate();
+                if (seatEl && !seatEl.value.trim()) seatEl.value = randSeat();
+                if (termEl && !termEl.value.trim()) termEl.value = randTerminal();
+                if (pnrEl && !pnrEl.value.trim()) pnrEl.value = genPNR();
+                if (seqEl && !seqEl.value.trim()) seqEl.value = genSeq();
+                if (groupEl && !groupEl.value.trim()) groupEl.value = String.fromCharCode(65 + Math.floor(Math.random() * 5));
+                if (boardAtEl && !boardAtEl.value.trim()) {
+                    const dt = new Date(String(departEl.value).trim());
+                    if (dt && !Number.isNaN(dt.getTime())) {
+                        boardAtEl.value = fmtHHMM(new Date(dt.getTime() - 45 * 60 * 1000));
+                    }
+                }
+            }
+
+            bpInputs.forEach((el) => el.addEventListener('input', () => {
+                autofillBoardingPassInputs();
+                renderBoardingPassPreview(getBoardingPassDraft());
+            }));
+            const btnLoadBP = document.getElementById('btnLoadBP');
+            if (btnLoadBP) btnLoadBP.addEventListener('click', () => hydrateBoardingPass((document.getElementById('bpUser') && document.getElementById('bpUser').value) || ''));
+            const btnDeployBP = document.getElementById('btnDeployBP');
+            if (btnDeployBP) btnDeployBP.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const draft = getBoardingPassDraft();
+                if (!draft.username) {
+                    if (msg) msg.textContent = 'Select a Username.';
+                    return;
+                }
+                const db = await loadAllUsersFromDB();
+                if (!db.users[draft.username]) {
+                    if (msg) msg.textContent = 'User not found.';
+                    return;
+                }
+                const user = ensureUserShape(db.users[draft.username]);
+                user.passengerName = draft.passengerName || user.passengerName;
+                ensureFlightShape(user);
+                user.flight.status = String(draft.status || user.flight.status || 'PENDING').toUpperCase();
+                user.flight.route = user.flight.route && typeof user.flight.route === 'object' ? user.flight.route : {};
+                user.flight.route.from = draft.from || user.flight.route.from || 'LHR';
+                user.flight.route.to = draft.to || user.flight.route.to || 'ICN';
+                user.flight.boarding = user.flight.boarding && typeof user.flight.boarding === 'object' ? user.flight.boarding : {};
+                user.flight.boarding.gate = draft.gate || user.flight.boarding.gate || '--';
+                user.flight.boarding.seat = draft.seat || user.flight.boarding.seat || '--';
+                user.flight.boarding.terminal = draft.terminal || user.flight.boarding.terminal || '';
+                user.flight.boarding.cabin = String(draft.flightClass || user.flight.boarding.cabin || 'Business').toUpperCase();
+                user.flight.boarding.group = draft.group || user.flight.boarding.group || '';
+                user.flight.schedule = user.flight.schedule && typeof user.flight.schedule === 'object' ? user.flight.schedule : {};
+                user.flight.schedule.flightNo = draft.flightNo || user.flight.schedule.flightNo || '';
+                user.flight.schedule.departAt = draft.departAt || user.flight.schedule.departAt || '';
+                user.flight.schedule.pnr = draft.pnr || user.flight.schedule.pnr || '';
+                user.flight.schedule.boardAt = draft.boardAt || user.flight.schedule.boardAt || '';
+                user.flight.schedule.seq = draft.seq || user.flight.schedule.seq || '';
+                ensureFlightDocFields(user);
+                ensureFlightShape(user);
+
+                if (msg) msg.textContent = 'Deploying...';
+                await saveUserToDB(draft.username, user);
+                if (msg) msg.textContent = 'Boarding pass deployed.';
+                renderBoardingPassPreview(getBoardingPassDraft());
+                await renderRegistry();
+            });
+
+            function makeBoardingPassKey() {
+                const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                const bytes = new Uint8Array(16);
+                if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+                let out = 'BP-';
+                for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+                return out;
+            }
+
+            const btnGenBPKey = document.getElementById('btnGenBPKey');
+            const btnClearBPKey = document.getElementById('btnClearBPKey');
+            if (btnGenBPKey) btnGenBPKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                ensureFlightDocFields(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.boardingPassKey = makeBoardingPassKey();
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'QR key generated.';
+                hydrateBoardingPass(username);
+            });
+            if (btnClearBPKey) btnClearBPKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.boardingPassKey = '';
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'QR key cleared.';
+                hydrateBoardingPass(username);
+            });
+
+            function makeDocKey(prefix) {
+                const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                const bytes = new Uint8Array(16);
+                if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+                let out = `${String(prefix || 'DOC')}-`;
+                for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+                return out;
+            }
+
+            const btnGenETKey = document.getElementById('btnGenETKey');
+            const btnClearETKey = document.getElementById('btnClearETKey');
+            if (btnGenETKey) btnGenETKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                ensureFlightDocFields(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.eticketKey = makeDocKey('ET');
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'E‑Ticket key generated.';
+                hydrateBoardingPass(username);
+            });
+            if (btnClearETKey) btnClearETKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.eticketKey = '';
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'E‑Ticket key cleared.';
+                hydrateBoardingPass(username);
+            });
+
+            const btnGenEAKey = document.getElementById('btnGenEAKey');
+            const btnClearEAKey = document.getElementById('btnClearEAKey');
+            if (btnGenEAKey) btnGenEAKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                ensureFlightDocFields(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.earrivalKey = makeDocKey('EA');
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'E‑Arrival key generated.';
+                hydrateBoardingPass(username);
+            });
+            if (btnClearEAKey) btnClearEAKey.addEventListener('click', async () => {
+                const msg = document.getElementById('bpMsg');
+                if (msg) msg.textContent = '';
+                const username = (document.getElementById('bpUser') && document.getElementById('bpUser').value) || '';
+                if (!username) return;
+                const db = await loadAllUsersFromDB();
+                if (!db.users[username]) return;
+                const user = ensureUserShape(db.users[username]);
+                ensureFlightShape(user);
+                user.flight.share = user.flight.share && typeof user.flight.share === 'object' ? user.flight.share : {};
+                user.flight.share.earrivalKey = '';
+                await saveUserToDB(username, user);
+                if (msg) msg.textContent = 'E‑Arrival key cleared.';
+                hydrateBoardingPass(username);
+            });
+
+            const btnCreateNotif = document.getElementById('btnCreateNotif');
+            const btnReloadNotif = document.getElementById('btnReloadNotif');
+            if (btnCreateNotif) btnCreateNotif.addEventListener('click', async () => {
+                const msg = document.getElementById('ntMsg');
+                msg.textContent = '';
+                const title = document.getElementById('ntTitle').value.trim();
+                const tone = document.getElementById('ntTone').value;
+                const active = document.getElementById('ntActive').value === 'true';
+                const message = document.getElementById('ntMessage').value.trim();
+                if (!title || !message) {
+                    msg.textContent = 'Title and Message are required.';
+                    return;
+                }
+                msg.textContent = 'Creating...';
+                try {
+                    await tripApi('/api/admin/notifications', { method: 'POST', body: { title, tone, active, message } });
+                    msg.textContent = '';
+                    document.getElementById('ntMessage').value = '';
+                    renderNotifications();
+                } catch {
+                    msg.textContent = 'Create failed.';
+                }
+            });
+            if (btnReloadNotif) btnReloadNotif.addEventListener('click', renderNotifications);
+
+            const btnLoadLP = document.getElementById('btnLoadLP');
+            const btnGenLP = document.getElementById('btnGenLP');
+            const btnSaveLP = document.getElementById('btnSaveLP');
+            const btnDisableLP = document.getElementById('btnDisableLP');
+            const btnPatchLP = document.getElementById('btnPatchLP');
+            const btnDelLP = document.getElementById('btnDelLP');
+            if (btnLoadLP) btnLoadLP.addEventListener('click', loadLivePopupsAdmin);
+            if (btnGenLP) btnGenLP.addEventListener('click', generateLivePopupsAdmin);
+            if (btnSaveLP) btnSaveLP.addEventListener('click', () => saveLivePopupsSettingsAdmin());
+            if (btnDisableLP) btnDisableLP.addEventListener('click', () => saveLivePopupsSettingsAdmin(false));
+            if (btnPatchLP) btnPatchLP.addEventListener('click', () => patchLivePopupItemAdmin(false));
+            if (btnDelLP) btnDelLP.addEventListener('click', () => patchLivePopupItemAdmin(true));
+
+            onUserChange();
+        });
+    </script>
+</body>
+</html>

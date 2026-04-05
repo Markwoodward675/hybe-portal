@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIP Logistics | Shared Tracker</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-elegant" style="opacity:0;">
+    <nav class="trip-nav">
+        <a href="index.html" class="trip-brand">
+            <img class="trip-logo" src="logo.png" alt="TRIP Logistics">
+            <span>TRIP Logistics</span>
+        </a>
+        <div class="trip-nav-right">
+            <span class="badge-pill session-pill" style="color:var(--accent); border-color:var(--accent); background: rgba(225,29,72,0.10);">SHARED</span>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 980px;">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px;">
+                <div style="font-weight:900; letter-spacing:-0.6px; font-size:1.1rem;">Logistics Tracker</div>
+                <div id="modeBadge" class="badge-pill" style="color:var(--warning); border-color:var(--warning); background: rgba(245,158,11,0.10);">VERIFYING</div>
+            </div>
+            <div id="shareMeta" style="margin-top:10px; color:var(--text-dim); font-weight:800;">—</div>
+        </div>
+
+        <div class="card table-responsive" style="padding:0;">
+            <table class="m-table">
+                <thead><tr><th>Step</th><th>Location</th><th>Date</th></tr></thead>
+                <tbody id="stepsBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card" id="errCard" style="display:none;">
+            <div style="font-weight:900; color:var(--danger);">Access denied</div>
+            <div id="errMsg" style="margin-top:10px; color:var(--text-dim); font-weight:800;"></div>
+        </div>
+    </div>
+
+    <script src="appwrite.js"></script>
+    <script>
+        function q(k) {
+            return new URLSearchParams(window.location.search).get(k) || '';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initThemeToggle('themeToggleMissing');
+            const u = q('u');
+            const tc = q('tc');
+            const body = document.getElementById('stepsBody');
+            const errCard = document.getElementById('errCard');
+            const errMsg = document.getElementById('errMsg');
+            const shareMeta = document.getElementById('shareMeta');
+
+            try {
+                const res = await fetch(`/api/public/logistics?u=${encodeURIComponent(u)}&tc=${encodeURIComponent(tc)}`, { credentials: 'include' });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    errCard.style.display = 'block';
+                    errMsg.textContent = data && data.error ? data.error : 'Invalid or expired link.';
+                    requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+                    return;
+                }
+
+                shareMeta.textContent = `${data.passengerName || u} • ${u}`;
+                body.innerHTML = '';
+                (data.steps || []).forEach((s) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td style="font-weight:900;">${s.title || '—'}</td><td>${s.location || '—'}</td><td>${s.date || '—'}</td>`;
+                    body.appendChild(tr);
+                });
+            } catch {
+                errCard.style.display = 'block';
+                errMsg.textContent = 'Tracker unavailable.';
+            }
+
+            requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+        });
+    </script>
+</body>
+</html>
