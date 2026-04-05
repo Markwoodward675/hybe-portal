@@ -85,7 +85,12 @@
                         <div style="color:var(--text-dim); font-weight:800; margin-top:3px;">Choose your service to continue</div>
                     </div>
                 </div>
-                <a class="btn-secondary" href="/auth/login.html">General Login</a>
+            </div>
+
+            <div style="margin-top:14px;">
+                <div style="font-weight:900; font-size:0.7rem; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); margin:0 0 8px;">Username</div>
+                <input id="portalUsername" type="text" placeholder="Trip_user####" autocomplete="username" style="margin:0;">
+                <div style="margin-top:8px; color:var(--text-dim); font-weight:800; font-size:0.85rem;">Your Username is provided by Admin provisioning.</div>
             </div>
 
             <div id="portalMsg" style="margin-top:12px; color:var(--text-dim); font-weight:800; min-height:22px;"></div>
@@ -131,7 +136,9 @@
             return v;
         }
         function toLoginUrl(sys) {
-            const u = qs('u');
+            const u = (document.getElementById('portalUsername') && document.getElementById('portalUsername').value)
+                ? String(document.getElementById('portalUsername').value || '').trim()
+                : String(qs('u') || '').trim();
             const base = sys === 'logistics' ? '/auth/courier.html' : '/auth/flight.html';
             if (!u) return base;
             const url = new URL(base, window.location.origin);
@@ -141,10 +148,10 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             const msg = document.getElementById('portalMsg');
+            const uInput = document.getElementById('portalUsername');
 
             try {
-                const active = sessionStorage.getItem('active_session');
-                if (active && typeof userMe === 'function') {
+                if (typeof userMe === 'function') {
                     const me = await userMe().catch(() => null);
                     if (me && me.userData) {
                         const cat = serviceCategoryOf(me.userData);
@@ -156,6 +163,13 @@
                 }
             } catch {}
 
+            try {
+                const uQ = String(qs('u') || '').trim();
+                const uS = String(sessionStorage.getItem('active_session') || '').trim();
+                const u = uQ || uS;
+                if (uInput && u) uInput.value = u;
+            } catch {}
+
             const sysParam = String(qs('sys') || '').toLowerCase();
             const sysStored = String(sessionStorage.getItem('system') || '').toLowerCase();
             const sys = sysParam === 'logistics' || sysParam === 'courier' ? 'logistics' : (sysParam === 'flights' ? 'flights' : (sysStored === 'logistics' || sysStored === 'flights' ? sysStored : ''));
@@ -165,6 +179,12 @@
             const courier = document.getElementById('btnCourier');
 
             function go(sysNext) {
+                const u = uInput ? String(uInput.value || '').trim() : '';
+                if (!u) {
+                    if (msg) msg.textContent = 'Enter your Username to continue.';
+                    try { uInput && uInput.focus(); } catch {}
+                    return;
+                }
                 const v = setSystem(sysNext);
                 window.location.href = toLoginUrl(v);
             }
@@ -175,7 +195,7 @@
             if (sys) {
                 if (sys === 'logistics') flights.style.display = 'none';
                 if (sys === 'flights') courier.style.display = 'none';
-                if (msg) msg.textContent = `Continue to ${sys === 'logistics' ? 'Courier' : 'Flights'} login.`;
+                if (msg) msg.textContent = `Continue to ${sys === 'logistics' ? 'Courier' : 'Flights'}.`;
             } else {
                 if (msg) msg.textContent = 'Select your service to continue.';
             }

@@ -63,14 +63,31 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const form = document.getElementById('loginForm');
             const msg = document.getElementById('loginMsg');
+            const userEl = document.getElementById('username');
+            const pinEl = document.getElementById('pin');
+            let usernameLocked = false;
+
+            try {
+                const p = new URLSearchParams(window.location.search);
+                const u = String(p.get('u') || '').trim();
+                if (u) {
+                    userEl.value = u;
+                    userEl.readOnly = true;
+                    userEl.setAttribute('aria-readonly', 'true');
+                    userEl.style.opacity = '0.75';
+                    userEl.style.cursor = 'not-allowed';
+                    usernameLocked = true;
+                    try { pinEl.focus(); } catch {}
+                }
+            } catch {}
 
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 msg.textContent = '';
-                const username = document.getElementById('username').value.trim();
-                const pin = document.getElementById('pin').value.trim();
+                const username = userEl.value.trim();
+                const pin = pinEl.value.trim();
                 if (!username || !pin) {
-                    msg.textContent = 'Enter your Username and Access PIN.';
+                    msg.textContent = usernameLocked ? 'Enter your Access PIN.' : 'Enter your Username and Access PIN.';
                     return;
                 }
                 setBusy(true);
