@@ -20,6 +20,15 @@ const DB_ID = 'trip_portal';
 const COL_USERS = 'users';
 const COL_NOTIFICATIONS = 'notifications';
 
+function clientAppwriteEnabled() {
+    try {
+        if (!databases || !Query || !ID) return false;
+        if (document && document.body && document.body.dataset && String(document.body.dataset.clientAppwrite || '').toLowerCase() === 'on') return true;
+        if (typeof window !== 'undefined' && window.TRIP_CLIENT_APPWRITE === true) return true;
+    } catch {}
+    return false;
+}
+
 function getPreferredTheme() {
     const saved = localStorage.getItem('trip_theme');
     if (saved === 'light' || saved === 'dark') return saved;
@@ -1077,6 +1086,10 @@ async function saveUserToDB(username, userData) {
             saveToLocal(username, userData);
             return { ok: true, storedIn: 'local', reason: 'admin_unauthorized' };
         }
+        if (e && (e.status === 402 || e.status === 500 || e.status === 502 || e.status === 503)) {
+            saveToLocal(username, userData);
+            return { ok: true, storedIn: 'local', reason: 'server_unavailable' };
+        }
         if (e && e.payload) {
             const err = new Error(e.payload.error || 'Save failed');
             err.status = e.status;
@@ -1084,36 +1097,6 @@ async function saveUserToDB(username, userData) {
             throw err;
         }
         throw e;
-    }
-
-    if (databases && DB_ID !== 'YOUR_DB_ID') {
-        try {
-            // First check if user exists
-            const existing = await databases.listDocuments(DB_ID, COL_USERS, [
-                Query.equal('username', username)
-            ]);
-            
-            if (existing.documents.length > 0) {
-                // Update
-                await databases.updateDocument(DB_ID, COL_USERS, existing.documents[0].$id, {
-                    data: JSON.stringify(userData)
-                });
-            } else {
-                // Create
-                await databases.createDocument(DB_ID, COL_USERS, ID.unique(), {
-                    username: username,
-                    data: JSON.stringify(userData)
-                });
-            }
-            return { ok: true, storedIn: 'appwrite_web' };
-        } catch (e) {
-            console.error("Appwrite save failed, falling back to local:", e);
-            saveToLocal(username, userData);
-            return { ok: true, storedIn: 'local', reason: 'appwrite_failed' };
-        }
-    } else {
-        saveToLocal(username, userData);
-        return { ok: true, storedIn: 'local', reason: 'no_appwrite' };
     }
 }
 
@@ -1136,7 +1119,7 @@ async function loadAllUsersFromDB() {
         }
     } catch {}
 
-    if (databases && DB_ID !== 'YOUR_DB_ID') {
+    if (clientAppwriteEnabled()) {
         try {
             const result = await databases.listDocuments(DB_ID, COL_USERS);
             const users = {};

@@ -447,21 +447,31 @@ module.exports = async (req, res) => {
   if (parts[0] === 'users') {
     if (parts.length === 1) {
       if (req.method === 'GET') {
-        const docs = await listAllUserDocs(1000);
-        const users = {};
-        docs.forEach((doc) => {
-          const u = parseUserData(doc);
-          if (u && doc.username) users[doc.username] = u;
-        });
-        return send(res, 200, { users });
+        try {
+          const docs = await listAllUserDocs(1000);
+          const users = {};
+          docs.forEach((doc) => {
+            const u = parseUserData(doc);
+            if (u && doc.username) users[doc.username] = u;
+          });
+          return send(res, 200, { users });
+        } catch (e) {
+          if (e && e.status === 402) return send(res, 503, { error: 'Appwrite unavailable (billing/limit). Saved users are available in local fallback.' });
+          return send(res, 500, { error: e?.message || 'Failed to list users' });
+        }
       }
       if (req.method === 'POST') {
         const body = await readJson(req).catch(() => ({}));
         const username = String(body.username || '').trim();
         const userData = body.userData;
         if (!username || !userData) return send(res, 400, { error: 'Missing username or userData' });
-        await upsertUser(username, userData);
-        return send(res, 200, { ok: true });
+        try {
+          await upsertUser(username, userData);
+          return send(res, 200, { ok: true });
+        } catch (e) {
+          if (e && e.status === 402) return send(res, 503, { error: 'Appwrite unavailable (billing/limit). User was not saved to Appwrite.' });
+          return send(res, 500, { error: e?.message || 'Save failed' });
+        }
       }
       return send(res, 405, { error: 'Method not allowed' });
     }
@@ -470,17 +480,27 @@ module.exports = async (req, res) => {
     if (!username) return send(res, 400, { error: 'Missing username' });
 
     if (req.method === 'GET') {
-      const doc = await findUserDocByUsername(username);
-      if (!doc) return send(res, 404, { error: 'Not found' });
-      return send(res, 200, { username: doc.username, userData: parseUserData(doc) });
+      try {
+        const doc = await findUserDocByUsername(username);
+        if (!doc) return send(res, 404, { error: 'Not found' });
+        return send(res, 200, { username: doc.username, userData: parseUserData(doc) });
+      } catch (e) {
+        if (e && e.status === 402) return send(res, 503, { error: 'Appwrite unavailable (billing/limit).' });
+        return send(res, 500, { error: e?.message || 'Lookup failed' });
+      }
     }
 
     if (req.method === 'PUT' || req.method === 'PATCH') {
       const body = await readJson(req).catch(() => ({}));
       const userData = body.userData;
       if (!userData) return send(res, 400, { error: 'Missing userData' });
-      await upsertUser(username, userData);
-      return send(res, 200, { ok: true });
+      try {
+        await upsertUser(username, userData);
+        return send(res, 200, { ok: true });
+      } catch (e) {
+        if (e && e.status === 402) return send(res, 503, { error: 'Appwrite unavailable (billing/limit). Update not saved to Appwrite.' });
+        return send(res, 500, { error: e?.message || 'Update failed' });
+      }
     }
 
     if (req.method === 'DELETE') {
