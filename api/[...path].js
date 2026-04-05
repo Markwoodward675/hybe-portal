@@ -128,6 +128,68 @@ function kvUserKey(username) {
   return `trip:user:${String(username || '').trim().toLowerCase()}`;
 }
 
+function kvUserDataKey(username) {
+  return `trip:userdata:${String(username || '').trim().toLowerCase()}`;
+}
+
+function kvUsersIndexKey() {
+  return 'trip:userindex';
+}
+
+async function kvGetUsersIndex() {
+  const out = await kvGetJson(kvUsersIndexKey());
+  const arr = Array.isArray(out) ? out : (out && Array.isArray(out.usernames) ? out.usernames : []);
+  return Array.from(new Set(arr.map((x) => String(x || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+}
+
+async function kvSetUsersIndex(usernames) {
+  const uniq = Array.from(new Set((Array.isArray(usernames) ? usernames : []).map((x) => String(x || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  await kvSetJson(kvUsersIndexKey(), uniq);
+  return uniq;
+}
+
+async function kvIndexAdd(username) {
+  const u = String(username || '').trim();
+  if (!u) return null;
+  const list = await kvGetUsersIndex().catch(() => []);
+  if (!list.includes(u)) list.push(u);
+  return kvSetUsersIndex(list);
+}
+
+async function kvIndexRemove(username) {
+  const u = String(username || '').trim();
+  const list = await kvGetUsersIndex().catch(() => []);
+  const next = list.filter((x) => String(x).trim() !== u);
+  return kvSetUsersIndex(next);
+}
+
+async function kvUpsertUserData(username, userData) {
+  const u = String(username || '').trim();
+  if (!u) return { ok: false };
+  await kvSetJson(kvUserDataKey(u), { username: u, userData, updatedAt: new Date().toISOString() });
+  await kvIndexAdd(u);
+  return { ok: true };
+}
+
+async function kvDeleteUserData(username) {
+  const u = String(username || '').trim();
+  if (!u) return { ok: false };
+  await kvDel(kvUserDataKey(u));
+  await kvIndexRemove(u);
+  return { ok: true };
+}
+
+async function kvListUsersFull() {
+  const names = await kvGetUsersIndex().catch(() => []);
+  const users = {};
+  for (const u of names) {
+    const doc = await kvGetJson(kvUserDataKey(u)).catch(() => null);
+    const data = doc && doc.userData ? doc.userData : null;
+    if (data) users[u] = data;
+  }
+  return users;
+}
+
 function pinHash(pin) {
   const secret = process.env.TRIP_KV_SALT || process.env.TRIP_JWT_SECRET || 'trip';
   return crypto.createHash('sha256').update(`${secret}:${String(pin || '')}`, 'utf8').digest('hex');
@@ -1146,7 +1208,15 @@ module.exports = async (req, res) => {
       if (!username) {
         if (req.method === 'GET') {
           if (!isAppwriteConfigured()) {
-            return send(res, 200, { users: devUsersStore(), hint: 'Dev store (Appwrite not configured)' });
+            if (kvConfigured()) {
+              try {
+                const users = await kvListUsersFull();
+                return send(res, 200, { users, storedIn: 'kv' });
+              } catch (e) {
+                return send(res, 503, { error: e?.message || 'KV unavailable' });
+              }
+            }
+            return send(res, 503, { error: 'No persistent store configured (Appwrite/KV missing)' });
           }
           try {
             const docs = await listAllUserDocs(1000);
@@ -1156,22 +1226,51 @@ module.exports = async (req, res) => {
               if (u && doc.username) users[doc.username] = u;
             });
             return send(res, 200, { users });
-          } catch {
+          } catch (e) {
+            if (kvConfigured()) {
+              try {
+                const users = await kvListUsersFull();
+                return send(res, 200, { users, storedIn: 'kv', hint: 'Appwrite unavailable; serving from KV' });
+              } catch {}
+            }
             return send(res, 200, { users: {} });
           }
         }
         if (req.method === 'POST') {
           if (!isAppwriteConfigured()) {
-            if (process.env.VERCEL) {
-              return send(res, 503, { error: 'Appwrite not configured. Admin provisioning is unavailable on Vercel without Appwrite env.' });
+            if (!kvConfigured()) {
+              if (process.env.VERCEL) return send(res, 503, { error: 'Admin provisioning unavailable: configure KV or Appwrite.' });
+              const body = await readJson(req).catch(() => ({}));
+              const u = String(body.username || '').trim();
+              const userData = body.userData;
+              if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
+              devUsersStore()[u] = userData;
+              const local = upsertLocalUser(u, userData);
+              return send(res, 200, { ok: true, storedIn: 'dev', hint: 'Saved to dev store (Appwrite not configured)', local });
             }
             const body = await readJson(req).catch(() => ({}));
             const u = String(body.username || '').trim();
-            const userData = body.userData;
+            const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
             if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
-            devUsersStore()[u] = userData;
+            if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
+            let kvProfile = null;
+            let kvLogin = null;
+            try { kvProfile = await kvUpsertUserData(u, userData); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV write failed' }; }
+            try {
+              await kvSetJson(kvUserKey(u), {
+                username: u,
+                name: String(userData.passengerName || userData.name || ''),
+                role: String(userData.role || 'passenger'),
+                serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
+                pinHash: pinHash(normalizePin(userData.pin)),
+                updatedAt: new Date().toISOString(),
+              }, 30 * 24 * 60 * 60);
+              kvLogin = { ok: true };
+            } catch (e) {
+              kvLogin = { ok: false, hint: e?.message || 'KV write failed' };
+            }
             const local = upsertLocalUser(u, userData);
-            return send(res, 200, { ok: true, storedIn: 'dev', hint: 'Saved to dev store (Appwrite not configured)', local });
+            return send(res, 200, { ok: true, storedIn: 'kv', local, kvProfile, kvLogin });
           }
           try {
             const body = await readJson(req).catch(() => ({}));
@@ -1185,9 +1284,16 @@ module.exports = async (req, res) => {
                 userData.auth = { userId: auth.userId, email: auth.email };
               }
             } catch {}
-            await upsertUser(u, userData);
+            let storedIn = 'appwrite';
+            try {
+              await upsertUser(u, userData);
+            } catch (e) {
+              if (kvConfigured()) storedIn = 'kv';
+              else throw e;
+            }
             const local = upsertLocalUser(u, userData);
             let kv = null;
+            let kvProfile = null;
             if (kvConfigured()) {
               try {
                 await kvSetJson(kvUserKey(u), {
@@ -1202,8 +1308,9 @@ module.exports = async (req, res) => {
               } catch (e) {
                 kv = { ok: false, hint: e?.message || 'KV write failed' };
               }
+              try { kvProfile = await kvUpsertUserData(u, userData); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV write failed' }; }
             }
-            return send(res, 200, { ok: true, storedIn: 'appwrite', local, kv });
+            return send(res, 200, { ok: true, storedIn, local, kv, kvProfile });
           } catch (e) {
             return send(res, 500, { error: e?.message || 'Upsert failed' });
           }
@@ -1213,29 +1320,61 @@ module.exports = async (req, res) => {
 
       if (req.method === 'GET') {
         if (!isAppwriteConfigured()) {
+          if (kvConfigured()) {
+            const doc = await kvGetJson(kvUserDataKey(username)).catch(() => null);
+            const data = doc && doc.userData ? doc.userData : null;
+            if (data) return send(res, 200, { username: String(doc.username || username), userData: data, storedIn: 'kv' });
+          }
           const u = devUsersStore()[username];
           if (!u) return send(res, 404, { error: 'Not found' });
-          return send(res, 200, { username, userData: u });
+          return send(res, 200, { username, userData: u, storedIn: 'dev' });
         }
         try {
           const doc = await findUserDocByUsername(username);
           if (!doc) return send(res, 404, { error: 'Not found' });
           return send(res, 200, { username: doc.username, userData: parseUserData(doc) });
         } catch {
+          if (kvConfigured()) {
+            const doc = await kvGetJson(kvUserDataKey(username)).catch(() => null);
+            const data = doc && doc.userData ? doc.userData : null;
+            if (data) return send(res, 200, { username: String(doc.username || username), userData: data, storedIn: 'kv' });
+          }
           return send(res, 404, { error: 'Not found' });
         }
       }
       if (req.method === 'PUT' || req.method === 'PATCH') {
         if (!isAppwriteConfigured()) {
-          if (process.env.VERCEL) {
-            return send(res, 503, { error: 'Appwrite not configured. Admin updates are unavailable on Vercel without Appwrite env.' });
+          if (!kvConfigured()) {
+            if (process.env.VERCEL) return send(res, 503, { error: 'Admin updates unavailable: configure KV or Appwrite.' });
+            const body = await readJson(req).catch(() => ({}));
+            const userData = body.userData;
+            if (!userData) return send(res, 400, { error: 'Missing userData' });
+            devUsersStore()[username] = userData;
+            const local = upsertLocalUser(username, userData);
+            return send(res, 200, { ok: true, storedIn: 'dev', hint: 'Saved to dev store (Appwrite not configured)', local });
           }
           const body = await readJson(req).catch(() => ({}));
-          const userData = body.userData;
+          const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
           if (!userData) return send(res, 400, { error: 'Missing userData' });
-          devUsersStore()[username] = userData;
+          if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
+          let kvProfile = null;
+          let kvLogin = null;
+          try { kvProfile = await kvUpsertUserData(username, userData); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV write failed' }; }
+          try {
+            await kvSetJson(kvUserKey(username), {
+              username,
+              name: String(userData.passengerName || userData.name || ''),
+              role: String(userData.role || 'passenger'),
+              serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
+              pinHash: pinHash(normalizePin(userData.pin)),
+              updatedAt: new Date().toISOString(),
+            }, 30 * 24 * 60 * 60);
+            kvLogin = { ok: true };
+          } catch (e) {
+            kvLogin = { ok: false, hint: e?.message || 'KV write failed' };
+          }
           const local = upsertLocalUser(username, userData);
-          return send(res, 200, { ok: true, storedIn: 'dev', hint: 'Saved to dev store (Appwrite not configured)', local });
+          return send(res, 200, { ok: true, storedIn: 'kv', local, kvProfile, kvLogin });
         }
         try {
           const body = await readJson(req).catch(() => ({}));
@@ -1248,9 +1387,16 @@ module.exports = async (req, res) => {
               userData.auth = { userId: auth.userId, email: auth.email };
             }
           } catch {}
-          await upsertUser(username, userData);
+          let storedIn = 'appwrite';
+          try {
+            await upsertUser(username, userData);
+          } catch (e) {
+            if (kvConfigured()) storedIn = 'kv';
+            else throw e;
+          }
           const local = upsertLocalUser(username, userData);
           let kv = null;
+          let kvProfile = null;
           if (kvConfigured()) {
             try {
               await kvSetJson(kvUserKey(username), {
@@ -1265,14 +1411,23 @@ module.exports = async (req, res) => {
             } catch (e) {
               kv = { ok: false, hint: e?.message || 'KV write failed' };
             }
+            try { kvProfile = await kvUpsertUserData(username, userData); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV write failed' }; }
           }
-          return send(res, 200, { ok: true, storedIn: 'appwrite', local, kv });
+          return send(res, 200, { ok: true, storedIn, local, kv, kvProfile });
         } catch (e) {
           return send(res, 500, { error: e?.message || 'Upsert failed' });
         }
       }
       if (req.method === 'DELETE') {
         if (!isAppwriteConfigured()) {
+          if (kvConfigured()) {
+            let kvProfile = null;
+            let kvLogin = null;
+            try { kvProfile = await kvDeleteUserData(username); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV delete failed' }; }
+            try { await kvDel(kvUserKey(username)); kvLogin = { ok: true }; } catch (e) { kvLogin = { ok: false, hint: e?.message || 'KV delete failed' }; }
+            const local = deleteLocalUser(username);
+            return send(res, 200, { ok: true, storedIn: 'kv', local, kvProfile, kvLogin });
+          }
           delete devUsersStore()[username];
           const local = deleteLocalUser(username);
           return send(res, 200, { ok: true, hint: 'Deleted from dev store (Appwrite not configured)', local });
@@ -1282,6 +1437,7 @@ module.exports = async (req, res) => {
           const ok = typeof result === 'object' ? Boolean(result.ok) : Boolean(result);
           const local = deleteLocalUser(username);
           let kv = null;
+          let kvProfile = null;
           if (kvConfigured()) {
             try {
               await kvDel(kvUserKey(username));
@@ -1289,8 +1445,9 @@ module.exports = async (req, res) => {
             } catch (e) {
               kv = { ok: false, hint: e?.message || 'KV delete failed' };
             }
+            try { kvProfile = await kvDeleteUserData(username); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV delete failed' }; }
           }
-          return send(res, 200, { ok, result: typeof result === 'object' ? result : null, local, kv });
+          return send(res, 200, { ok, result: typeof result === 'object' ? result : null, local, kv, kvProfile });
         } catch (e) {
           return send(res, 500, { error: e?.message || 'Delete failed' });
         }
