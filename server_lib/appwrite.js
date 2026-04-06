@@ -139,14 +139,16 @@ async function findUserDocByUsername(username) {
 
   try {
     const q1 = encodeURIComponent(queryEqual('username_lc', ulc));
-    const out1 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q1}&limit=1`);
+    const qLimit = encodeURIComponent('limit(1)');
+    const out1 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q1}&queries[]=${qLimit}`);
     const docs1 = Array.isArray(out1?.documents) ? out1.documents : [];
     if (docs1[0]) return docs1[0];
   } catch {}
 
   try {
     const q2 = encodeURIComponent(queryEqual('username', u));
-    const out2 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q2}&limit=1`);
+    const qLimit = encodeURIComponent('limit(1)');
+    const out2 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q2}&queries[]=${qLimit}`);
     const docs2 = Array.isArray(out2?.documents) ? out2.documents : [];
     if (docs2[0]) return docs2[0];
   } catch {}
@@ -158,10 +160,14 @@ async function listAllUserDocs(limit = 1000) {
   let cursor = null;
 
   while (docs.length < limit) {
-    const parts = [];
-    parts.push(`limit=${Math.min(100, limit - docs.length)}`);
-    if (cursor) parts.push(`cursorAfter=${encodeURIComponent(cursor)}`);
-    const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?${parts.join('&')}`);
+    const batchSize = Math.min(100, limit - docs.length);
+    const queries = [];
+    queries.push(`limit(${batchSize})`);
+    if (cursor) queries.push(`cursorAfter("${cursor}")`);
+    
+    const queryStr = queries.map(q => `queries[]=${encodeURIComponent(q)}`).join('&');
+    const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?${queryStr}`);
+    
     const batch = Array.isArray(out?.documents) ? out.documents : [];
     docs.push(...batch);
     if (batch.length === 0) break;

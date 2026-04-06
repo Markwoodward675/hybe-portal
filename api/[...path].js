@@ -707,8 +707,48 @@ function genPool(count, days, intervalSeconds) {
   const safeDays = clamp(1, Number(days) || 7, 30);
   const safeInterval = clamp(10, Number(intervalSeconds) || 30, 600);
 
-  const firstNames = ['Isabella', 'Noah', 'Emma', 'Sofia', 'Hassan', 'Marie', 'Rina', 'Owen', 'Clare', 'David', 'Priya', 'Liam', 'Amina', 'Yuna', 'Minho', 'Arjun', 'Zara', 'Mateo', 'Leila', 'Oliver', 'Maya', 'Ethan', 'Ava', 'Lucas', 'Mina'];
-  const lastNames = ['Chen', 'Martins', 'Al‑Rashid', 'Dubois', 'Yamamoto', 'Parker', 'Bland', 'Brooks', 'Shah', 'Kim', 'Singh', 'Hernandez', 'Kowalski', 'Nguyen', 'Costa', 'Nakamura', 'Alvarez', 'Patel', 'Watanabe', 'Rahman', 'Schmidt', 'Novak', 'Santos', 'Lee', 'Garcia'];
+  const firstNames = ['Isabella', 'Noah', 'Emma', 'Sofia', 'Hassan', 'Marie', 'Rina', 'Owen', 'Clare', 'David', 'Priya', 'Liam', 'Amina', 'Yuna', 'Minho', 'Arjun', 'Zara', 'Mateo', 'Leila', 'Oliver', 'Maya', 'Ethan', 'Ava', 'Lucas', 'Mina', 'Elena', 'Leo', 'Zoe', 'Kenji', 'Sarah'];
+  const lastNames = ['Chen', 'Martins', 'Al‑Rashid', 'Dubois', 'Yamamoto', 'Parker', 'Bland', 'Brooks', 'Shah', 'Kim', 'Singh', 'Hernandez', 'Kowalski', 'Nguyen', 'Costa', 'Nakamura', 'Alvarez', 'Patel', 'Watanabe', 'Rahman', 'Schmidt', 'Novak', 'Santos', 'Lee', 'Garcia', 'Moretti', 'Silva', 'Tan', 'Ivanov', 'Müller'];
+  
+  const positiveReviews = [
+    "Finally found a platform that actually teaches you how to trade. Earned my first $500 today!",
+    "The educational resources here are top-notch. I've learned more in a week than in months of YouTube.",
+    "Invested wisely following the portal's insights and my portfolio is finally green.",
+    "Best decision I made this year was joining this trading community. The results speak for themselves.",
+    "Earned back my initial investment in just 3 days! This system is incredible.",
+    "Highly recommend for anyone serious about learning the markets. Transparent and effective.",
+    "The support here is amazing. They actually help you understand the 'why' behind trades.",
+    "Solid returns and even better education. My trading psychology has improved so much.",
+    "I was skeptical at first, but the results are real. Learned, invested, and earned!",
+    "A game changer for retail traders. The tools provided are professional grade.",
+    "Started with zero knowledge, now I'm making consistent daily gains. Thank you!",
+    "The most comprehensive trading portal I've used. Worth every penny.",
+    "Earned $1,200 this week alone. The strategies taught here are pure gold.",
+    "So glad I took the leap. The community is supportive and the insights are sharp.",
+    "Professional, reliable, and profitable. What more could a trader ask for?",
+    "My retirement account is finally growing thanks to the wise investment tips here.",
+    "The learning curve was steep but the portal made it manageable. Earning consistently now.",
+    "Incredible platform! The real-time alerts helped me catch a massive move today.",
+    "I've tried many services, but this is the only one that actually delivers results.",
+    "Thankful for the mentorship and the tools. My trading career is finally taking off.",
+    "Daily profits are becoming a reality. The education here is second to none.",
+    "Simplified complex market concepts so well. I'm trading with much more confidence.",
+    "The ROI on this portal is insane. Best investment in my own education.",
+    "Followed the risk management rules and it saved my account today. Wise words!",
+    "Just hit my monthly target in two weeks. This portal is a blessing.",
+    "Learned how to spot high-probability setups. Earning while I learn is the best.",
+    "The accuracy of the market analysis is mind-blowing. Truly impressed.",
+    "My trading journey started here and I couldn't be happier with the progress.",
+    "Consistent gains and a wealth of knowledge. A must-have for every trader.",
+    "The community calls are so insightful. I've earned so much just by listening and learning.",
+  ];
+
+  const negativeReviews = [
+    "Took me a while to get the hang of it. The first two days were a bit overwhelming.",
+    "Lost a small trade today because I didn't follow the rules. Lesson learned, the system works if you do.",
+    "The interface took some time to master, but the support team helped me through it.",
+  ];
+
   const airports = [
     { iata: 'LHR', city: 'London', country: 'United Kingdom' },
     { iata: 'MAN', city: 'Manchester', country: 'United Kingdom' },
@@ -738,25 +778,56 @@ function genPool(count, days, intervalSeconds) {
   const endAt = new Date(startAt.getTime() + safeDays * 24 * 60 * 60 * 1000);
   const items = [];
   const used = new Set();
+  
+  // Helper to pick random element
+  const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
   while (items.length < safeCount) {
-    const who = `${pick(firstNames)} ${pick(lastNames)}`;
-    const from = pick(airports);
-    let to = pick(airports);
-    while (to.iata === from.iata) to = pick(airports);
-    const st = pick(statuses);
-    const flightNo = genFlightNo();
-    const msg = `${who} • ${from.iata} ${from.city} → ${to.iata} ${to.city}`;
-    const key = `${who}|${from.iata}|${to.iata}|${st.label}|${flightNo}`;
-    if (used.has(key)) continue;
-    used.add(key);
-    items.push({
-      id: `lp_${items.length + 1}`,
-      title: 'Live Flight Update',
-      status: st.label,
-      tone: st.tone,
-      flightNo,
-      message: msg,
-    });
+    const typeRoll = Math.random();
+    let item = null;
+
+    if (typeRoll < 0.25) { // 25% chance for a trader review
+      const isPositive = Math.random() < 0.93; // ~28/30 chance for positive
+      const who = `${rand(firstNames)} ${rand(lastNames)}`;
+      const msg = isPositive ? rand(positiveReviews) : rand(negativeReviews);
+      const title = isPositive ? 'Trader Success' : 'Trader Insight';
+      const tone = isPositive ? 'ok' : 'warn';
+      const key = `rev|${who}|${msg.slice(0, 20)}`;
+      
+      if (!used.has(key)) {
+        used.add(key);
+        item = {
+          id: `lp_${items.length + 1}`,
+          title,
+          status: isPositive ? 'EARNED' : 'LEARNED',
+          tone,
+          message: `${who}: "${msg}"`,
+        };
+      }
+    } else { // 75% chance for flight update
+      const who = `${rand(firstNames)} ${rand(lastNames)}`;
+      const from = rand(airports);
+      let to = rand(airports);
+      while (to.iata === from.iata) to = rand(airports);
+      const st = rand(statuses);
+      const flightNo = genFlightNo();
+      const msg = `${who} • ${from.iata} ${from.city} → ${to.iata} ${to.city}`;
+      const key = `flt|${who}|${from.iata}|${to.iata}|${st.label}|${flightNo}`;
+      
+      if (!used.has(key)) {
+        used.add(key);
+        item = {
+          id: `lp_${items.length + 1}`,
+          title: 'Live Flight Update',
+          status: st.label,
+          tone: st.tone,
+          flightNo,
+          message: msg,
+        };
+      }
+    }
+
+    if (item) items.push(item);
   }
 
   return {
@@ -769,21 +840,47 @@ function genPool(count, days, intervalSeconds) {
 }
 
 async function getLivePopupsPool() {
-  await ensureDatabase();
-  await ensureLivePopupsCollection();
+  const now = Date.now();
+  if (globalThis.__tripLivePopupsCache && globalThis.__tripLivePopupsCache.expiresAt > now) {
+    return globalThis.__tripLivePopupsCache.pool;
+  }
+
   try {
-    const doc = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(LIVE_POPUPS_COLLECTION_ID)}/documents/pool`);
+    if (!isAppwriteConfigured()) {
+      const p = genPool(1200, 7, 30);
+      globalThis.__tripLivePopupsCache = { pool: p, expiresAt: now + 5 * 60 * 1000 };
+      return p;
+    }
+    
+    // We only ensure collection exists if we fail to fetch the document
+    let doc;
+    try {
+      doc = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(LIVE_POPUPS_COLLECTION_ID)}/documents/pool`);
+    } catch (e) {
+      if (e && e.status === 404) {
+        await ensureDatabase();
+        await ensureLivePopupsCollection();
+        // Document missing, it will be created below
+      } else {
+        throw e;
+      }
+    }
+
     const raw = doc && doc.data ? String(doc.data) : '';
     const pool = raw ? JSON.parse(raw) : null;
     if (pool && pool.items && Array.isArray(pool.items) && pool.items.length >= 1000) {
       const until = pool.validUntil ? new Date(pool.validUntil) : null;
       const expired = until && !Number.isNaN(until.getTime()) && Date.now() > until.getTime();
-      if (!expired) return pool;
+      if (!expired) {
+        globalThis.__tripLivePopupsCache = { pool, expiresAt: now + 5 * 60 * 1000 };
+        return pool;
+      }
       const startAt = pool.startAt ? new Date(pool.startAt) : null;
       const days = (startAt && until && !Number.isNaN(startAt.getTime())) ? Math.max(1, Math.round((until.getTime() - startAt.getTime()) / 86400000)) : 7;
       const intervalSeconds = pool.intervalSeconds !== undefined ? Number(pool.intervalSeconds) : 30;
       const next = genPool(pool.items.length, days, intervalSeconds);
       try { await saveLivePopupsPool(next); } catch {}
+      globalThis.__tripLivePopupsCache = { pool: next, expiresAt: now + 5 * 60 * 1000 };
       return next;
     }
   } catch {}
@@ -799,26 +896,25 @@ async function getLivePopupsPool() {
       },
     });
   } catch {}
+  globalThis.__tripLivePopupsCache = { pool, expiresAt: now + 5 * 60 * 1000 };
   return pool;
 }
 
 async function saveLivePopupsPool(pool) {
-  await ensureDatabase();
-  await ensureLivePopupsCollection();
   const payload = { data: JSON.stringify(pool), updatedAt: new Date().toISOString() };
   try {
     await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(LIVE_POPUPS_COLLECTION_ID)}/documents/pool`, {
       method: 'PATCH',
       body: payload,
     });
-    return true;
   } catch {
     await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(LIVE_POPUPS_COLLECTION_ID)}/documents`, {
       method: 'POST',
       body: { documentId: 'pool', data: payload, permissions: [] },
     });
-    return true;
   }
+  globalThis.__tripLivePopupsCache = { pool, expiresAt: Date.now() + 5 * 60 * 1000 };
+  return true;
 }
 
 async function schemaSync() {
@@ -1458,7 +1554,7 @@ module.exports = async (req, res) => {
     if (action === 'submissions') {
       if (req.method === 'GET') {
         try {
-          const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/submissions/documents?limit=100`);
+          const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/submissions/documents?queries[]=${encodeURIComponent('limit(100)')}`);
           const docs = Array.isArray(out?.documents) ? out.documents : [];
           const items = docs.map((d) => ({
             username: d.username,
@@ -1546,7 +1642,7 @@ module.exports = async (req, res) => {
     if (action === 'notifications') {
       if (req.method === 'GET') {
         try {
-          const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents?limit=100`);
+          const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents?queries[]=${encodeURIComponent('limit(100)')}`);
           const docs = Array.isArray(out?.documents) ? out.documents : [];
           const items = docs.map((d) => ({
             id: d.$id,
@@ -2099,7 +2195,7 @@ module.exports = async (req, res) => {
     if (action === 'notifications') {
       if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
       try {
-        const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents?limit=100`);
+        const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents?queries[]=${encodeURIComponent('limit(100)')}`);
         const docs = Array.isArray(out?.documents) ? out.documents : [];
         const items = docs
           .map((d) => ({

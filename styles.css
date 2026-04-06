@@ -1025,19 +1025,19 @@ svg { max-width: 100%; height: auto; }
     right: 14px;
     bottom: 16px;
     display: grid;
-    gap: 10px;
+    gap: 8px;
     z-index: 3200;
-    width: min(420px, calc(100vw - 28px));
+    width: min(340px, calc(100vw - 28px));
     pointer-events: none;
 }
 .live-toast{
     pointer-events: auto;
-    border-radius: 18px;
-    padding: 12px 14px;
+    border-radius: 14px;
+    padding: 10px 12px;
     border: 1px solid rgba(0,0,0,0.12);
     background: rgba(0,0,0,0.86);
     color: rgba(255,255,255,0.92);
-    box-shadow: 0 24px 80px rgba(0,0,0,0.35);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.30);
     transform: translateY(14px);
     opacity: 0;
     transition: transform 0.25s ease, opacity 0.25s ease;
@@ -1048,28 +1048,28 @@ svg { max-width: 100%; height: auto; }
     content: '';
     position: absolute;
     inset: -2px;
-    border-radius: 20px;
+    border-radius: 16px;
     background: linear-gradient(120deg, rgba(34,211,238,0.95), rgba(168,85,247,0.95), rgba(16,185,129,0.95));
-    filter: blur(10px);
-    opacity: 0.45;
+    filter: blur(8px);
+    opacity: 0.40;
     z-index: -1;
 }
-.live-toast__row{ display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
-.live-toast__title{ font-weight: 900; letter-spacing: -0.4px; }
-.live-toast__meta{ color: rgba(255,255,255,0.70); font-weight: 800; font-size: 0.8rem; }
-.live-toast__line{ margin-top:8px; font-weight: 800; color: rgba(255,255,255,0.86); line-height: 1.35; }
+.live-toast__row{ display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+.live-toast__title{ font-weight: 700; font-size: 0.9rem; letter-spacing: -0.2px; }
+.live-toast__meta{ color: rgba(255,255,255,0.60); font-weight: 600; font-size: 0.72rem; }
+.live-toast__line{ margin-top:6px; font-weight: 600; color: rgba(255,255,255,0.82); line-height: 1.3; font-size: 0.8rem; }
 .live-pill{
     display:inline-flex;
     align-items:center;
-    gap:8px;
-    padding: 6px 10px;
+    gap:6px;
+    padding: 4px 8px;
     border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.18);
-    font-weight: 900;
-    font-size: 0.75rem;
-    letter-spacing: 0.7px;
+    border: 1px solid rgba(255,255,255,0.15);
+    font-weight: 700;
+    font-size: 0.68rem;
+    letter-spacing: 0.4px;
     text-transform: uppercase;
-    background: rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.05);
 }
 .live-dot{
     width: 8px;

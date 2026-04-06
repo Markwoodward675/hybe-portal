@@ -1017,7 +1017,7 @@ async function adminMe() {
     const now = Date.now();
     if (!window.__tripAdminMeCache) window.__tripAdminMeCache = { at: 0, value: null, promise: null };
     const c = window.__tripAdminMeCache;
-    if (c.value && (now - c.at) < 8000) return c.value;
+    if (c.value && (now - c.at) < 30000) return c.value;
     if (c.promise) return c.promise;
     c.promise = tripApi('/api/admin/me')
         .then((out) => { c.value = out; c.at = Date.now(); return out; })
@@ -1037,7 +1037,7 @@ async function userMe() {
     const now = Date.now();
     if (!window.__tripUserMeCache) window.__tripUserMeCache = { at: 0, value: null, promise: null };
     const c = window.__tripUserMeCache;
-    if (c.value && (now - c.at) < 8000) return c.value;
+    if (c.value && (now - c.at) < 30000) return c.value;
     if (c.promise) return c.promise;
     c.promise = tripApi('/api/user/me')
         .then((out) => { c.value = out; c.at = Date.now(); return out; })
