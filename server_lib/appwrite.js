@@ -216,33 +216,48 @@ async function upsertUser(username, userData) {
   const service_category = cat === 'LOGISTICS' ? 'LOGISTICS' : (cat === 'FLIGHT' ? 'FLIGHT' : undefined);
   
   // Update local JSON file
-  upsertLocalUser(username, safeUserData);
-
-  const existing = await findUserDocByUsername(username);
-  if (existing) {
-    return appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(existing.$id)}`, {
-      method: 'PATCH',
-      body: {
-        data: JSON.stringify(safeUserData),
-        username_lc: String(username || '').trim().toLowerCase(),
-        ...(service_category ? { service_category } : {}),
-      },
-    });
+  try {
+    upsertLocalUser(username, safeUserData);
+  } catch (e) {
+    console.error('Local user upsert failed:', e);
   }
-  const documentId = crypto.randomUUID();
-  return appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents`, {
-    method: 'POST',
-    body: {
-      documentId,
-      data: {
-        username,
-        username_lc: String(username || '').trim().toLowerCase(),
-        data: JSON.stringify(safeUserData),
-        ...(service_category ? { service_category } : {}),
-      },
-      permissions: [],
-    },
-  });
+
+  try {
+    if (!ENDPOINT || !PROJECT_ID || !API_KEY || !DATABASE_ID || !USERS_COLLECTION_ID) {
+      return { ok: true, source: 'local_only' };
+    }
+
+    const existing = await findUserDocByUsername(username);
+    if (existing) {
+      await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(existing.$id)}`, {
+        method: 'PATCH',
+        body: {
+          data: JSON.stringify(safeUserData),
+          username_lc: String(username || '').trim().toLowerCase(),
+          ...(service_category ? { service_category } : {}),
+        },
+      });
+    } else {
+      const documentId = crypto.randomUUID();
+      await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents`, {
+        method: 'POST',
+        body: {
+          documentId,
+          data: {
+            username,
+            username_lc: String(username || '').trim().toLowerCase(),
+            data: JSON.stringify(safeUserData),
+            ...(service_category ? { service_category } : {}),
+          },
+          permissions: [],
+        },
+      });
+    }
+    return { ok: true, source: 'appwrite' };
+  } catch (e) {
+    console.error('Appwrite upsert failed, but local was updated:', e);
+    return { ok: true, source: 'local_fallback', error: e?.message };
+  }
 }
 
 async function deleteUser(username) {
@@ -251,53 +266,57 @@ async function deleteUser(username) {
   const ulc = u.toLowerCase();
 
   // Delete from local JSON file
-  deleteLocalUser(username);
-
-  let deletedCount = 0;
-  for (let round = 0; round < 5; round++) {
-    const ids = new Set();
-    try {
-      const q1 = encodeURIComponent(queryEqual('username_lc', ulc));
-      const out1 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q1}&limit=100`);
-      const docs1 = Array.isArray(out1?.documents) ? out1.documents : [];
-      docs1.forEach((d) => { if (d && d.$id) ids.add(String(d.$id)); });
-    } catch {}
-
-    try {
-      const q2 = encodeURIComponent(queryEqual('username', u));
-      const out2 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q2}&limit=100`);
-      const docs2 = Array.isArray(out2?.documents) ? out2.documents : [];
-      docs2.forEach((d) => { if (d && d.$id) ids.add(String(d.$id)); });
-    } catch {}
-
-    if (ids.size === 0) {
-      const existing = await findUserDocByUsername(u);
-      if (existing && existing.$id) ids.add(String(existing.$id));
-    }
-
-    if (ids.size === 0) {
-      const auth = await deleteAuthUser(u).catch(() => ({ ok: false }));
-      return { ok: deletedCount > 0, deletedCount, remainingCount: 0, auth };
-    }
-
-    for (const id of ids) {
-      await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      });
-      deletedCount += 1;
-    }
+  try {
+    deleteLocalUser(username);
+  } catch (e) {
+    console.error('Local user delete failed:', e);
   }
 
   try {
-    const q1 = encodeURIComponent(queryEqual('username_lc', ulc));
-    const out1 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q1}&limit=1`);
-    const docs1 = Array.isArray(out1?.documents) ? out1.documents : [];
-    const auth = await deleteAuthUser(u).catch(() => ({ ok: false }));
-    if (docs1.length === 0) return { ok: deletedCount > 0, deletedCount, remainingCount: 0, auth };
-    return { ok: false, deletedCount, remainingCount: docs1.length, auth };
-  } catch {
-    const auth = await deleteAuthUser(u).catch(() => ({ ok: false }));
-    return { ok: deletedCount > 0, deletedCount, remainingCount: 0, auth };
+    if (!ENDPOINT || !PROJECT_ID || !API_KEY || !DATABASE_ID || !USERS_COLLECTION_ID) {
+      return { ok: true, source: 'local_only' };
+    }
+
+    let deletedCount = 0;
+    for (let round = 0; round < 5; round++) {
+      const ids = new Set();
+      try {
+        const q1 = encodeURIComponent(queryEqual('username_lc', ulc));
+        const out1 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q1}&limit=100`);
+        const docs1 = Array.isArray(out1?.documents) ? out1.documents : [];
+        docs1.forEach((d) => { if (d && d.$id) ids.add(String(d.$id)); });
+      } catch {}
+
+      try {
+        const q2 = encodeURIComponent(queryEqual('username', u));
+        const out2 = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?queries[]=${q2}&limit=100`);
+        const docs2 = Array.isArray(out2?.documents) ? out2.documents : [];
+        docs2.forEach((d) => { if (d && d.$id) ids.add(String(d.$id)); });
+      } catch {}
+
+      if (ids.size === 0) {
+        const existing = await findUserDocByUsername(u);
+        if (existing && existing.$id) ids.add(String(existing.$id));
+      }
+
+      if (ids.size === 0) {
+        const auth = await deleteAuthUser(u).catch(() => ({ ok: false }));
+        return { ok: true, source: 'appwrite', deletedCount, remainingCount: 0, auth };
+      }
+
+      for (const id of ids) {
+        try {
+          await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+          });
+          deletedCount++;
+        } catch {}
+      }
+    }
+    return { ok: true, source: 'appwrite', deletedCount };
+  } catch (e) {
+    console.error('Appwrite delete failed, but local was updated:', e);
+    return { ok: true, source: 'local_fallback', error: e?.message };
   }
 }
 

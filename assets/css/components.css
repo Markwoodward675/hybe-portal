@@ -55,25 +55,25 @@
 }
 
 .notify-title {
-  font-weight: 900;
-  letter-spacing: -0.4px;
-  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  font-size: 0.85rem;
 }
 
 .notify-time {
   color: var(--text-dim);
-  font-weight: 800;
-  font-size: 0.72rem;
-  letter-spacing: 0.5px;
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
 }
 
 .notify-msg {
-  margin-top: 6px;
+  margin-top: 4px;
   color: var(--text);
-  font-weight: 800;
-  font-size: 0.85rem;
-  line-height: 1.35;
+  font-weight: 500;
+  font-size: 0.8rem;
+  line-height: 1.3;
 }
 
 .notify-close {

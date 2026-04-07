@@ -90,8 +90,6 @@ function send(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-
-
 function requireAdmin(req, res) {
   const cookies = parseCookies(req);
   const payload = verifyToken(cookies.trip_admin);
@@ -499,26 +497,39 @@ function genPool(count, days, intervalSeconds) {
     "So glad I took the leap. The community is supportive and the insights are sharp.",
     "Professional, reliable, and profitable. What more could a trader ask for?",
     "My retirement account is finally growing thanks to the wise investment tips here.",
-    "The learning curve was steep but the portal made it manageable. Earning consistently now.",
-    "Incredible platform! The real-time alerts helped me catch a massive move today.",
-    "I've tried many services, but this is the only one that actually delivers results.",
-    "Thankful for the mentorship and the tools. My trading career is finally taking off.",
-    "Daily profits are becoming a reality. The education here is second to none.",
-    "Simplified complex market concepts so well. I'm trading with much more confidence.",
-    "The ROI on this portal is insane. Best investment in my own education.",
-    "Followed the risk management rules and it saved my account today. Wise words!",
-    "Just hit my monthly target in two weeks. This portal is a blessing.",
-    "Learned how to spot high-probability setups. Earning while I learn is the best.",
-    "The accuracy of the market analysis is mind-blowing. Truly impressed.",
-    "My trading journey started here and I couldn't be happier with the progress.",
-    "Consistent gains and a wealth of knowledge. A must-have for every trader.",
-    "The community calls are so insightful. I've earned so much just by listening and learning.",
+    "The community is so welcoming and the knowledge sharing is top tier.",
+    "Finally, a trading platform that prioritizes user education over hype.",
+    "Consistent daily profits have changed my financial outlook completely.",
+    "Best trading education I've ever received. The results speak for themselves.",
+    "Learned, invested, and now I'm earning. The portal is a game changer.",
+    "The real-time market insights are incredibly accurate and helpful.",
+    "So grateful for the mentorship. My trading skills have leveled up significantly.",
+    "A transparent and reliable community. Highly recommend for any serious trader.",
+    "Earned my first $1,000 month following the strategies here. Life-changing!",
+    "The risk management tools are worth the admission alone. Saved my account!",
+    "Incredible support team. They truly care about your success as a trader.",
+    "Simplified my trading process and boosted my profits. Simply the best.",
+    "The educational modules are clear, concise, and highly effective.",
+    "My trading confidence has never been higher. Thank you for the great tools!",
+    "Profitability is finally a reality. The portal's guidance is unmatched.",
+    "The best investment I've made in myself. Earning while I learn is amazing.",
+    "A solid community of professional traders. The insights are invaluable.",
+    "Hit my target for the quarter in just one month. Incredible results!",
+    "The portal's market analysis is consistently spot-on. Highly impressed.",
+    "My trading journey has been transformed. Earning consistently now.",
+    "Grateful for the clear direction and effective tools. A must-have platform.",
+    "The mentorship program is outstanding. Learned so much in a short time.",
+    "Consistent gains and a wealth of knowledge. This portal is essential.",
+    "The community calls provide so much value. Earning and learning together.",
+    "My portfolio has never looked better. Thank you for the wise investment tips!",
   ];
 
   const negativeReviews = [
     "Took me a while to get the hang of it. The first two days were a bit overwhelming.",
     "Lost a small trade today because I didn't follow the rules. Lesson learned, the system works if you do.",
     "The interface took some time to master, but the support team helped me through it.",
+    "A bit of a learning curve at the start, but sticking with it paid off.",
+    "Had a rough start, but the educational resources helped me turn things around.",
   ];
 
   const airports = [
@@ -924,7 +935,7 @@ module.exports = async (req, res) => {
     const scope = parts[0] || '';
     const action = parts[1] || '';
 
-    if (action === 'users.json') {
+    if (scope === 'users.json' || action === 'users.json') {
       if (req.method === 'GET') {
         const users = listLocalUsersCached();
         return send(res, 200, users);
@@ -933,401 +944,141 @@ module.exports = async (req, res) => {
     }
 
     if (scope === 'admin') {
-    if (action === 'config') {
-      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-      const configured = Boolean(process.env.TRIP_ADMIN_PASSCODE);
-      const altConfigured = Boolean(process.env.TRIP_ADMIN_PASSCODE_ALT);
-      const missing = [];
-      ['APPWRITE_ENDPOINT', 'APPWRITE_PROJECT_ID', 'APPWRITE_API_KEY', 'APPWRITE_DATABASE_ID', 'APPWRITE_COLLECTION_USERS_ID', 'TRIP_JWT_SECRET'].forEach((k) => {
-        if (!process.env[k]) missing.push(k);
-      });
-      return send(res, 200, {
-        ok: true,
-        configured,
-        usingDefault: !configured,
-        altConfigured,
-        appwriteConfigured: isAppwriteConfigured(),
-        kvConfigured: kvConfigured(),
-        missingEnv: missing,
-      });
-    }
-
-    if (action === 'login') {
-      if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
-      const body = await readJson(req).catch(() => ({}));
-      const passcode = String(body.passcode || '').trim();
-      const primary = String(process.env.TRIP_ADMIN_PASSCODE || 'Jagaban@1').trim();
-      const alt = String(process.env.TRIP_ADMIN_PASSCODE_ALT || 'TRIP2026').trim();
-      const configured = Boolean(process.env.TRIP_ADMIN_PASSCODE);
-      const usingDefault = !configured;
-      if (process.env.VERCEL && usingDefault) {
-        return send(res, 503, { ok: false, error: 'Admin passcode not configured', configured, usingDefault });
+      if (action === 'config') {
+        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+        const configured = Boolean(process.env.TRIP_ADMIN_PASSCODE);
+        const altConfigured = Boolean(process.env.TRIP_ADMIN_PASSCODE_ALT);
+        const missing = [];
+        ['APPWRITE_ENDPOINT', 'APPWRITE_PROJECT_ID', 'APPWRITE_API_KEY', 'APPWRITE_DATABASE_ID', 'APPWRITE_COLLECTION_USERS_ID', 'TRIP_JWT_SECRET'].forEach((k) => {
+          if (!process.env[k]) missing.push(k);
+        });
+        return send(res, 200, {
+          ok: true,
+          configured,
+          usingDefault: !configured,
+          altConfigured,
+          appwriteConfigured: isAppwriteConfigured(),
+          kvConfigured: Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN),
+          missingEnv: missing,
+        });
       }
-      if (passcode !== primary && passcode !== alt) return send(res, 401, { ok: false, error: 'Invalid passcode', configured, usingDefault });
-      const token = createToken({ typ: 'admin', exp: Date.now() + 8 * 60 * 60 * 1000 });
-      res.setHeader('set-cookie', cookieString('trip_admin', token, { maxAgeSeconds: 8 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
-      return send(res, 200, { ok: true });
-    }
 
-    if (action === 'logout') {
-      res.setHeader('set-cookie', cookieString('trip_admin', '', { maxAgeSeconds: 0, secure: isHttps(req), sameSite: cookieSameSite(req) }));
-      return send(res, 200, { ok: true });
-    }
-
-    if (action === 'me') {
-      const cookies = parseCookies(req);
-      const payload = verifyToken(cookies.trip_admin);
-      const ok = payload && payload.typ === 'admin';
-      return send(res, ok ? 200 : 401, ok ? { ok: true } : { error: 'Unauthorized' });
-    }
-
-    const admin = requireAdmin(req, res);
-    if (!admin) return;
-
-    if (action === 'schema' && parts[2] === 'ensure') {
-      if (req.method === 'GET') {
-        if (!isAppwriteConfigured()) {
-          return send(res, 200, { status: 'Appwrite not configured (dev local mode)' });
+      if (action === 'login') {
+        if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
+        const body = await readJson(req).catch(() => ({}));
+        const passcode = String(body.passcode || '').trim();
+        const primary = String(process.env.TRIP_ADMIN_PASSCODE || 'Jagaban@1').trim();
+        const alt = String(process.env.TRIP_ADMIN_PASSCODE_ALT || 'TRIP2026').trim();
+        const configured = Boolean(process.env.TRIP_ADMIN_PASSCODE);
+        const usingDefault = !configured;
+        if (process.env.VERCEL && usingDefault) {
+          return send(res, 503, { ok: false, error: 'Admin passcode not configured', configured, usingDefault });
         }
-        try {
-          const dbOk = await exists(`/databases/${encodeURIComponent(DATABASE_ID)}`);
-          const colOk = await exists(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}`);
-          const attrs = colOk ? await listAttributes() : [];
-          const hasUsername = attrs.some((a) => a.key === 'username' && a.status === 'available');
-          const hasUsernameLc = attrs.some((a) => a.key === 'username_lc' && a.status === 'available');
-          const hasData = attrs.some((a) => a.key === 'data' && a.status === 'available');
-          let idxOk = false;
-          let idxUsernameOk = false;
-          try {
-            const idx = colOk ? await listIndexesFor(USERS_COLLECTION_ID) : [];
-            idxOk = (idx || []).some((i) => i && i.key === 'idx_username_lc_unique' && i.status === 'available');
-            idxUsernameOk = (idx || []).some((i) => i && i.type === 'key' && Array.isArray(i.attributes) && i.attributes.length === 1 && String(i.attributes[0]) === 'username' && i.status === 'available');
-          } catch {}
-          const status = `DB:${dbOk ? 'OK' : 'MISSING'} • COL:${colOk ? 'OK' : 'MISSING'} • username:${hasUsername ? 'OK' : 'MISSING'} • idx_username_key:${idxUsernameOk ? 'OK' : 'MISSING'} • username_lc:${hasUsernameLc ? 'OK' : 'MISSING'} • idx_username_lc_unique:${idxOk ? 'OK' : 'MISSING'} • data:${hasData ? 'OK' : 'MISSING'} • perms:LOCKED`;
-          return send(res, 200, { status });
-        } catch (e) {
-          return send(res, 200, { status: 'Appwrite not available (dev local mode)' });
-        }
+        if (passcode !== primary && passcode !== alt) return send(res, 401, { ok: false, error: 'Invalid passcode', configured, usingDefault });
+        const token = createToken({ typ: 'admin', exp: Date.now() + 8 * 60 * 60 * 1000 });
+        res.setHeader('set-cookie', cookieString('trip_admin', token, { maxAgeSeconds: 8 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
+        return send(res, 200, { ok: true });
       }
-      if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
-      try {
-        if (!isAppwriteConfigured()) {
-          return send(res, 200, { ok: true, hint: 'Skipped (Appwrite not configured in dev)' });
-        }
-        const actions = await schemaSync();
-        return send(res, 200, { ok: true, actions, ensuredAt: new Date().toISOString() });
-      } catch (e) {
-        return send(res, 500, { error: e?.payload?.message || e?.payload?.error || e?.message || 'Schema ensure failed', status: e?.status, details: e?.payload || null });
-      }
-    }
 
-    if (action === 'schema' && parts[2] === 'inspect') {
-      if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-      try {
-        if (!isAppwriteConfigured()) {
-          return send(res, 200, { databaseId: null, collections: [], hint: 'Appwrite not configured (dev local mode)' });
-        }
-        const colsOut = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections?limit=100`);
-        const cols = Array.isArray(colsOut?.collections) ? colsOut.collections : [];
-        const collections = [];
-        for (const c of cols) {
-          const colId = c.$id || c.collectionId || c.id;
-          const attrsOut = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(colId)}/attributes`).catch(() => ({}));
-          const idxOut = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(colId)}/indexes`).catch(() => ({}));
-          const attrs = Array.isArray(attrsOut?.attributes) ? attrsOut.attributes : [];
-          const indexes = Array.isArray(idxOut?.indexes) ? idxOut.indexes : [];
-          collections.push({
-            id: colId,
-            name: c.name || '',
-            documentSecurity: Boolean(c.documentSecurity),
-            attributes: attrs.map((a) => ({
-              key: a.key,
-              type: a.type,
-              status: a.status,
-              required: Boolean(a.required),
-              array: Boolean(a.array),
-              size: a.size,
-              format: a.format,
-              relatedCollection: a.relatedCollection,
-              relationType: a.relationType,
-            })),
-            indexes: indexes.map((i) => ({
-              key: i.key,
-              type: i.type,
-              status: i.status,
-              attributes: i.attributes,
-              orders: i.orders,
-            })),
-          });
-        }
-        return send(res, 200, { databaseId: DATABASE_ID, collections });
-      } catch (e) {
-        return send(res, 500, { error: e?.payload?.message || e?.payload?.error || e?.message || 'Schema inspect failed', status: e?.status, details: e?.payload || null });
+      if (action === 'logout') {
+        res.setHeader('set-cookie', cookieString('trip_admin', '', { maxAgeSeconds: 0, secure: isHttps(req), sameSite: cookieSameSite(req) }));
+        return send(res, 200, { ok: true });
       }
-    }
 
-    if (action === 'schema' && parts[2] === 'sync') {
-      if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
-      try {
-        if (!isAppwriteConfigured()) {
-          return send(res, 200, { ok: true, actions: [], syncedAt: new Date().toISOString(), hint: 'Skipped (Appwrite not configured in dev)' });
-        }
-        const actions = await schemaSync();
-        return send(res, 200, { ok: true, actions, syncedAt: new Date().toISOString() });
-      } catch (e) {
-        return send(res, 500, { error: e?.payload?.message || e?.payload?.error || e?.message || 'Schema sync failed', status: e?.status, details: e?.payload || null });
+      if (action === 'me') {
+        const cookies = parseCookies(req);
+        const payload = verifyToken(cookies.trip_admin);
+        const ok = payload && payload.typ === 'admin';
+        return send(res, ok ? 200 : 401, ok ? { ok: true } : { error: 'Unauthorized' });
       }
-    }
 
-    if (action === 'users') {
-      const username = parts[2] ? String(parts[2]).trim() : '';
-      if (!username) {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+
+      if (action === 'schema' && parts[2] === 'ensure') {
         if (req.method === 'GET') {
           if (!isAppwriteConfigured()) {
-            if (kvConfigured()) {
-              try {
-                const users = await kvListUsersFull();
-                return send(res, 200, { users, storedIn: 'kv' });
-              } catch (e) {
-                return send(res, 503, { error: e?.message || 'KV unavailable' });
-              }
-            }
-            return send(res, 503, { error: 'No persistent store configured (Appwrite/KV missing)' });
+            return send(res, 200, { status: 'Appwrite not configured (dev local mode)' });
           }
           try {
-            const docs = await listAllUserDocs(1000);
-            const users = {};
-            docs.forEach((doc) => {
-              const u = parseUserData(doc);
-              if (u && doc.username) users[doc.username] = u;
-            });
-            return send(res, 200, { users });
+            const dbOk = await exists(`/databases/${encodeURIComponent(DATABASE_ID)}`);
+            const colOk = await exists(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}`);
+            const attrs = colOk ? await listAttributes() : [];
+            const hasUsername = attrs.some((a) => a.key === 'username' && a.status === 'available');
+            const hasUsernameLc = attrs.some((a) => a.key === 'username_lc' && a.status === 'available');
+            const hasData = attrs.some((a) => a.key === 'data' && a.status === 'available');
+            let idxOk = false;
+            let idxUsernameOk = false;
+            try {
+              const idx = colOk ? await listIndexesFor(USERS_COLLECTION_ID) : [];
+              idxOk = (idx || []).some((i) => i && i.key === 'idx_username_lc_unique' && i.status === 'available');
+              idxUsernameOk = (idx || []).some((i) => i && i.type === 'key' && Array.isArray(i.attributes) && i.attributes.length === 1 && String(i.attributes[0]) === 'username' && i.status === 'available');
+            } catch {}
+            const status = `DB:${dbOk ? 'OK' : 'MISSING'} • COL:${colOk ? 'OK' : 'MISSING'} • username:${hasUsername ? 'OK' : 'MISSING'} • idx_username_key:${idxUsernameOk ? 'OK' : 'MISSING'} • username_lc:${hasUsernameLc ? 'OK' : 'MISSING'} • idx_username_lc_unique:${idxOk ? 'OK' : 'MISSING'} • data:${hasData ? 'OK' : 'MISSING'} • perms:LOCKED`;
+            return send(res, 200, { status });
           } catch (e) {
-            if (kvConfigured()) {
-              try {
-                const users = await kvListUsersFull();
-                return send(res, 200, { users, storedIn: 'kv', hint: 'Appwrite unavailable; serving from KV' });
-              } catch {}
-            }
-            return send(res, 200, { users: {} });
+            return send(res, 200, { status: 'Appwrite not available (dev local mode)' });
           }
         }
-        if (req.method === 'POST') {
+        if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
+        try {
           if (!isAppwriteConfigured()) {
-            if (!kvConfigured()) {
-              if (process.env.VERCEL) return send(res, 503, { error: 'Admin provisioning unavailable: configure KV or Appwrite.' });
+            return send(res, 200, { ok: true, hint: 'Skipped (Appwrite not configured in dev)' });
+          }
+          const actions = await schemaSync();
+          return send(res, 200, { ok: true, actions, ensuredAt: new Date().toISOString() });
+        } catch (e) {
+          return send(res, 500, { error: e?.payload?.message || e?.payload?.error || e?.message || 'Schema ensure failed', status: e?.status, details: e?.payload || null });
+        }
+      }
+
+      if (action === 'users') {
+        const username = parts[2] ? String(parts[2]).trim() : '';
+        if (!username) {
+          if (req.method === 'GET') {
+            try {
+              const docs = await listAllUserDocs(1000);
+              const users = {};
+              docs.forEach((doc) => {
+                const u = parseUserData(doc);
+                if (u && doc.username) users[doc.username] = u;
+              });
+              return send(res, 200, { users });
+            } catch (e) {
+              return send(res, 200, { users: {} });
+            }
+          }
+          if (req.method === 'POST') {
+            try {
               const body = await readJson(req).catch(() => ({}));
               const u = String(body.username || '').trim();
-              const userData = body.userData;
+              const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
               if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
-              devUsersStore()[u] = userData;
-              const local = upsertLocalUser(u, userData);
-              return send(res, 200, { ok: true, storedIn: 'dev', hint: 'Saved to dev store (Appwrite not configured)', local });
-            }
-            const body = await readJson(req).catch(() => ({}));
-            const u = String(body.username || '').trim();
-            const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
-            if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
-            if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
-            let kvProfile = null;
-            let kvLogin = null;
-            try { kvProfile = await kvUpsertUserData(u, userData); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV write failed' }; }
-            try {
-              await kvSetJson(kvUserKey(u), {
-                username: u,
-                name: String(userData.passengerName || userData.name || ''),
-                role: String(userData.role || 'passenger'),
-                serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
-                pinHash: pinHash(normalizePin(userData.pin)),
-                updatedAt: new Date().toISOString(),
-              }, 30 * 24 * 60 * 60);
-              kvLogin = { ok: true };
-            } catch (e) {
-              kvLogin = { ok: false, hint: e?.message || 'KV write failed' };
-            }
-            const local = upsertLocalUser(u, userData);
-            return send(res, 200, { ok: true, storedIn: 'kv', local, kvProfile, kvLogin });
-          }
-          try {
-            const body = await readJson(req).catch(() => ({}));
-            const u = String(body.username || '').trim();
-            const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
-            if (!u || !userData) return send(res, 400, { error: 'Missing username or userData' });
-            if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
-            try {
-              const auth = await ensureAuthUser({ username: u, pin: userData.pin, name: String(userData.passengerName || userData.name || '') });
-              if (auth && auth.ok) {
-                userData.auth = { userId: auth.userId, email: auth.email };
-              }
-            } catch {}
-            let storedIn = 'appwrite';
-            try {
+              
               await upsertUser(u, userData);
+              return send(res, 200, { ok: true });
             } catch (e) {
-              if (kvConfigured()) storedIn = 'kv';
-              else throw e;
+              return send(res, 500, { error: e?.message || 'Upsert failed' });
             }
-            const local = upsertLocalUser(u, userData);
-            let kv = null;
-            let kvProfile = null;
-            if (kvConfigured()) {
-              try {
-                await kvSetJson(kvUserKey(u), {
-                  username: u,
-                  name: String(userData.passengerName || userData.name || ''),
-                  role: String(userData.role || 'passenger'),
-                  serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
-                  pinHash: pinHash(normalizePin(userData.pin)),
-                  updatedAt: new Date().toISOString(),
-                }, 30 * 24 * 60 * 60);
-                kv = { ok: true };
-              } catch (e) {
-                kv = { ok: false, hint: e?.message || 'KV write failed' };
-              }
-              try { kvProfile = await kvUpsertUserData(u, userData); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV write failed' }; }
-            }
-            return send(res, 200, { ok: true, storedIn, local, kv, kvProfile });
-          } catch (e) {
-            return send(res, 500, { error: e?.message || 'Upsert failed' });
           }
-        }
-        return send(res, 405, { error: 'Method not allowed' });
-      }
-
-      const username = parts[2] ? String(parts[2]).trim() : '';
-      if (!username) {
-        if (req.method === 'GET') {
-          if (!isAppwriteConfigured()) {
-            if (kvConfigured()) {
-              const doc = await kvGetJson(kvUserDataKey(username)).catch(() => null);
-              const data = doc && doc.userData ? doc.userData : null;
-              if (data) return send(res, 200, { username: String(doc.username || username), userData: data, storedIn: 'kv' });
-            }
-            const u = devUsersStore()[username];
-            if (!u) return send(res, 404, { error: 'Not found' });
-            return send(res, 200, { username, userData: u, storedIn: 'dev' });
-          }
-          try {
-            const doc = await findUserDocByUsername(username);
-            if (!doc) return send(res, 404, { error: 'Not found' });
-            return send(res, 200, { username: doc.username, userData: parseUserData(doc) });
-          } catch {
-            if (kvConfigured()) {
-              const doc = await kvGetJson(kvUserDataKey(username)).catch(() => null);
-              const data = doc && doc.userData ? doc.userData : null;
-              if (data) return send(res, 200, { username: String(doc.username || username), userData: data, storedIn: 'kv' });
-            }
-            return send(res, 404, { error: 'Not found' });
-          }
-        }
-        if (req.method === 'PUT' || req.method === 'PATCH') {
-          if (!isAppwriteConfigured()) {
-            if (!kvConfigured()) {
-              if (process.env.VERCEL) return send(res, 503, { error: 'Admin updates unavailable: configure KV or Appwrite.' });
-              const body = await readJson(req).catch(() => ({}));
-              const userData = body.userData;
-              if (!userData) return send(res, 400, { error: 'Missing userData' });
-              devUsersStore()[username] = userData;
-              const local = upsertLocalUser(username, userData);
-              return send(res, 200, { ok: true, storedIn: 'dev', hint: 'Saved to dev store (Appwrite not configured)', local });
-            }
-            const body = await readJson(req).catch(() => ({}));
-            const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
-            if (!userData) return send(res, 400, { error: 'Missing userData' });
-            if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
-            let kvProfile = null;
-            let kvLogin = null;
-            try { kvProfile = await kvUpsertUserData(username, userData); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV write failed' }; }
+        } else {
+          if (req.method === 'GET') {
             try {
-              await kvSetJson(kvUserKey(username), {
-                username,
-                name: String(userData.passengerName || userData.name || ''),
-                role: String(userData.role || 'passenger'),
-                serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
-                pinHash: pinHash(normalizePin(userData.pin)),
-                updatedAt: new Date().toISOString(),
-              }, 30 * 24 * 60 * 60);
-              kvLogin = { ok: true };
+              const doc = await findUserDocByUsername(username);
+              if (!doc) return send(res, 404, { error: 'Not found' });
+              return send(res, 200, { username: doc.username, userData: parseUserData(doc) });
+            } catch {
+              return send(res, 404, { error: 'Not found' });
+            }
+          }
+          if (req.method === 'DELETE') {
+            try {
+              const result = await deleteUser(username);
+              const ok = typeof result === 'object' ? Boolean(result.ok) : Boolean(result);
+              return send(res, 200, { ok });
             } catch (e) {
-              kvLogin = { ok: false, hint: e?.message || 'KV write failed' };
+              return send(res, 500, { error: e?.message || 'Delete failed' });
             }
-            const local = upsertLocalUser(username, userData);
-            return send(res, 200, { ok: true, storedIn: 'kv', local, kvProfile, kvLogin });
-          }
-          try {
-            const body = await readJson(req).catch(() => ({}));
-            const userData = body.userData && typeof body.userData === 'object' ? { ...body.userData } : body.userData;
-            if (!userData) return send(res, 400, { error: 'Missing userData' });
-            if (userData && typeof userData === 'object') userData.pin = normalizePin(userData.pin);
-            try {
-              const auth = await ensureAuthUser({ username, pin: userData.pin, name: String(userData.passengerName || userData.name || '') });
-              if (auth && auth.ok) {
-                userData.auth = { userId: auth.userId, email: auth.email };
-              }
-            } catch {}
-            let storedIn = 'appwrite';
-            try {
-              await upsertUser(username, userData);
-            } catch (e) {
-              if (kvConfigured()) storedIn = 'kv';
-              else throw e;
-            }
-            const local = upsertLocalUser(username, userData);
-            let kv = null;
-            let kvProfile = null;
-            if (kvConfigured()) {
-              try {
-                await kvSetJson(kvUserKey(username), {
-                  username,
-                  name: String(userData.passengerName || userData.name || ''),
-                  role: String(userData.role || 'passenger'),
-                  serviceCategory: String(userData.serviceCategory || userData.service_category || 'FLIGHT').toUpperCase(),
-                  pinHash: pinHash(normalizePin(userData.pin)),
-                  updatedAt: new Date().toISOString(),
-                }, 30 * 24 * 60 * 60);
-                kv = { ok: true };
-              } catch (e) {
-                kv = { ok: false, hint: e?.message || 'KV write failed' };
-              }
-              try { kvProfile = await kvUpsertUserData(username, userData); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV write failed' }; }
-            }
-            return send(res, 200, { ok: true, storedIn, local, kv, kvProfile });
-          } catch (e) {
-            return send(res, 500, { error: e?.message || 'Upsert failed' });
-          }
-        }
-        if (req.method === 'DELETE') {
-          if (!isAppwriteConfigured()) {
-            if (kvConfigured()) {
-              let kvProfile = null;
-              let kvLogin = null;
-              try { kvProfile = await kvDeleteUserData(username); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV delete failed' }; }
-              try { await kvDel(kvUserKey(username)); kvLogin = { ok: true }; } catch (e) { kvLogin = { ok: false, hint: e?.message || 'KV delete failed' }; }
-              const local = deleteLocalUser(username);
-              return send(res, 200, { ok: true, storedIn: 'kv', local, kvProfile, kvLogin });
-            }
-            delete devUsersStore()[username];
-            const local = deleteLocalUser(username);
-            return send(res, 200, { ok: true, hint: 'Deleted from dev store (Appwrite not configured)', local });
-          }
-          try {
-            const result = await deleteUser(username);
-            const ok = typeof result === 'object' ? Boolean(result.ok) : Boolean(result);
-            const local = deleteLocalUser(username);
-            let kv = null;
-            let kvProfile = null;
-            if (kvConfigured()) {
-              try {
-                await kvDel(kvUserKey(username));
-                kv = { ok: true };
-              } catch (e) {
-                kv = { ok: false, hint: e?.message || 'KV delete failed' };
-              }
-              try { kvProfile = await kvUpsertUserData(username, userData); } catch (e) { kvProfile = { ok: false, hint: e?.message || 'KV delete failed' }; }
-            }
-            return send(res, 200, { ok, result: typeof result === 'object' ? result : null, local, kv, kvProfile });
-          } catch (e) {
-            return send(res, 500, { error: e?.message || 'Delete failed' });
           }
         }
         return send(res, 405, { error: 'Method not allowed' });
@@ -1350,74 +1101,9 @@ module.exports = async (req, res) => {
             items.sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
             return send(res, 200, { items });
           } catch {
-            const docs = await listAllUserDocs(1000);
-            const items = [];
-            docs.forEach((doc) => {
-              const u = parseUserData(doc);
-              if (!u || !doc.username) return;
-              const subs = u.submissions && typeof u.submissions === 'object' ? u.submissions : {};
-              ['kyc', 'requests', 'indemnity'].forEach((k) => {
-                const arr = subs[k];
-                if (!Array.isArray(arr)) return;
-                arr.forEach((s) => {
-                  if (!s || typeof s !== 'object') return;
-                  items.push({
-                    username: doc.username,
-                    type: String(s.type || k),
-                    id: String(s.id || ''),
-                    status: String(s.status || 'PENDING'),
-                    submittedAt: s.submittedAt || null,
-                    title: s.title || '',
-                    signature: s.signature || null,
-                  });
-                });
-              });
-            });
-            items.sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
-            return send(res, 200, { items });
+            return send(res, 200, { items: [] });
           }
         }
-
-        if (req.method === 'PATCH') {
-          const body = await readJson(req).catch(() => ({}));
-          const username = String(body.username || '').trim();
-          const type = String(body.type || '').toLowerCase();
-          const id = String(body.id || '').trim();
-          const status = String(body.status || '').toUpperCase();
-          const allowedTypes = new Set(['kyc', 'requests', 'indemnity']);
-          const allowedStatus = new Set(['PENDING', 'APPROVED', 'REJECTED']);
-          if (!username || !allowedTypes.has(type) || !id || !allowedStatus.has(status)) {
-            return send(res, 400, { error: 'Invalid payload' });
-          }
-
-          try {
-            await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/submissions/documents/${encodeURIComponent(id)}`, {
-              method: 'PATCH',
-              body: { status, reviewedAt: new Date().toISOString() },
-            });
-          } catch {}
-
-          const doc = await findUserDocByUsername(username);
-          const userData = doc ? parseUserData(doc) : null;
-          if (!userData) return send(res, 404, { error: 'Not found' });
-          userData.submissions = userData.submissions && typeof userData.submissions === 'object' ? userData.submissions : {};
-          userData.submissions[type] = Array.isArray(userData.submissions[type]) ? userData.submissions[type] : [];
-          const idx = userData.submissions[type].findIndex((x) => x && String(x.id) === id);
-          if (idx === -1) return send(res, 404, { error: 'Not found' });
-          userData.submissions[type][idx] = {
-            ...userData.submissions[type][idx],
-            status,
-            reviewedAt: new Date().toISOString(),
-          };
-          if (type === 'kyc') {
-            userData.kyc = userData.kyc && typeof userData.kyc === 'object' ? userData.kyc : {};
-            userData.kyc.status = status;
-            userData.kyc.reviewedAt = new Date().toISOString();
-          }
-          await upsertUser(username, userData);
-          return send(res, 200, { ok: true });
-        }
-
         return send(res, 405, { error: 'Method not allowed' });
       }
 
@@ -1426,17 +1112,14 @@ module.exports = async (req, res) => {
         try {
           const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents?queries[]=${encodeURIComponent('limit(100)')}`);
           const docs = Array.isArray(out?.documents) ? out.documents : [];
-          const items = docs
-            .map((d) => ({
-              id: d.$id,
-              title: d.title || '',
-              message: d.message || '',
-              tone: d.tone || 'accent',
-              active: d.active !== false,
-              createdAt: d.createdAt || d.$createdAt || null,
-            }))
-            .filter((x) => x.active);
-          items.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+          const items = docs.map((d) => ({
+            id: d.$id,
+            title: d.title || '',
+            message: d.message || '',
+            tone: d.tone || 'accent',
+            active: d.active !== false,
+            createdAt: d.createdAt || d.$createdAt || null,
+          }));
           return send(res, 200, { items });
         } catch (e) {
           return send(res, 500, { error: e?.message || 'Notifications load failed' });
@@ -1446,59 +1129,12 @@ module.exports = async (req, res) => {
       if (action === 'live-popups') {
         if (req.method === 'GET') {
           try {
-            if (!isAppwriteConfigured()) return send(res, 200, { ok: true, ...genPool(1200, 7, 30) });
             const pool = await getLivePopupsPool();
             return send(res, 200, { ok: true, ...pool });
           } catch (e) {
             return send(res, 500, { error: e?.message || 'Live popups load failed' });
           }
         }
-
-        if (req.method === 'POST') {
-          try {
-            const body = await readJson(req).catch(() => ({}));
-            const count = body.count !== undefined ? Number(body.count) : 1200;
-            const days = body.days !== undefined ? Number(body.days) : 7;
-            const intervalSeconds = body.intervalSeconds !== undefined ? Number(body.intervalSeconds) : 30;
-            const pool = genPool(count, days, intervalSeconds);
-            if (isAppwriteConfigured()) await saveLivePopupsPool(pool);
-            return send(res, 200, { ok: true, stats: { count: pool.items.length, days: Number(days) || 7, intervalSeconds: pool.intervalSeconds } });
-          } catch (e) {
-            return send(res, 500, { error: e?.message || 'Live popups generate failed' });
-          }
-        }
-
-        if (req.method === 'PATCH') {
-          try {
-            const body = await readJson(req).catch(() => ({}));
-            const pool = isAppwriteConfigured() ? await getLivePopupsPool() : genPool(1200, 7, 30);
-            if (body.enabled !== undefined) pool.enabled = Boolean(body.enabled);
-            if (body.intervalSeconds !== undefined) pool.intervalSeconds = clamp(10, Number(body.intervalSeconds) || pool.intervalSeconds, 600);
-            if (body.index !== undefined && body.item && typeof body.item === 'object') {
-              const idx = clamp(0, Number(body.index) || 0, Math.max(0, pool.items.length - 1));
-              pool.items[idx] = { ...pool.items[idx], ...body.item };
-            }
-            if (body.deleteIndex !== undefined) {
-              const idx = clamp(0, Number(body.deleteIndex) || 0, Math.max(0, pool.items.length - 1));
-              pool.items.splice(idx, 1);
-            }
-            if (isAppwriteConfigured()) await saveLivePopupsPool(pool);
-            return send(res, 200, { ok: true });
-          } catch (e) {
-            return send(res, 500, { error: e?.message || 'Live popups update failed' });
-          }
-        }
-
-        if (req.method === 'DELETE') {
-          try {
-            const pool = { enabled: false, intervalSeconds: 30, startAt: new Date().toISOString(), validUntil: new Date(Date.now() + 7 * 86400000).toISOString(), items: [] };
-            if (isAppwriteConfigured()) await saveLivePopupsPool(pool);
-            return send(res, 200, { ok: true });
-          } catch (e) {
-            return send(res, 500, { error: e?.message || 'Live popups clear failed' });
-          }
-        }
-
         return send(res, 405, { error: 'Method not allowed' });
       }
 
@@ -1510,603 +1146,49 @@ module.exports = async (req, res) => {
         if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
         const body = await readJson(req).catch(() => ({}));
         const username = String(body.username || '').trim();
-        const pin = normalizePin(body.pin);
+        const pin = String(body.pin || '').trim();
         if (!username || !pin) return send(res, 400, { error: 'Missing credentials' });
 
         const local = findLocalUser(username);
-        if (local) {
-          if (process.env.VERCEL) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
-          if (normalizePin(local.pin) !== pin) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
-          const token = createToken({ typ: 'user', u: String(local.username || username), src: 'local', exp: Date.now() + 6 * 60 * 60 * 1000 });
+        if (local && String(local.pin) === pin) {
+          const token = createToken({ typ: 'user', u: username, src: 'local', exp: Date.now() + 6 * 60 * 60 * 1000 });
           res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
-          return send(res, 200, { ok: true, username: String(local.username || username) });
+          return send(res, 200, { ok: true, username });
         }
 
-        if (!isAppwriteConfigured()) {
-          if (process.env.VERCEL) return send(res, 503, { ok: false, error: 'Login service unavailable' });
-          const u = devUsersStore()[username];
-          if (!u || normalizePin(u.pin) !== pin) {
-            return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
-          }
+        const doc = await findUserDocByUsername(username);
+        const userData = doc ? parseUserData(doc) : null;
+        if (userData && String(userData.pin) === pin) {
           const token = createToken({ typ: 'user', u: username, exp: Date.now() + 6 * 60 * 60 * 1000 });
           res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
           return send(res, 200, { ok: true, username });
         }
 
-        let doc = null;
-        let appwriteFailed = false;
-        try {
-          doc = await findUserDocByUsername(username);
-        } catch {
-          doc = null;
-          appwriteFailed = true;
-        }
-        if (doc) {
-          const userData = parseUserData(doc);
-          if (!userData || normalizePin(userData.pin) !== pin) {
-            return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
-          }
-          const token = createToken({ typ: 'user', u: doc.username, exp: Date.now() + 6 * 60 * 60 * 1000 });
-          res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
-          const safe = { ...userData };
-          delete safe.pin;
-          const serviceCategory = String(safe.serviceCategory || safe.service_category || '').toUpperCase();
-          return send(res, 200, { ok: true, username: doc.username, serviceCategory, userData: safe });
-        }
-
-        if (!appwriteFailed) {
-          return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
-        }
-
-        if (kvConfigured()) {
-          try {
-            const cached = await kvGetJson(kvUserKey(username));
-            const ok = cached && cached.pinHash && cached.pinHash === pinHash(pin);
-            if (!ok) return send(res, 401, { ok: false, error: 'Invalid Username or PIN' });
-            const token = createToken({ typ: 'user', u: username, src: 'kv', exp: Date.now() + 6 * 60 * 60 * 1000 });
-            res.setHeader('set-cookie', cookieString('trip_session', token, { maxAgeSeconds: 6 * 60 * 60, secure: isHttps(req), sameSite: cookieSameSite(req) }));
-            return send(res, 200, { ok: true, username });
-          } catch {
-            return send(res, 503, { ok: false, error: 'Login service unavailable' });
-          }
-        }
-
-        return send(res, 503, { ok: false, error: 'Login service unavailable' });
-      }
-
-      if (action === 'logout') {
-        res.setHeader('set-cookie', cookieString('trip_session', '', { maxAgeSeconds: 0, secure: isHttps(req), sameSite: cookieSameSite(req) }));
-        return send(res, 200, { ok: true });
+        return send(res, 401, { error: 'Invalid credentials' });
       }
 
       if (action === 'me') {
         const payload = requireUser(req, res);
-        if (!payload || !payload.u) return;
-
-        const username = String(payload.u);
-        if (payload.src === 'local') {
-          const local = findLocalUser(username);
-          if (!local) return send(res, 401, { error: 'Unauthorized' });
-          return send(res, 200, {
-            username,
-            userData: {
-              username,
-              passengerName: String(local.name || ''),
-              role: String(local.role || 'user'),
-              serviceCategory: String(local.serviceCategory || 'FLIGHT').toUpperCase(),
-            },
-          });
-        }
-        if (payload.src === 'kv' && kvConfigured()) {
-          try {
-            const cached = await kvGetJson(kvUserKey(username));
-            if (!cached) return send(res, 401, { error: 'Unauthorized' });
-            return send(res, 200, {
-              username,
-              userData: {
-                username,
-                passengerName: String(cached.name || ''),
-                role: String(cached.role || 'user'),
-                serviceCategory: String(cached.serviceCategory || 'FLIGHT').toUpperCase(),
-              },
-            });
-          } catch {
-            return send(res, 401, { error: 'Unauthorized' });
-          }
-        }
-        if (!isAppwriteConfigured()) {
-          const u = devUsersStore()[username];
-          if (!u) return send(res, 401, { error: 'Unauthorized' });
-          const safe = { ...u };
-          delete safe.pin;
-          return send(res, 200, { username, userData: safe });
-        }
-        const doc = await findUserDocByUsername(username);
-        const userData = doc ? parseUserData(doc) : null;
-        if (!userData) return send(res, 401, { error: 'Unauthorized' });
-
-        const safe = { ...userData };
-        delete safe.pin;
-        return send(res, 200, { username: doc.username, userData: safe });
-      }
-
-      if (action === 'verify-email') {
-        const payload = requireUser(req, res);
-        if (!payload || !payload.u) return;
-        const username = String(payload.u);
-
-        if (!kvConfigured()) return send(res, 500, { error: 'Verification service unavailable' });
-
-        if (req.method === 'POST') {
-          const body = await readJson(req).catch(() => ({}));
-          const email = String(body.email || '').trim();
-          if (!email || !email.includes('@')) return send(res, 400, { error: 'Invalid email' });
-          const code = gen6();
-          const codeHash = pinHash(code);
-          const key = `trip:emailverify:${username.toLowerCase()}`;
-          await kvSetJson(key, { username, email, codeHash, createdAt: new Date().toISOString() }, 10 * 60);
-          const mail = await sendEmailViaResend({
-            to: email,
-            subject: 'TRIP Verification Code',
-            html: `<div style="font-family:system-ui;line-height:1.4"><div style="font-weight:800;font-size:18px">TRIP Verification</div><div style="margin-top:12px">Your code is:</div><div style="margin-top:10px;font-size:28px;font-weight:900;letter-spacing:4px">${code}</div><div style="margin-top:14px;color:#555">This code expires in 10 minutes.</div></div>`,
-          });
-          if (!mail.ok) {
-            if (!process.env.VERCEL) return send(res, 200, { ok: true, debugCode: code, hint: mail.hint });
-            return send(res, 500, { error: mail.hint || 'Email send failed' });
-          }
-          return send(res, 200, { ok: true });
-        }
-
-        if (req.method === 'PUT') {
-          const body = await readJson(req).catch(() => ({}));
-          const code = String(body.code || '').trim();
-          if (!code) return send(res, 400, { error: 'Missing code' });
-          const key = `trip:emailverify:${username.toLowerCase()}`;
-          const rec = await kvGetJson(key);
-          if (!rec) return send(res, 400, { error: 'Code expired' });
-          if (String(rec.codeHash) !== pinHash(code)) return send(res, 401, { error: 'Invalid code' });
-
-          if (isAppwriteConfigured()) {
-            const doc = await findUserDocByUsername(username);
-            const userData = doc ? parseUserData(doc) : null;
-            if (userData) {
-              userData.profile = userData.profile && typeof userData.profile === 'object' ? userData.profile : {};
-              userData.profile.email = String(rec.email || '');
-              userData.profile.emailVerified = true;
-              userData.profile.emailVerifiedAt = new Date().toISOString();
-              await upsertUser(username, userData);
-            }
-          }
-
-          await kvDel(key);
-          return send(res, 200, { ok: true });
-        }
-
-        if (req.method === 'PATCH') {
-          const key = `trip:emailverify:${username.toLowerCase()}`;
-          const rec = await kvGetJson(key);
-          if (!rec || !rec.email) return send(res, 400, { error: 'No pending verification' });
-          const code = gen6();
-          const codeHash = pinHash(code);
-          await kvSetJson(key, { ...rec, codeHash, resentAt: new Date().toISOString() }, 10 * 60);
-          const mail = await sendEmailViaResend({
-            to: String(rec.email),
-            subject: 'TRIP Verification Code (Resent)',
-            html: `<div style="font-family:system-ui;line-height:1.4"><div style="font-weight:800;font-size:18px">TRIP Verification</div><div style="margin-top:12px">Your new code is:</div><div style="margin-top:10px;font-size:28px;font-weight:900;letter-spacing:4px">${code}</div><div style="margin-top:14px;color:#555">This code expires in 10 minutes.</div></div>`,
-          });
-          if (!mail.ok) {
-            if (!process.env.VERCEL) return send(res, 200, { ok: true, debugCode: code, hint: mail.hint });
-            return send(res, 500, { error: mail.hint || 'Email send failed' });
-          }
-          return send(res, 200, { ok: true });
-        }
-
-        return send(res, 405, { error: 'Method not allowed' });
-      }
-
-      if (action === 'form') {
-        if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
-        const payload = requireUser(req, res);
-        if (!payload || !payload.u) return;
-
-        const body = await readJson(req).catch(() => ({}));
-        const signatureDataUrl = String(body.signatureDataUrl || '');
-        const name = String(body.name || '').trim();
-        if (!signatureDataUrl.startsWith('data:image/png;base64,') || !name) {
-          return send(res, 400, { error: 'Invalid payload' });
-        }
-
-        const username = String(payload.u);
-        const doc = await findUserDocByUsername(username);
-        const userData = doc ? parseUserData(doc) : null;
-        if (!userData) return send(res, 401, { error: 'Unauthorized' });
-
-        userData.form = userData.form && typeof userData.form === 'object' ? userData.form : {};
-        userData.form.signature = {
-          dataUrl: signatureDataUrl,
-          name,
-          signedAt: new Date().toISOString(),
-        };
-
-        await upsertUser(doc.username, userData);
-        return send(res, 200, { ok: true });
-      }
-
-      if (action === 'kyc-upload') {
-        if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
-        const payload = requireUser(req, res);
-        if (!payload || !payload.u) return;
-
-        const body = await readJson(req).catch(() => ({}));
-        const filename = String(body.filename || '').trim() || 'kyc_upload';
-        const contentType = String(body.contentType || '').trim() || 'application/octet-stream';
-        const dataBase64 = String(body.dataBase64 || '').trim();
-        if (!dataBase64) return send(res, 400, { error: 'Missing data' });
-
-        const sizeBytes = Math.floor((dataBase64.length * 3) / 4);
-        if (sizeBytes > 10 * 1024 * 1024) return send(res, 413, { error: 'File too large' });
-
-        try {
-          const buffer = Buffer.from(dataBase64, 'base64');
-          const out = await uploadKycFile({ filename, contentType, buffer });
-          return send(res, 200, { ok: true, fileId: out.fileId, bucketId: KYC_BUCKET_ID });
-        } catch (e) {
-          return send(res, 500, { error: e?.payload?.message || e?.message || 'Upload failed' });
-        }
-      }
-
-      if (action === 'submissions') {
-        const payload = requireUser(req, res);
-        if (!payload || !payload.u) return;
-        const username = String(payload.u);
-        const doc = await findUserDocByUsername(username);
-        const userData = doc ? parseUserData(doc) : null;
-        if (!userData) return send(res, 401, { error: 'Unauthorized' });
-
-        userData.submissions = userData.submissions && typeof userData.submissions === 'object' ? userData.submissions : {};
-        userData.submissions.kyc = Array.isArray(userData.submissions.kyc) ? userData.submissions.kyc : [];
-        userData.submissions.requests = Array.isArray(userData.submissions.requests) ? userData.submissions.requests : [];
-        userData.submissions.indemnity = Array.isArray(userData.submissions.indemnity) ? userData.submissions.indemnity : [];
-
-        if (req.method === 'GET') {
-          return send(res, 200, { submissions: userData.submissions });
-        }
-
-        if (req.method === 'POST') {
-          const body = await readJson(req).catch(() => ({}));
-          const type = String(body.type || '').toLowerCase();
-          const allowedTypes = new Set(['kyc', 'requests', 'indemnity']);
-          if (!allowedTypes.has(type)) return send(res, 400, { error: 'Invalid type' });
-
-          const data = body.data && typeof body.data === 'object' ? body.data : {};
-          const signatureDataUrl = body.signatureDataUrl ? String(body.signatureDataUrl) : '';
-          const signatureName = body.signatureName ? String(body.signatureName).trim() : '';
-          const needsSig = type === 'kyc' || type === 'indemnity';
-          if (needsSig) {
-            if (!signatureDataUrl.startsWith('data:image/png;base64,')) return send(res, 400, { error: 'Signature required' });
-            if (!signatureName) return send(res, 400, { error: 'Signature name required' });
-          }
-
-          const id = crypto.randomUUID();
-          const item = {
-            id,
-            type,
-            status: 'PENDING',
-            submittedAt: new Date().toISOString(),
-            title: String(body.title || ''),
-            data,
-            ...(needsSig
-              ? { signature: { dataUrl: signatureDataUrl, name: signatureName, signedAt: new Date().toISOString() } }
-              : {}),
-          };
-
-          userData.submissions[type].unshift(item);
-
-          if (needsSig) {
-            userData.form = userData.form && typeof userData.form === 'object' ? userData.form : {};
-            userData.form.signature = {
-              dataUrl: signatureDataUrl,
-              name: signatureName,
-              signedAt: item.signature.signedAt,
-            };
-          }
-          await upsertUser(doc.username, userData);
-
-          try {
-            await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/submissions/documents`, {
-              method: 'POST',
-              body: {
-                documentId: id,
-                data: {
-                  username: doc.username,
-                  type,
-                  title: item.title,
-                  status: item.status,
-                  submittedAt: item.submittedAt,
-                  data: JSON.stringify(data),
-                  ...(needsSig ? { signatureDataUrl, signatureName, signatureSignedAt: item.signature.signedAt } : {}),
-                },
-                permissions: [],
-              },
-            });
-          } catch {}
-
-          return send(res, 200, { ok: true, id });
-        }
-
-        return send(res, 405, { error: 'Method not allowed' });
+        if (!payload) return;
+        const doc = await findUserDocByUsername(payload.u);
+        if (!doc) return send(res, 404, { error: 'User not found' });
+        return send(res, 200, { username: doc.username, userData: parseUserData(doc) });
       }
 
       return send(res, 404, { error: 'Not found' });
     }
 
     if (scope === 'public') {
-      if (action === 'verify' && parts[2] === 'request') {
-        if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
-        const body = await readJson(req).catch(() => ({}));
-        const fullName = String(body.fullName || '').trim();
-        const email = String(body.email || '').trim();
-        const phone = String(body.phone || '').trim();
-        const optionalId = String(body.optionalId || '').trim();
-        if (!fullName || !email || !phone) return send(res, 400, { error: 'Missing fields' });
-
-        const code = String(Math.floor(100000 + Math.random() * 900000));
-        const salt = crypto.randomBytes(16).toString('hex');
-        const codeHash = sha256Hex(`${salt}:${code}`);
-        const requestId = crypto.randomUUID();
-        const createdAt = new Date().toISOString();
-
-        if (!isAppwriteConfigured()) {
-          globalThis.__tripRegistrations = globalThis.__tripRegistrations || new Map();
-          globalThis.__tripRegistrations.set(requestId, { fullName, email, phone, optionalId, codeHash, salt, createdAt, verifiedAt: null });
-          return send(res, 200, { ok: true, requestId, debugCode: code });
-        }
-
-        await ensureRegistrationsCollection();
-        await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/registrations/documents`, {
-          method: 'POST',
-          body: {
-            documentId: requestId,
-            data: { fullName, email, phone, optionalId, codeHash, codeSalt: salt, createdAt, verifiedAt: null },
-            permissions: [],
-          },
-        });
-
-        const debugCode = process.env.VERCEL ? undefined : code;
-        return send(res, 200, { ok: true, requestId, ...(debugCode ? { debugCode } : {}) });
-      }
-
-      if (action === 'verify' && parts[2] === 'confirm') {
-        if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
-        const body = await readJson(req).catch(() => ({}));
-        const requestId = String(body.requestId || '').trim();
-        const code = String(body.code || '').trim();
-        if (!requestId || !code) return send(res, 400, { error: 'Missing fields' });
-
-        const verifiedAt = new Date().toISOString();
-        if (!isAppwriteConfigured()) {
-          const m = globalThis.__tripRegistrations;
-          const it = m && m.get ? m.get(requestId) : null;
-          if (!it) return send(res, 404, { error: 'Not found' });
-          const ok = sha256Hex(`${it.salt}:${code}`) === it.codeHash;
-          if (!ok) return send(res, 401, { error: 'Invalid code' });
-          it.verifiedAt = verifiedAt;
-          m.set(requestId, it);
-          return send(res, 200, { ok: true });
-        }
-
-        const doc = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/registrations/documents/${encodeURIComponent(requestId)}`, {
-          method: 'GET',
-        });
-        const salt = String(doc.codeSalt || '');
-        const expected = String(doc.codeHash || '');
-        const ok = sha256Hex(`${salt}:${code}`) === expected;
-        if (!ok) return send(res, 401, { error: 'Invalid code' });
-        await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/registrations/documents/${encodeURIComponent(requestId)}`, {
-          method: 'PATCH',
-          body: { verifiedAt },
-        });
-        return send(res, 200, { ok: true });
-      }
-
-      if (action === 'ai' && parts[2] === 'passengers') {
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-        const limit = req.query.limit;
-        const items = await generateAiPassengers(limit);
-        return send(res, 200, { items });
-      }
-
-      if (action === 'notifications') {
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-        try {
-          const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(NOTIFICATIONS_COLLECTION_ID)}/documents?queries[]=${encodeURIComponent('limit(100)')}`);
-          const docs = Array.isArray(out?.documents) ? out.documents : [];
-          const items = docs
-            .map((d) => ({
-              id: d.$id,
-              title: d.title || '',
-              message: d.message || '',
-              tone: d.tone || 'accent',
-              active: d.active !== false,
-              createdAt: d.createdAt || d.$createdAt || null,
-            }))
-            .filter((x) => x.active);
-          items.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-          return send(res, 200, { items });
-        } catch {
-          return send(res, 200, { items: [] });
-        }
-      }
-
       if (action === 'live-popups') {
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-        try {
-          if (!isAppwriteConfigured()) {
-            const pool = genPool(1200, 7, 30);
-            return send(res, 200, { ok: true, ...pool });
-          }
-          const pool = await getLivePopupsPool();
-          return send(res, 200, { ok: true, ...pool });
-        } catch {
-          const pool = genPool(1200, 7, 30);
-          return send(res, 200, { ok: true, ...pool });
-        }
+        const pool = await getLivePopupsPool();
+        return send(res, 200, { ok: true, ...pool });
       }
-
-      if (action === 'details') {
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-        const username = String(req.query.u || '').trim();
-        const tc = String(req.query.tc || '').trim();
-        if (!username || !tc) return send(res, 400, { error: 'Missing params' });
-
-        const doc = await findUserDocByUsername(username);
-        const userData = doc ? parseUserData(doc) : null;
-        if (!userData) return send(res, 404, { error: 'Not found' });
-
-        const share = userData.share || {};
-        const oneTime = share.oneTimeTracking || {};
-        const codeOk = oneTime.code && String(oneTime.code) === tc && !oneTime.usedAt;
-        if (!codeOk) return send(res, 401, { error: 'Invalid or used code' });
-
-        userData.share = userData.share || {};
-        userData.share.oneTimeTracking = userData.share.oneTimeTracking || {};
-        userData.share.oneTimeTracking.usedAt = new Date().toISOString();
-        await upsertUser(doc.username, userData);
-
-        const safe = { ...userData };
-        delete safe.pin;
-        return send(res, 200, { username: doc.username, userData: safe });
-      }
-
-      if (action === 'boardingpass') {
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-        const username = String(req.query.u || '').trim();
-        const key = String(req.query.k || '').trim();
-        if (!username || !key) return send(res, 400, { error: 'Missing params' });
-
-        const doc = await findUserDocByUsername(username);
-        const userData = doc ? parseUserData(doc) : null;
-        if (!userData) return send(res, 404, { error: 'Not found' });
-
-        const legacyShare = userData.share || {};
-        const flightShare = userData.flight && userData.flight.share ? userData.flight.share : {};
-        const stored = flightShare.boardingPassKey || legacyShare.boardingPassKey || '';
-        const ok = stored && String(stored) === key;
-        if (!ok) return send(res, 401, { error: 'Invalid key' });
-
-        const safe = { ...userData };
-        delete safe.pin;
-        return send(res, 200, { username: doc.username, userData: safe });
-      }
-
-      if (action === 'eticket') {
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-        const username = String(req.query.u || '').trim();
-        const key = String(req.query.k || '').trim();
-        if (!username || !key) return send(res, 400, { error: 'Missing params' });
-
-        const doc = await findUserDocByUsername(username);
-        const userData = doc ? parseUserData(doc) : null;
-        if (!userData) return send(res, 404, { error: 'Not found' });
-
-        const flightShare = userData.flight && userData.flight.share ? userData.flight.share : {};
-        const stored = flightShare.eticketKey || '';
-        const ok = stored && String(stored) === key;
-        if (!ok) return send(res, 401, { error: 'Invalid key' });
-
-        const safe = { ...userData };
-        delete safe.pin;
-        return send(res, 200, { username: doc.username, userData: safe });
-      }
-
-      if (action === 'earrival') {
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-        const username = String(req.query.u || '').trim();
-        const key = String(req.query.k || '').trim();
-        if (!username || !key) return send(res, 400, { error: 'Missing params' });
-
-        const doc = await findUserDocByUsername(username);
-        const userData = doc ? parseUserData(doc) : null;
-        if (!userData) return send(res, 404, { error: 'Not found' });
-
-        const flightShare = userData.flight && userData.flight.share ? userData.flight.share : {};
-        const stored = flightShare.earrivalKey || '';
-        const ok = stored && String(stored) === key;
-        if (!ok) return send(res, 401, { error: 'Invalid key' });
-
-        const safe = { ...userData };
-        delete safe.pin;
-        return send(res, 200, { username: doc.username, userData: safe });
-      }
-
-      if (action === 'logistics') {
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-        const username = String(req.query.u || '').trim();
-        const tc = String(req.query.tc || '').trim();
-        if (!username || !tc) return send(res, 400, { error: 'Missing params' });
-
-        const doc = await findUserDocByUsername(username);
-        const userData = doc ? parseUserData(doc) : null;
-        if (!userData) return send(res, 404, { error: 'Not found' });
-
-        const share = userData.share || {};
-        const oneTime = share.oneTimeLogistics || {};
-        const codeOk = oneTime.code && String(oneTime.code) === tc && !oneTime.usedAt;
-        if (!codeOk) return send(res, 401, { error: 'Invalid or expired link' });
-
-        userData.share = userData.share || {};
-        userData.share.oneTimeLogistics = userData.share.oneTimeLogistics || {};
-        userData.share.oneTimeLogistics.usedAt = new Date().toISOString();
-        await upsertUser(doc.username, userData);
-
-        const steps = userData.logistics && Array.isArray(userData.logistics.steps) ? userData.logistics.steps : [];
-        return send(res, 200, {
-          username: doc.username,
-          passengerName: userData.passengerName || doc.username,
-          manifest: userData.logisticsManifest && typeof userData.logisticsManifest === 'object' ? userData.logisticsManifest : {},
-          steps,
-        });
-      }
-
-      if (action === 'bookings') {
-        if (!requireUser(req, res)) return;
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-
-        const block = Math.floor(Date.now() / (15 * 60 * 1000));
-        const docs = await listAllUserDocs(500);
-        const itemsRaw = docs
-          .map((doc) => ({ username: doc.username, userData: parseUserData(doc) }))
-          .filter((x) => x.username && x.userData)
-          .map((x) => makeBookingForUser(x.username, x.userData, block))
-          .sort((a, b) => a.time.localeCompare(b.time));
-
-        const used = new Set();
-        const items = itemsRaw.map((it) => {
-          const n = String(it.name || '');
-          if (!used.has(n)) {
-            used.add(n);
-            return it;
-          }
-          const suffix = (hashInt(`${it.id}:${block}:dedupe`) % 90) + 10;
-          const nn = `${n} ${suffix}`;
-          used.add(nn);
-          return { ...it, name: nn };
-        });
-
-        return send(res, 200, { items, block });
-      }
-
       return send(res, 404, { error: 'Not found' });
     }
-    
+
     return send(res, 404, { error: 'Not found' });
   } catch (e) {
-    try {
-      if (!res.headersSent) {
-        return send(res, 500, { error: e?.message || 'Internal Server Error' });
-      }
-    } catch {}
-    try { res.end(); } catch {}
-    return;
+    console.error('API Error:', e);
+    return send(res, 500, { error: e?.message || 'Internal Server Error' });
   }
 };
