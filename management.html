@@ -1251,7 +1251,34 @@
         }
 
         async function refreshUserSelects() {
-            const db = await loadAllUsersFromDB();
+            let usersData = null;
+            try {
+                const response = await tripApi('/api/admin/users', { method: 'GET' });
+                if (response && response.users) {
+                    usersData = response.users;
+                } else {
+                    throw new Error('Invalid response from Appwrite');
+                }
+            } catch (e) {
+                console.warn('Failed to fetch users from Appwrite, trying local JSON fallback:', e);
+                try {
+                    const response = await fetch('/api/users.json');
+                    if (response.ok) {
+                        const localUsers = await response.json();
+                        usersData = {};
+                        localUsers.forEach(user => {
+                            usersData[user.username] = user;
+                        });
+                    } else {
+                        throw new Error('Failed to fetch users from local JSON');
+                    }
+                } catch (jsonError) {
+                    console.error('Failed to fetch users from local JSON:', jsonError);
+                    usersData = {}; // Fallback to empty if both fail
+                }
+            }
+
+            const db = { users: usersData };
             const usernames = getUsersSorted(db);
             document.querySelectorAll('.user-select').forEach((sel) => {
                 const current = sel.value;
@@ -1527,7 +1554,8 @@
             if (msg) msg.textContent = 'Loading...';
             try {
                 const out = await tripApi('/api/admin/live-popups', { method: 'GET' });
-                document.getElementById('lpEnabled').value = out && out.enabled === false ? 'false' : 'true';
+                // Force disable live popups on admin pages
+                document.getElementById('lpEnabled').value = 'false';
                 document.getElementById('lpInterval').value = String((out && out.intervalSeconds) ? out.intervalSeconds : 30);
                 document.getElementById('lpCount').value = String((out && out.items && out.items.length) ? out.items.length : 1200);
                 const startAt = out && out.startAt ? new Date(out.startAt) : null;
@@ -1536,7 +1564,7 @@
                     ? Math.max(1, Math.round((validUntil.getTime() - startAt.getTime()) / 86400000))
                     : 7;
                 document.getElementById('lpDays').value = String(days);
-                setLPStats(out);
+                setLPStats({ ...out, enabled: false }); // Update stats to reflect disabled state
                 if (msg) msg.textContent = '';
             } catch {
                 if (msg) msg.textContent = 'Unable to load live popups.';

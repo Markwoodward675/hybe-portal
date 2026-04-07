@@ -17,6 +17,12 @@ const DATABASE_ID = requiredEnv('APPWRITE_DATABASE_ID');
 const USERS_COLLECTION_ID = requiredEnv('APPWRITE_COLLECTION_USERS_ID');
 const NOTIFICATIONS_COLLECTION_ID = process.env.APPWRITE_COLLECTION_NOTIFICATIONS_ID || 'notifications';
 
+const {
+  listLocalUsersCached,
+  upsertLocalUser,
+  deleteLocalUser,
+} = require('./local_users');
+
 function sha256hex(s) {
   return crypto.createHash('sha256').update(String(s || ''), 'utf8').digest('hex');
 }
@@ -156,25 +162,35 @@ async function findUserDocByUsername(username) {
 }
 
 async function listAllUserDocs(limit = 1000) {
-  const docs = [];
-  let cursor = null;
+  try {
+    const docs = [];
+    let cursor = null;
 
-  while (docs.length < limit) {
-    const batchSize = Math.min(100, limit - docs.length);
-    const queries = [];
-    queries.push(`limit(${batchSize})`);
-    if (cursor) queries.push(`cursorAfter("${cursor}")`);
-    
-    const queryStr = queries.map(q => `queries[]=${encodeURIComponent(q)}`).join('&');
-    const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?${queryStr}`);
-    
-    const batch = Array.isArray(out?.documents) ? out.documents : [];
-    docs.push(...batch);
-    if (batch.length === 0) break;
-    cursor = batch[batch.length - 1].$id;
+    while (docs.length < limit) {
+      const batchSize = Math.min(100, limit - docs.length);
+      const queries = [];
+      queries.push(`limit(${batchSize})`);
+      if (cursor) queries.push(`cursorAfter("${cursor}")`);
+      
+      const queryStr = queries.map(q => `queries[]=${encodeURIComponent(q)}`).join('&');
+      const out = await appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents?${queryStr}`);
+      
+      const batch = Array.isArray(out?.documents) ? out.documents : [];
+      docs.push(...batch);
+      if (batch.length === 0) break;
+      cursor = batch[batch.length - 1].$id;
+    }
+    return docs;
+  } catch (e) {
+    console.error('Appwrite listAllUserDocs failed, falling back to local users.json:', e);
+    const localUsers = listLocalUsersCached();
+    return localUsers.map(user => ({
+      $id: user.id,
+      username: user.username,
+      data: JSON.stringify(user),
+      username_lc: user.username.toLowerCase(),
+    }));
   }
-
-  return docs;
 }
 
 function parseUserData(doc) {
@@ -198,6 +214,10 @@ async function upsertUser(username, userData) {
   }
   const cat = userData && (userData.serviceCategory || userData.service_category) ? String(userData.serviceCategory || userData.service_category).toUpperCase() : '';
   const service_category = cat === 'LOGISTICS' ? 'LOGISTICS' : (cat === 'FLIGHT' ? 'FLIGHT' : undefined);
+  
+  // Update local JSON file
+  upsertLocalUser(username, safeUserData);
+
   const existing = await findUserDocByUsername(username);
   if (existing) {
     return appwriteRequest(`/databases/${encodeURIComponent(DATABASE_ID)}/collections/${encodeURIComponent(USERS_COLLECTION_ID)}/documents/${encodeURIComponent(existing.$id)}`, {
@@ -229,6 +249,9 @@ async function deleteUser(username) {
   const u = String(username || '').trim();
   if (!u) return false;
   const ulc = u.toLowerCase();
+
+  // Delete from local JSON file
+  deleteLocalUser(username);
 
   let deletedCount = 0;
   for (let round = 0; round < 5; round++) {
